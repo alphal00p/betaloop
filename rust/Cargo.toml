@@ -1,0 +1,24 @@
+[package]
+name = "betaloop"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+havana = {git = "https://github.com/benruijl/havana", features = ["gridplotting", "use_serde"]}
+serde = {version = "1.0", features = ["derive"]}
+serde_yaml = "*"
+clap = "2.34"
+color-eyre = {version = "^0.3", default-features = false}
+eyre = "^0.4"
+f128 = {git = "https://github.com/benruijl/f128"}
+lorentz_vector = {git = "https://github.com/benruijl/lorentz_vector", branch="hyperdual", features = ["serde_support", "hyperdual_support", "f128_support"]}
+num = "0.3"
+num-traits = "0.2"
+itertools = "0.8"
+hyperdual = {git = "https://gitlab.com/benruijl/hyperdual"}
+rand = "0.8"
+rayon = "1.5"
+tabled = "0.7"
+enum_dispatch = "*"
+git-version = "0.3"
+colored = "*"
