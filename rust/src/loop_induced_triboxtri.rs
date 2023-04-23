@@ -12,19 +12,19 @@ pub struct LoopInducedTriBoxTriSettings {
     pub n_dim: usize,
 }
 
-pub struct LoopInducedTriBoxTrIntegrand {
+pub struct LoopInducedTriBoxTriIntegrand {
     pub settings: Settings,
     pub supergraph: SuperGraph,
     pub n_dim: usize,
 }
 
 #[allow(unused)]
-impl LoopInducedTriBoxTrIntegrand {
+impl LoopInducedTriBoxTriIntegrand {
     pub fn new(
         settings: Settings,
         integrand_settings: LoopInducedTriBoxTriSettings,
-    ) -> LoopInducedTriBoxTrIntegrand {
-        LoopInducedTriBoxTrIntegrand {
+    ) -> LoopInducedTriBoxTriIntegrand {
+        LoopInducedTriBoxTriIntegrand {
             settings,
             supergraph: SuperGraph::default(),
             n_dim: integrand_settings.n_dim,
@@ -46,7 +46,7 @@ impl LoopInducedTriBoxTrIntegrand {
 }
 
 #[allow(unused)]
-impl HasIntegrand for LoopInducedTriBoxTrIntegrand {
+impl HasIntegrand for LoopInducedTriBoxTriIntegrand {
     fn create_grid(&self) -> Grid {
         Grid::ContinuousGrid(ContinuousGrid::new(
             self.n_dim,

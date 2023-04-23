@@ -1,6 +1,6 @@
 use crate::{utils, Settings};
 
-use crate::loop_induced_triboxtri::{LoopInducedTriBoxTrIntegrand, LoopInducedTriBoxTriSettings};
+use crate::loop_induced_triboxtri::{LoopInducedTriBoxTriIntegrand, LoopInducedTriBoxTriSettings};
 use crate::utils::FloatLike;
 use enum_dispatch::enum_dispatch;
 use havana::Sample;
@@ -200,7 +200,7 @@ pub trait HasIntegrand {
 pub enum Integrand {
     UnitSurface(UnitSurfaceIntegrand),
     UnitVolume(UnitVolumeIntegrand),
-    LoopInducedTriBoxTri(LoopInducedTriBoxTrIntegrand),
+    LoopInducedTriBoxTri(LoopInducedTriBoxTriIntegrand),
 }
 
 pub fn integrand_factory(settings: &Settings) -> Integrand {
@@ -212,7 +212,7 @@ pub fn integrand_factory(settings: &Settings) -> Integrand {
             UnitVolumeIntegrand::new(settings.clone(), integrand_settings),
         ),
         HardCodedIntegrandSettings::LoopInducedTriBoxTri(integrand_settings) => {
-            Integrand::LoopInducedTriBoxTri(LoopInducedTriBoxTrIntegrand::new(
+            Integrand::LoopInducedTriBoxTri(LoopInducedTriBoxTriIntegrand::new(
                 settings.clone(),
                 integrand_settings,
             ))
