@@ -1,23 +1,22 @@
+mod integrands;
+mod loop_induced_triboxtri;
 mod utils;
 
-use clap::{App, Arg, ArgMatches, SubCommand};
+use clap::{App, Arg, SubCommand};
 use color_eyre::{Help, Report};
 use colored::Colorize;
-use enum_dispatch::enum_dispatch;
 use eyre::WrapErr;
-use f128::f128;
 use havana::{AverageAndErrorAccumulator, Sample};
-use havana::{ContinuousGrid, Grid};
-use lorentz_vector::{Field, LorentzVector, RealNumberLike};
+use integrands::*;
+use lorentz_vector::LorentzVector;
 use num::Complex;
-use num_traits::{Float, FloatConst, FromPrimitive, Num, Signed, ToPrimitive};
+use num_traits::ToPrimitive;
 use rayon::prelude::*;
-use std::fmt::{Display, Formatter};
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::str::FromStr;
+use std::time::Instant;
 use tabled::{Style, Table, Tabled};
-use utils::Signum;
 
 use git_version::git_version;
 use serde::{Deserialize, Serialize};
@@ -48,81 +47,9 @@ pub enum ParameterizationMapping {
     Linear,
 }
 
-pub trait FloatConvertFrom<U> {
-    fn convert_from(x: &U) -> Self;
-}
-
-impl FloatConvertFrom<f64> for f64 {
-    fn convert_from(x: &f64) -> f64 {
-        *x
-    }
-}
-
-impl FloatConvertFrom<f128> for f64 {
-    fn convert_from(x: &f128) -> f64 {
-        (*x).to_f64().unwrap()
-    }
-}
-
-impl FloatConvertFrom<f128> for f128 {
-    fn convert_from(x: &f128) -> f128 {
-        *x
-    }
-}
-
-impl FloatConvertFrom<f64> for f128 {
-    fn convert_from(x: &f64) -> f128 {
-        f128::from_f64(*x).unwrap()
-    }
-}
-
-pub trait FloatLike:
-    From<f64>
-    + FloatConvertFrom<f64>
-    + FloatConvertFrom<f128>
-    + Num
-    + FromPrimitive
-    + Float
-    + Field
-    + RealNumberLike
-    + Signed
-    + FloatConst
-    + std::fmt::LowerExp
-    + 'static
-    + Signum
-{
-}
-
-impl FloatLike for f64 {}
-impl FloatLike for f128 {}
-
-#[derive(Debug, Copy, Clone, PartialEq, Deserialize)]
-pub enum HardCodedIntegrand {
-    #[serde(rename = "unit")]
-    Unit,
-    #[serde(rename = "loop_induced_TriBoxTri")]
-    LoopInducedTriBoxTri,
-}
-
-impl Display for HardCodedIntegrand {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            HardCodedIntegrand::Unit => write!(f, "unit"),
-            HardCodedIntegrand::LoopInducedTriBoxTri => write!(f, "loop_induced_TriBoxTri"),
-        }
-    }
-}
-
-impl Default for HardCodedIntegrand {
-    fn default() -> HardCodedIntegrand {
-        HardCodedIntegrand::Unit
-    }
-}
-
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct GeneralSettings {
     pub debug: usize,
-    pub hard_coded_integrand: HardCodedIntegrand,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Deserialize)]
@@ -183,6 +110,8 @@ impl Default for ParameterizationMode {
 pub struct Settings {
     #[serde(rename = "General")]
     pub general: GeneralSettings,
+    #[serde(rename = "HardCodedIntegrand")]
+    pub hard_coded_integrand: HardCodedIntegrandSettings,
     #[serde(rename = "Kinematics")]
     pub kinematics: KinematicsSettings,
     #[serde(rename = "Parameterization")]
@@ -199,265 +128,6 @@ impl Settings {
         serde_yaml::from_reader(f)
             .wrap_err("Could not parse settings file")
             .suggestion("Is it a correct yaml file")
-    }
-}
-pub struct Esurface {
-    pub edge_ids: Vec<usize>,
-    pub shift: Vec<usize>,
-}
-impl Esurface {
-    pub fn new(edge_ids: Vec<usize>, shift: Vec<usize>) -> Esurface {
-        Esurface { edge_ids, shift }
-    }
-}
-pub struct cFFDenom {
-    pub e_surfaces: Vec<Esurface>,
-}
-impl cFFDenom {
-    pub fn new(e_surfaces: Vec<Esurface>) -> cFFDenom {
-        cFFDenom { e_surfaces }
-    }
-}
-
-pub struct cFFFactor {
-    pub denoms: Vec<cFFDenom>,
-}
-impl cFFFactor {
-    pub fn new(denoms: Vec<cFFDenom>) -> cFFFactor {
-        cFFFactor { denoms }
-    }
-}
-pub struct cFFTerm {
-    pub orientation: Vec<bool>,
-    pub factors: Vec<cFFFactor>,
-}
-impl cFFTerm {
-    pub fn new(orientation: Vec<bool>, factors: Vec<cFFFactor>) -> cFFTerm {
-        cFFTerm {
-            orientation,
-            factors,
-        }
-    }
-}
-pub struct cFFExpression {
-    pub terms: Vec<cFFTerm>,
-}
-impl cFFExpression {
-    pub fn new(terms: Vec<cFFTerm>) -> cFFExpression {
-        cFFExpression { terms }
-    }
-}
-pub struct Amplitude {
-    pub edges: Vec<Edge>,
-    pub thresholds: Vec<Esurface>,
-    pub cFF_expression: cFFExpression,
-    pub n_loop: usize,
-}
-
-impl Amplitude {
-    pub fn new(
-        edges: Vec<Edge>,
-        cFF_expression: cFFExpression,
-        thresholds: Vec<Esurface>,
-        n_loop: usize,
-    ) -> Amplitude {
-        Amplitude {
-            edges,
-            cFF_expression,
-            thresholds,
-            n_loop,
-        }
-    }
-}
-pub struct Cut {
-    pub cut_edge_ids: Vec<usize>,
-    pub left_amplitude: Amplitude,
-    pub right_amplitude: Amplitude,
-}
-
-impl Cut {
-    pub fn new(
-        cut_edge_ids: Vec<usize>,
-        left_amplitude: Amplitude,
-        right_amplitude: Amplitude,
-    ) -> Cut {
-        Cut {
-            cut_edge_ids,
-            left_amplitude,
-            right_amplitude,
-        }
-    }
-}
-pub struct Edge {
-    pub mass: f64,
-    pub signature: (Vec<isize>, Vec<isize>),
-    pub id: usize,
-}
-
-impl Edge {
-    pub fn new(mass: f64, signature: (Vec<isize>, Vec<isize>), id: usize) -> Edge {
-        Edge {
-            mass,
-            signature,
-            id,
-        }
-    }
-}
-pub struct SuperGraph {
-    pub edges: Vec<Edge>,
-    pub cuts: Vec<Cut>,
-    pub n_loop: usize,
-}
-
-impl SuperGraph {
-    pub fn new(edges: Vec<Edge>, cuts: Vec<Cut>, n_loop: usize) -> SuperGraph {
-        SuperGraph {
-            edges,
-            cuts,
-            n_loop,
-        }
-    }
-
-    pub fn default() -> SuperGraph {
-        SuperGraph {
-            edges: Vec::new(),
-            cuts: Vec::new(),
-            n_loop: 0,
-        }
-    }
-}
-
-#[enum_dispatch]
-pub trait HasIntegrand {
-    fn evaluate_numerator<T: FloatLike>(
-        &self,
-        supergraph: &SuperGraph,
-        loop_momenta: &[LorentzVector<T>],
-    ) -> T;
-
-    fn create_grid(&self) -> Grid;
-
-    fn parameterize<T: FloatLike>(&self, xs: &[T]) -> (Vec<[T; 3]>, T);
-
-    fn evaluate_sample(&self, sample: &Sample, wgt: f64, iter: usize) -> Complex<f64>;
-}
-
-#[enum_dispatch(HasIntegrand)]
-enum Integrand {
-    Unit(UnitIntegrand),
-    LoopInducedTriBoxTri(LoopInducedTriBoxTrIntegrand),
-}
-
-pub struct UnitIntegrand {
-    pub settings: Settings,
-    pub n_dim: usize,
-    pub supergraph: SuperGraph,
-}
-
-impl UnitIntegrand {
-    pub fn new(settings: Settings, n_dim: usize) -> UnitIntegrand {
-        UnitIntegrand {
-            settings,
-            n_dim,
-            supergraph: SuperGraph::default(),
-        }
-    }
-}
-
-impl HasIntegrand for UnitIntegrand {
-    fn evaluate_numerator<T: FloatLike>(
-        &self,
-        supergraph: &SuperGraph,
-        loop_momenta: &[LorentzVector<T>],
-    ) -> T {
-        return T::from_f64(1.0).unwrap();
-    }
-
-    fn create_grid(&self) -> Grid {
-        Grid::ContinuousGrid(ContinuousGrid::new(
-            self.n_dim,
-            self.settings.integrator.n_bins,
-            self.settings.integrator.min_samples_for_update,
-        ))
-    }
-
-    fn parameterize<T: FloatLike>(&self, xs: &[T]) -> (Vec<[T; 3]>, T) {
-        utils::global_parameterize(
-            xs,
-            Into::<T>::into(self.settings.kinematics.e_cm * self.settings.kinematics.e_cm),
-            &self.settings,
-            true,
-        )
-    }
-
-    fn evaluate_sample(&self, sample: &Sample, wgt: f64, iter: usize) -> Complex<f64> {
-        let xs = match sample {
-            Sample::ContinuousGrid(_w, v) => v,
-            _ => panic!("Wrong sample type"),
-        };
-        let mut sample_xs = vec![self.settings.kinematics.e_cm];
-        sample_xs.extend(xs);
-        let (moms, jac) = self.parameterize(xs);
-        let mut loop_momenta = vec![];
-        for m in &moms {
-            loop_momenta.push(LorentzVector {
-                t: ((m[0] + m[1] + m[2]) * (m[0] + m[1] + m[2])).sqrt(),
-                x: m[0],
-                y: m[1],
-                z: m[2],
-            });
-        }
-        let wgt = self.evaluate_numerator(&self.supergraph, loop_momenta.as_slice());
-        return Complex::new(wgt, 0.) * jac;
-    }
-}
-
-pub struct LoopInducedTriBoxTrIntegrand {
-    pub settings: Settings,
-    pub n_dim: usize,
-}
-
-impl LoopInducedTriBoxTrIntegrand {
-    pub fn new(settings: Settings) -> LoopInducedTriBoxTrIntegrand {
-        LoopInducedTriBoxTrIntegrand { settings, n_dim: 8 }
-    }
-}
-
-impl HasIntegrand for LoopInducedTriBoxTrIntegrand {
-    fn evaluate_numerator<T: FloatLike>(
-        &self,
-        supergraph: &SuperGraph,
-        loop_momenta: &[LorentzVector<T>],
-    ) -> T {
-        return T::from_f64(1.0).unwrap();
-    }
-
-    fn create_grid(&self) -> Grid {
-        Grid::ContinuousGrid(ContinuousGrid::new(
-            self.n_dim,
-            self.settings.integrator.n_bins,
-            self.settings.integrator.min_samples_for_update,
-        ))
-    }
-
-    fn parameterize<T: FloatLike>(&self, xs: &[T]) -> (Vec<[T; 3]>, T) {
-        utils::global_parameterize(
-            xs,
-            Into::<T>::into(self.settings.kinematics.e_cm * self.settings.kinematics.e_cm),
-            &self.settings,
-            true,
-        )
-    }
-
-    fn evaluate_sample(&self, sample: &Sample, wgt: f64, iter: usize) -> Complex<f64> {
-        let xs = match sample {
-            Sample::ContinuousGrid(_w, v) => v,
-            _ => panic!("Wrong sample type"),
-        };
-        let mut sample_xs = vec![self.settings.kinematics.e_cm];
-        sample_xs.extend(xs);
-        let (moms, jac) = self.parameterize(xs);
-        return Complex::new(jac, 0.);
     }
 }
 
@@ -513,6 +183,7 @@ where
 
     let cores = user_data.integrand.len();
 
+    let t_start = Instant::now();
     while num_points < settings.integrator.n_max {
         let cur_points = settings.integrator.n_start + settings.integrator.n_increase * (iter - 1);
         samples.resize(cur_points, Sample::new());
@@ -531,7 +202,7 @@ where
             .zip(samples.par_chunks(nvec_per_core))
             .for_each(|((integrand_f, ff), xi)| {
                 for (f_evals_i, s) in ff.iter_mut().zip(xi.iter()) {
-                    let fc = integrand_f.evaluate_sample(s, s.get_weight(), iter);
+                    let fc = integrand_f.evaluate_sample(s, s.get_weight(), iter, false);
                     f_evals_i[0] = fc.re;
                     f_evals_i[1] = fc.im;
                 }
@@ -634,46 +305,109 @@ where
         num_points += cur_points;
 
         println!(
-            "| Iteration #{:-4}: n_pts={:-10}, n_tot={:-10}",
-            iter, cur_points, num_points
+            "/ [ {} ] {}: n_pts={:-7.0}K {} | {} /sample/core ",
+            format!(
+                "{}",
+                utils::format_wdhms(t_start.elapsed().as_secs() as usize)
+            )
+            .bold(),
+            format!("Iteration #{:-4}", iter).bold().green(),
+            cur_points as f64 / 1000.,
+            if num_points >= 10_000_000 {
+                format!("n_tot={:-7.0}M", num_points as f64 / 1_000_000.)
+                    .bold()
+                    .green()
+            } else {
+                format!("n_tot={:-7.0}K", num_points as f64 / 1000.)
+                    .bold()
+                    .green()
+            },
+            format!(
+                "{:.3} ms",
+                (((t_start.elapsed().as_secs() as f64) * 1000.) / (num_points as f64))
+                    * (cores as f64)
+            )
+            .bold()
+            .blue()
         );
 
         fn print_integral_result(
             itg: &AverageAndErrorAccumulator,
             i_itg: usize,
+            i_iter: usize,
+            tag: &str,
             trgt: Option<f64>,
         ) {
             println!(
-                "|  itg #{} re: {} {} {:.2} χ² {} {}",
+                "|  itg #{:-3} {}: {} {} {} {} {}",
                 i_itg,
-                utils::format_uncertainty(itg.avg, itg.err),
+                format!("{:-2}", tag).blue().bold(),
+                format!("{:-13}", utils::format_uncertainty(itg.avg, itg.err))
+                    .blue()
+                    .bold(),
                 if itg.avg != 0. {
-                    format!("({:.2}%)", (itg.err / itg.avg).abs() * 100.)
-                } else {
-                    format!("")
-                },
-                itg.chi_sq,
-                if i_itg == 0 {
-                    if let Some(t) = trgt {
+                    if (itg.err / itg.avg).abs() > 0.01 {
                         format!(
-                            "Δ={:.2}σ, Δ={:.2}%",
-                            (t - itg.avg).abs() / itg.err,
-                            (t - itg.avg).abs() / t.abs() * 100.
+                            "({:-8})",
+                            format!("{:.3}%", (itg.err / itg.avg).abs() * 100.).red()
                         )
                     } else {
-                        format!("")
+                        format!(
+                            "({:-8})",
+                            format!("{:.3}%", (itg.err / itg.avg).abs() * 100.).green()
+                        )
                     }
                 } else {
-                    format!("")
+                    format!("{:-10}", "")
+                },
+                if itg.chi_sq / (i_iter as f64) > 5. {
+                    format!("{:-6.3} χ²/dof", itg.chi_sq / (i_iter as f64)).red()
+                } else {
+                    format!("{:-6.3} χ²/dof", itg.chi_sq / (i_iter as f64)).normal()
+                },
+                if i_itg == 1 {
+                    if let Some(t) = trgt {
+                        if (t - itg.avg).abs() / itg.err > 5.
+                            || (t.abs() != 0. && (t - itg.avg).abs() / t.abs() > 0.01)
+                        {
+                            format!(
+                                "Δ={:-7.3}σ, Δ={:-7.3}%",
+                                (t - itg.avg).abs() / itg.err,
+                                if t.abs() > 0. {
+                                    (t - itg.avg).abs() / t.abs() * 100.
+                                } else {
+                                    0.
+                                }
+                            )
+                            .red()
+                        } else {
+                            format!(
+                                "Δ={:-7.3}σ, Δ={:-7.3}%",
+                                (t - itg.avg).abs() / itg.err,
+                                if t.abs() > 0. {
+                                    (t - itg.avg).abs() / t.abs() * 100.
+                                } else {
+                                    0.
+                                }
+                            )
+                            .green()
+                        }
+                    } else {
+                        format!("{}", "").normal()
+                    }
+                } else {
+                    format!("{}", "").normal()
                 },
                 if itg.avg.abs() != 0. {
-                    format!(
-                        "mwi: {:.2}",
-                        itg.max_eval_negative.abs().max(itg.max_eval_positive.abs())
-                            / (itg.avg.abs() * (itg.processed_samples as f64))
-                    )
+                    let mwi = itg.max_eval_negative.abs().max(itg.max_eval_positive.abs())
+                        / (itg.avg.abs() * (itg.processed_samples as f64));
+                    if mwi > 1. {
+                        format!("  mwi: {:-5.3}", mwi).red()
+                    } else {
+                        format!("  mwi: {:-5.3}", mwi).normal()
+                    }
                 } else {
-                    format!("")
+                    format!("  mwi: {:-5.3}", 0.).normal()
                 }
             );
         }
@@ -682,6 +416,8 @@ where
             print_integral_result(
                 &all_integrals[2 * i_integrand],
                 i_integrand + 1,
+                iter,
+                "re",
                 if i_integrand == 0 {
                     target.map(|o| o.re).or(None)
                 } else {
@@ -691,6 +427,8 @@ where
             print_integral_result(
                 &all_integrals[2 * i_integrand + 1],
                 i_integrand + 1,
+                iter,
+                "im",
                 if i_integrand == 0 {
                     target.map(|o| o.im).or(None)
                 } else {
@@ -698,6 +436,7 @@ where
                 },
             );
         }
+        println!("");
     }
 
     IntegrationResult {
@@ -712,6 +451,30 @@ where
 struct UserData {
     integrand: Vec<Integrand>,
 }
+
+fn print_banner() {
+    println!(
+        "{}{}{}",
+        format!(
+            "{}",
+            r#"
+    ______      _        _                       
+    | ___ \    | |      | |                      
+    | |_/ / ___| |_ __ _| |     ___   ___  _ __  
+    | ___ \/ _ \ __/ _` | |    / _ \ / _ \| '_ \ 
+    | |_/ /  __/ || (_| | |___| (_) | (_) | |_) |
+    \____/ \___|\__\__,_\_____/\___/ \___/| .__/ 
+                                            | |    
+    "#
+        )
+        .bold()
+        .blue(),
+        format!("{:-26}", GIT_VERSION).green(),
+        format!("{}", r#"              |_|    "#).bold().blue(),
+    );
+    println!();
+}
+
 fn main() -> Result<(), Report> {
     let matches = App::new("betaLoop")
         .version("0.1")
@@ -733,6 +496,7 @@ fn main() -> Result<(), Report> {
         )
         .arg(
             Arg::with_name("target")
+                .short("t")
                 .long("target")
                 .multiple(true)
                 .allow_hyphen_values(true)
@@ -741,6 +505,7 @@ fn main() -> Result<(), Report> {
         )
         .arg(
             Arg::with_name("debug")
+                .short("d")
                 .long("debug")
                 .value_name("LEVEL")
                 .help("Set the debug level. Higher means more verbose."),
@@ -751,9 +516,66 @@ fn main() -> Result<(), Report> {
                 .value_name("N_START")
                 .help("Number of starting samples for Vegas"),
         )
+        .subcommand(
+            SubCommand::with_name("inspect")
+                .about("Inspect a single input point")
+                .arg(
+                    Arg::with_name("point")
+                        .short("p")
+                        .required(true)
+                        .min_values(2)
+                        .allow_hyphen_values(true),
+                )
+                .arg(
+                    Arg::with_name("use_f128")
+                        .short("f128")
+                        .long("use_f128")
+                        .help("Use f128 evaluation"),
+                )
+                .arg(
+                    Arg::with_name("force_radius")
+                        .short("fr")
+                        .long("force_radius")
+                        .help("force radius in parameterisation"),
+                )
+                .arg(
+                    Arg::with_name("momentum_space")
+                        .short("m")
+                        .long("momentum_space")
+                        .help("Set if the point is specified in momentum space"),
+                )
+                .arg(
+                    Arg::with_name("debug")
+                        .short("d")
+                        .long("debug")
+                        .value_name("LEVEL")
+                        .help("Set the debug level. Higher means more verbose."),
+                ),
+        )
+        .subcommand(
+            SubCommand::with_name("bench")
+                .about("Benchmark timing for individual evaluations of the integrand")
+                .arg(
+                    Arg::with_name("samples")
+                        .required(true)
+                        .long("samples")
+                        .short("s")
+                        .value_name("SAMPLES")
+                        .help("Number of samples for benchmark"),
+                ),
+        )
         .get_matches();
 
     let mut settings = Settings::from_file(matches.value_of("config").unwrap())?;
+
+    print_banner();
+    if settings.general.debug > 0 {
+        println!(
+            "{}",
+            format!("Debug mode enabled at level {}", settings.general.debug).red()
+        );
+        println!();
+    }
 
     if let Some(x) = matches.value_of("debug") {
         settings.general.debug = usize::from_str(x).unwrap();
@@ -784,42 +606,100 @@ fn main() -> Result<(), Report> {
         target = Some(Complex::new(tt[0], tt[1]));
     }
 
-    let user_data_generator = |settings: &Settings| UserData {
-        integrand: (0..num_integrands)
-            .map(|_i| match settings.general.hard_coded_integrand {
-                HardCodedIntegrand::Unit => {
-                    Integrand::Unit(UnitIntegrand::new(settings.clone(), 8))
-                }
-                HardCodedIntegrand::LoopInducedTriBoxTri => Integrand::LoopInducedTriBoxTri(
-                    LoopInducedTriBoxTrIntegrand::new(settings.clone()),
+    if let Some(matches) = matches.subcommand_matches("inspect") {
+        if let Some(x) = matches.value_of("debug") {
+            settings.general.debug = usize::from_str(x).unwrap();
+        }
+        let mut pt: Vec<_> = matches
+            .values_of("point")
+            .unwrap()
+            .map(|x| f64::from_str(x.trim_end_matches(',')).unwrap())
+            .collect();
+        let force_radius = matches.is_present("force_radius");
+        let xs_f128 = if matches.is_present("momentum_space") {
+            utils::global_inv_parameterize::<f128::f128>(
+                &pt.chunks_exact_mut(3)
+                    .map(|x| LorentzVector::from_args(0., x[0], x[1], x[2]).cast())
+                    .collect::<Vec<LorentzVector<f128::f128>>>(),
+                (settings.kinematics.e_cm * settings.kinematics.e_cm).into(),
+                &settings,
+                force_radius,
+            )
+            .0
+        } else {
+            pt.iter().map(|x| f128::f128::from(*x)).collect::<Vec<_>>()
+        };
+        let xs_f64 = xs_f128
+            .iter()
+            .map(|x| f128::f128::to_f64(x).unwrap())
+            .collect::<Vec<_>>();
+        let use_f128 = matches.is_present("use_f128");
+
+        let eval = integrand_factory(&settings).evaluate_sample(
+            &Sample::ContinuousGrid(
+                1.,
+                if force_radius {
+                    xs_f64.clone()[1..].iter().map(|x| *x).collect::<Vec<_>>()
+                } else {
+                    xs_f64.clone()
+                },
+            ),
+            1.,
+            1,
+            use_f128,
+        );
+        println!();
+        println!(
+            "Evaluation of integrand '{}' for input point xs = {}:\n{}",
+            format!("{}", settings.hard_coded_integrand).green(),
+            format!("{:?}", xs_f64),
+            format!("{:.16}", eval).blue(),
+        );
+        println!();
+    } else if let Some(matches) = matches.subcommand_matches("bench") {
+        let n_samples: usize = matches.value_of("samples").unwrap().parse().unwrap();
+        println!();
+        println!(
+            "Benchmarking runtime of integrand '{}' over {} samples...",
+            format!("{}", settings.hard_coded_integrand).green(),
+            format!("{}", n_samples).blue()
+        );
+        let integrand = integrand_factory(&settings);
+        let now = Instant::now();
+        for _i in 1..n_samples {
+            integrand.evaluate_sample(
+                &Sample::ContinuousGrid(
+                    1.,
+                    (0..integrand.get_n_dim())
+                        .map(|_i| rand::random::<f64>())
+                        .collect(),
                 ),
-            })
-            .collect(),
-    };
-
-    if settings.general.debug > 1 {
-        println!("Debug mode enabled");
+                1.,
+                1,
+                false,
+            );
+        }
+        let total_time = now.elapsed().as_secs_f64();
+        println!();
+        println!(
+            "> Total time: {} s for {} samples, {} ms per sample",
+            format!("{:.1}", total_time).blue(),
+            format!("{}", n_samples).blue(),
+            format!("{:.5}", total_time * 1000. / (n_samples as f64)).green(),
+        );
+        println!();
+    } else {
+        println!(
+            "Beta loop is at your service and starts integrating '{}' ...",
+            format!("{}", settings.hard_coded_integrand).green()
+        );
+        println!();
+        let user_data_generator = |settings: &Settings| UserData {
+            integrand: (0..num_integrands)
+                .map(|_i| integrand_factory(settings))
+                .collect(),
+        };
+        havana_integrate(&settings, user_data_generator, target);
     }
-    println!(
-        r#"
-    ______      _        _                       
-    | ___ \    | |      | |                      
-    | |_/ / ___| |_ __ _| |     ___   ___  _ __  
-    | ___ \/ _ \ __/ _` | |    / _ \ / _ \| '_ \ 
-    | |_/ /  __/ || (_| | |___| (_) | (_) | |_) |
-    \____/ \___|\__\__,_\_____/\___/ \___/| .__/ 
-                                          | |    
-    {:-24}              |_|    
-    "#,
-        GIT_VERSION
-    );
-    println!();
-    println!(
-        "Beta loop is at your service and starts integrating '{}' ...",
-        settings.general.hard_coded_integrand
-    );
-    println!();
-    havana_integrate(&settings, user_data_generator, target);
-
     Ok(())
 }

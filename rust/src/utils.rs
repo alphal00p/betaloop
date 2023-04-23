@@ -1,16 +1,64 @@
-use crate::{FloatLike, ParameterizationMapping, ParameterizationMode, Settings, MAX_LOOP};
-use f128::f128;
+use crate::{ParameterizationMapping, ParameterizationMode, Settings, MAX_LOOP};
 use hyperdual::Hyperdual;
 use itertools::{izip, Itertools};
-use lorentz_vector::RealNumberLike;
-use lorentz_vector::{Field, LorentzVector};
+use lorentz_vector::{Field, LorentzVector, RealNumberLike};
 use num::Complex;
-use num_traits::{Float, FloatConst, Num, NumAssign, NumCast};
+use num::ToPrimitive;
+use num_traits::{Float, FloatConst, FromPrimitive, Num, NumAssign, NumCast, Signed};
 use num_traits::{Inv, One, Zero};
 use std::cmp::{Ord, Ordering};
 use std::ops::Neg;
 
+#[allow(unused)]
 const MAX_DIMENSION: usize = MAX_LOOP * 3;
+
+pub trait FloatConvertFrom<U> {
+    fn convert_from(x: &U) -> Self;
+}
+
+impl FloatConvertFrom<f64> for f64 {
+    fn convert_from(x: &f64) -> f64 {
+        *x
+    }
+}
+
+impl FloatConvertFrom<f128::f128> for f64 {
+    fn convert_from(x: &f128::f128) -> f64 {
+        (*x).to_f64().unwrap()
+    }
+}
+
+impl FloatConvertFrom<f128::f128> for f128::f128 {
+    fn convert_from(x: &f128::f128) -> f128::f128 {
+        *x
+    }
+}
+
+impl FloatConvertFrom<f64> for f128::f128 {
+    fn convert_from(x: &f64) -> f128::f128 {
+        f128::f128::from_f64(*x).unwrap()
+    }
+}
+
+pub trait FloatLike:
+    From<f64>
+    + FloatConvertFrom<f64>
+    + FloatConvertFrom<f128::f128>
+    + Num
+    + FromPrimitive
+    + Float
+    + Field
+    + RealNumberLike
+    + Signed
+    + FloatConst
+    + std::fmt::LowerExp
+    + 'static
+    + Signum
+{
+}
+
+impl FloatLike for f64 {}
+impl FloatLike for f128::f128 {}
 
 /// An iterator which iterates two other iterators simultaneously
 #[derive(Clone, Debug)]
@@ -22,6 +70,7 @@ pub struct ZipEq<I, J> {
 
 /// An iterator which iterates two other iterators simultaneously and checks
 /// if the sizes are equal in debug mode.
+#[allow(unused)]
 pub fn zip_eq<I, J>(i: I, j: J) -> ZipEq<I::IntoIter, J::IntoIter>
 where
     I: IntoIterator,
@@ -167,6 +216,7 @@ pub fn format_uncertainty(mean: f64, sdev: f64) -> String {
 }
 
 /// Compare two slices, selecting on length first
+#[allow(unused)]
 pub fn compare_slice<T: Ord>(slice1: &[T], slice2: &[T]) -> Ordering {
     match slice1.len().cmp(&slice2.len()) {
         Ordering::Equal => (),
@@ -193,12 +243,12 @@ pub trait Signum {
     fn multiply_sign(&self, sign: i8) -> Self;
 }
 
-impl Signum for f128 {
+impl Signum for f128::f128 {
     #[inline]
-    fn multiply_sign(&self, sign: i8) -> f128 {
+    fn multiply_sign(&self, sign: i8) -> f128::f128 {
         match sign {
             1 => self.clone(),
-            0 => f128::zero(),
+            0 => f128::f128::zero(),
             -1 => self.neg(),
             _ => unreachable!("Sign should be -1,0,1"),
         }
@@ -253,6 +303,7 @@ impl<T: Field> Signum for LorentzVector<T> {
     }
 }
 
+#[allow(unused)]
 #[inline]
 /// Invert with better precision
 pub fn finv<T: Float>(c: Complex<T>) -> Complex<T> {
@@ -260,6 +311,7 @@ pub fn finv<T: Float>(c: Complex<T>) -> Complex<T> {
     c.conj() / norm / norm
 }
 
+#[allow(unused)]
 #[inline]
 pub fn powi<T: Float + NumAssign>(c: Complex<T>, n: usize) -> Complex<T> {
     let mut c1 = Complex::<T>::one();
@@ -269,6 +321,7 @@ pub fn powi<T: Float + NumAssign>(c: Complex<T>, n: usize) -> Complex<T> {
     c1
 }
 
+#[allow(unused)]
 #[inline]
 pub fn powf<T: 'static + Float + NumAssign + std::fmt::Debug, const N: usize>(
     h: Hyperdual<T, N>,
@@ -279,6 +332,7 @@ pub fn powf<T: 'static + Float + NumAssign + std::fmt::Debug, const N: usize>(
     h.map_dual(r * h.real(), |x| *x * rr)
 }
 
+#[allow(unused)]
 pub fn evaluate_signature<T: Field>(
     signature: &[i8],
     momenta: &[LorentzVector<T>],
@@ -301,6 +355,7 @@ pub fn evaluate_signature<T: Field>(
 
 /// Calculate the determinant of any complex-valued input matrix using LU-decomposition.
 /// Original C-code by W. Gong and D.E. Soper.
+#[allow(unused)]
 pub fn determinant<T: Float + RealNumberLike>(
     bb: &Vec<Complex<T>>,
     dimension: usize,
@@ -398,6 +453,7 @@ pub fn determinant<T: Float + RealNumberLike>(
     determinant
 }
 
+#[allow(unused)]
 pub fn next_combination_with_replacement(state: &mut [usize], max_entry: usize) -> bool {
     for i in (0..state.len()).rev() {
         if state[i] < max_entry {
@@ -421,7 +477,6 @@ pub fn global_parameterize<T: FloatLike>(
         ParameterizationMode::HyperSpherical => {
             let e_cm = e_cm_squared.sqrt() * Into::<T>::into(settings.parameterization.shifts[0].0);
             let mut jac = T::one();
-            let mut concatenated_vecs = Vec::with_capacity(x.len() % 3);
             // rescale the input to the desired range
             let mut x_r = Vec::with_capacity(x.len());
             if !force_radius {
@@ -432,18 +487,18 @@ pub fn global_parameterize<T: FloatLike>(
                 x_r.push(lo + x[0] * (hi - lo));
                 jac *= Into::<T>::into(hi - lo);
             }
-            for xi in x {
-                let lo = Into::<T>::into(settings.parameterization.input_rescaling[0][1].0);
-                let hi = Into::<T>::into(settings.parameterization.input_rescaling[0][1].1);
+            let lo = Into::<T>::into(settings.parameterization.input_rescaling[0][1].0);
+            let hi = Into::<T>::into(settings.parameterization.input_rescaling[0][1].1);
+            x_r.push(lo + x[1] * (hi - lo));
+            jac *= Into::<T>::into(hi - lo);
+            for xi in &x[2..] {
+                let lo = Into::<T>::into(settings.parameterization.input_rescaling[0][2].0);
+                let hi = Into::<T>::into(settings.parameterization.input_rescaling[0][2].1);
                 x_r.push(lo + *xi * (hi - lo));
                 jac *= Into::<T>::into(hi - lo);
             }
-            let lo = Into::<T>::into(settings.parameterization.input_rescaling[0][2].0);
-            let hi = Into::<T>::into(settings.parameterization.input_rescaling[0][2].1);
-            x_r.push(lo + *x.last().unwrap() * (hi - lo));
-            jac *= Into::<T>::into(hi - lo);
 
-            let radius = if force_radius {
+            let radius: T = if force_radius {
                 x[0]
             } else {
                 match settings.parameterization.mapping {
@@ -470,19 +525,22 @@ pub fn global_parameterize<T: FloatLike>(
 
             let mut cos_thetas = Vec::with_capacity(x.len() - 2);
             let mut sin_thetas = Vec::with_capacity(x.len() - 2);
-            for xi in x_r[2..x_r.len()].iter() {
+
+            for (i, xi) in x_r[2..x_r.len()].iter().enumerate() {
                 let cos_theta = -T::one() + Into::<T>::into(2.) * *xi;
                 jac *= Into::<T>::into(2.);
                 let sin_theta = (T::one() - cos_theta * cos_theta).sqrt();
+                if i > 0 {
+                    jac *= sin_theta.powi(i as i32);
+                }
                 cos_thetas.push(cos_theta);
                 sin_thetas.push(sin_theta);
             }
+
+            let mut concatenated_vecs = Vec::with_capacity(x.len() / 3);
             let mut base = radius;
-            for (i, (cos_theta, sin_theta)) in cos_thetas.iter().zip(sin_thetas.iter()).enumerate()
+            for (_i, (cos_theta, sin_theta)) in cos_thetas.iter().zip(sin_thetas.iter()).enumerate()
             {
-                if i > x.len() - 2 {
-                    break;
-                }
                 concatenated_vecs.push(base * cos_theta);
                 base *= *sin_theta;
             }
@@ -504,9 +562,9 @@ pub fn global_parameterize<T: FloatLike>(
                 panic!("Cannot force radius for non-hyper-spherical parameterization.");
             }
             let mut jac = T::one();
-            let mut vecs = Vec::with_capacity(x.len() % 3);
+            let mut vecs = Vec::with_capacity(x.len() / 3);
             for (i, xi) in x.chunks(3).enumerate() {
-                let (vec_i, jac_i) = parameterize(xi, e_cm_squared, i, settings);
+                let (vec_i, jac_i) = parameterize3d(xi, e_cm_squared, i, settings);
                 vecs.push(vec_i);
                 jac *= jac_i;
             }
@@ -515,6 +573,7 @@ pub fn global_parameterize<T: FloatLike>(
     }
 }
 
+#[allow(unused)]
 pub fn global_inv_parameterize<T: FloatLike>(
     moms: &Vec<LorentzVector<T>>,
     e_cm_squared: T,
@@ -529,7 +588,7 @@ pub fn global_inv_parameterize<T: FloatLike>(
 
             let cartesian_xs = moms
                 .iter()
-                .map(|lv| [lv.t, lv.x, lv.y, lv.z])
+                .map(|lv| [lv.x, lv.y, lv.z])
                 .flatten()
                 .collect::<Vec<_>>();
 
@@ -539,7 +598,6 @@ pub fn global_inv_parameterize<T: FloatLike>(
                 return (vec![T::zero(); cartesian_xs.len()], T::zero());
             }
             let k_r = k_r_sq.sqrt();
-
             if force_radius {
                 xs.push(k_r);
             } else {
@@ -560,10 +618,10 @@ pub fn global_inv_parameterize<T: FloatLike>(
 
             let y = cartesian_xs[cartesian_xs.len() - 2];
             let x = cartesian_xs[cartesian_xs.len() - 1];
-            let xphi = if y < T::zero() {
-                T::one() + Into::<T>::into(0.5) * T::FRAC_1_PI() * T::atan2(y, x)
+            let xphi = if x < T::zero() {
+                T::one() + Into::<T>::into(0.5) * T::FRAC_1_PI() * T::atan2(x, y)
             } else {
-                Into::<T>::into(0.5) * T::FRAC_1_PI() * T::atan2(y, x)
+                Into::<T>::into(0.5) * T::FRAC_1_PI() * T::atan2(x, y)
             };
             xs.push(xphi);
             inv_jac /= Into::<T>::into(2.) * <T as FloatConst>::PI();
@@ -572,6 +630,7 @@ pub fn global_inv_parameterize<T: FloatLike>(
                 xs.push(Into::<T>::into(0.5) * (T::one() + *x / k_r_sq.sqrt()));
                 k_r_sq -= *x * x;
                 inv_jac /= Into::<T>::into(2.);
+                //TODO implement the 1/sin^i(theta) term
             }
 
             inv_jac /= k_r.powi((cartesian_xs.len() - 1) as i32);
@@ -592,7 +651,6 @@ pub fn global_inv_parameterize<T: FloatLike>(
                 *x -= Into::<T>::into(lo) / Into::<T>::into(hi - lo);
                 inv_jac /= Into::<T>::into(hi - lo);
             }
-
             (xs, inv_jac)
         }
         _ => {
@@ -602,7 +660,7 @@ pub fn global_inv_parameterize<T: FloatLike>(
             let mut inv_jac = T::one();
             let mut xs = Vec::with_capacity(moms.len() * 3);
             for (i, mom) in moms.iter().enumerate() {
-                let (xs_i, inv_jac_i) = inv_parametrize(mom, e_cm_squared, i, settings);
+                let (xs_i, inv_jac_i) = inv_parametrize3d(mom, e_cm_squared, i, settings);
                 xs.extend(xs_i);
                 inv_jac *= inv_jac_i;
             }
@@ -613,7 +671,7 @@ pub fn global_inv_parameterize<T: FloatLike>(
 
 /// Map a vector in the unit hypercube to the infinite hypercube.
 /// Also compute the Jacobian.
-pub fn parameterize<T: FloatLike>(
+pub fn parameterize3d<T: FloatLike>(
     x: &[T],
     e_cm_squared: T,
     loop_index: usize,
@@ -703,7 +761,7 @@ pub fn parameterize<T: FloatLike>(
     (l_space, jac)
 }
 
-pub fn inv_parametrize<T: FloatLike>(
+pub fn inv_parametrize3d<T: FloatLike>(
     mom: &LorentzVector<T>,
     e_cm_squared: T,
     loop_index: usize,
@@ -765,4 +823,51 @@ pub fn inv_parametrize<T: FloatLike>(
     }
 
     (x, jac)
+}
+
+pub const MINUTE: usize = 60;
+pub const HOUR: usize = 3_600;
+pub const DAY: usize = 86_400;
+pub const WEEK: usize = 604_800;
+pub fn format_wdhms(seconds: usize) -> String {
+    let mut compound_duration = vec![];
+    if seconds == 0 {
+        compound_duration.push(format!("{}", "0s"));
+        return compound_duration.join(" ");
+    }
+
+    let mut sec = seconds % WEEK;
+    // weeks
+    let ws = seconds / WEEK;
+    if ws != 0 {
+        compound_duration.push(format!("{ws}w"));
+    }
+
+    // days
+    let ds = sec / DAY;
+    sec %= DAY;
+    if ds != 0 {
+        compound_duration.push(format!("{ds}d"));
+    }
+
+    // hours
+    let hs = sec / HOUR;
+    sec %= HOUR;
+    if hs != 0 {
+        compound_duration.push(format!("{hs}h"));
+    }
+
+    // minutes
+    let ms = sec / MINUTE;
+    sec %= MINUTE;
+    if ms != 0 {
+        compound_duration.push(format!("{ms}m"));
+    }
+
+    // seconds
+    if sec != 0 {
+        compound_duration.push(format!("{sec}s"));
+    }
+
+    compound_duration.join(" ")
 }

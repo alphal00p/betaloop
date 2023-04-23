@@ -1,9 +1,11 @@
 General:
   debug: 0
-  hard_coded_integrand: unit
+HardCodedIntegrand:
+  type: unit_volume
+  n_dim: 9
 Integrator:
   n_bins: 128
-  min_samples_for_update: 100
+  min_samples_for_update: 1000
   n_start: 10000
   n_increase: 1000
   n_max: 100000000
