@@ -626,11 +626,13 @@ pub fn global_inv_parameterize<T: FloatLike>(
             xs.push(xphi);
             inv_jac /= Into::<T>::into(2.) * <T as FloatConst>::PI();
 
-            for x in &cartesian_xs[..cartesian_xs.len() - 2] {
-                xs.push(Into::<T>::into(0.5) * (T::one() + *x / k_r_sq.sqrt()));
-                k_r_sq -= *x * x;
+            for (i, &x) in cartesian_xs[..cartesian_xs.len() - 2].iter().enumerate() {
+                xs.push(Into::<T>::into(0.5) * (T::one() + x / k_r_sq.sqrt()));
                 inv_jac /= Into::<T>::into(2.);
-                //TODO implement the 1/sin^i(theta) term
+                if i > 0 {
+                    inv_jac /= (T::one() - (x * x / k_r_sq)).sqrt().powi(i as i32);
+                }
+                k_r_sq -= x * x;
             }
 
             inv_jac /= k_r.powi((cartesian_xs.len() - 1) as i32);

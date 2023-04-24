@@ -617,15 +617,21 @@ fn main() -> Result<(), Report> {
             .collect();
         let force_radius = matches.is_present("force_radius");
         let xs_f128 = if matches.is_present("momentum_space") {
-            utils::global_inv_parameterize::<f128::f128>(
+            let (xs, inv_jac) = utils::global_inv_parameterize::<f128::f128>(
                 &pt.chunks_exact_mut(3)
                     .map(|x| LorentzVector::from_args(0., x[0], x[1], x[2]).cast())
                     .collect::<Vec<LorentzVector<f128::f128>>>(),
                 (settings.kinematics.e_cm * settings.kinematics.e_cm).into(),
                 &settings,
                 force_radius,
-            )
-            .0
+            );
+            if settings.general.debug > 1 {
+                println!(
+                    "f128 sampling jacobian for this point = {:+.32e}",
+                    f128::f128::ONE / inv_jac
+                );
+            };
+            xs
         } else {
             pt.iter().map(|x| f128::f128::from(*x)).collect::<Vec<_>>()
         };
@@ -650,10 +656,18 @@ fn main() -> Result<(), Report> {
         );
         println!();
         println!(
-            "Evaluation of integrand '{}' for input point xs = {}:\n{}",
+            "For input point xs: \n\n{}\n\nThe evaluation of integrand '{}' is:\n\n{}",
+            format!(
+                "( {} )",
+                xs_f64
+                    .iter()
+                    .map(|&x| format!("{:.16}", x))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            )
+            .blue(),
             format!("{}", settings.hard_coded_integrand).green(),
-            format!("{:?}", xs_f64),
-            format!("{:.16}", eval).blue(),
+            format!("( {:+.16e}, {:+.16e} i)", eval.re, eval.im).blue(),
         );
         println!();
     } else if let Some(matches) = matches.subcommand_matches("bench") {

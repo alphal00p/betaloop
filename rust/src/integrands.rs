@@ -314,10 +314,27 @@ impl HasIntegrand for UnitSurfaceIntegrand {
                 z: m[2],
             });
         }
-        let mut wgt = self.evaluate_numerator(loop_momenta.as_slice());
+        let mut itg_wgt = self.evaluate_numerator(loop_momenta.as_slice());
         // Normalize the integral
-        wgt /= self.surface;
-        return Complex::new(wgt, 0.) * jac;
+        itg_wgt /= self.surface;
+        if self.settings.general.debug > 1 {
+            println!("Sampled loop momenta:");
+            for (i, l) in loop_momenta.iter().enumerate() {
+                println!(
+                    "k{} = ( {:-23}, {:-23}, {:-23}, {:-23} )",
+                    i,
+                    format!("{:+.16e}", l.t),
+                    format!("{:+.16e}", l.x),
+                    format!("{:+.16e}", l.y),
+                    format!("{:+.16e}", l.z)
+                );
+            }
+            println!("Integrator weight : {:+.16e}", wgt);
+            println!("Integrand weight  : {:+.16e}", itg_wgt);
+            println!("Sampling jacobian : {:+.16e}", jac);
+            println!("Final contribution: {:+.16e}", itg_wgt * wgt * jac);
+        }
+        return Complex::new(itg_wgt, 0.) * wgt * jac;
     }
 }
 
@@ -408,15 +425,26 @@ impl HasIntegrand for UnitVolumeIntegrand {
                 z: m[2],
             });
         }
+        let mut itg_wgt = self.evaluate_numerator(loop_momenta.as_slice());
+        // Normalize the integral
+        itg_wgt /= self.volume;
         if self.settings.general.debug > 1 {
             println!("Sampled loop momenta:");
             for (i, l) in loop_momenta.iter().enumerate() {
-                println!("k{} = {}", i, l);
+                println!(
+                    "k{} = ( {:-23}, {:-23}, {:-23}, {:-23} )",
+                    i,
+                    format!("{:+.16e}", l.t),
+                    format!("{:+.16e}", l.x),
+                    format!("{:+.16e}", l.y),
+                    format!("{:+.16e}", l.z)
+                );
             }
+            println!("Integrator weight : {:+.16e}", wgt);
+            println!("Integrand weight  : {:+.16e}", itg_wgt);
+            println!("Sampling jacobian : {:+.16e}", jac);
+            println!("Final contribution: {:+.16e}", itg_wgt * wgt * jac);
         }
-        let mut wgt = self.evaluate_numerator(loop_momenta.as_slice());
-        // Normalize the integral
-        wgt /= self.volume;
-        return Complex::new(wgt, 0.) * jac;
+        return Complex::new(itg_wgt, 0.) * wgt * jac;
     }
 }
