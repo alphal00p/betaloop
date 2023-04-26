@@ -467,6 +467,57 @@ pub fn next_combination_with_replacement(state: &mut [usize], max_entry: usize) 
     false
 }
 
+pub fn box_muller<T: FloatLike>(x1: T, x2: T) -> (T, T) {
+    let r = (-Into::<T>::into(2.) * x1.ln()).sqrt();
+    let theta = Into::<T>::into(2.) * T::PI() * x2;
+    (r * theta.cos(), r * theta.sin())
+}
+
+pub fn compute_surface_and_volume<T: FloatLike>(n_dim: usize, radius: T) -> (T, T) {
+    let mut surface = Into::<T>::into(2.0);
+    let mut volume = T::one();
+    for i in 1..n_dim + 1 {
+        (surface, volume) = (
+            Into::<T>::into(2.0) * <T as FloatConst>::PI() * volume,
+            surface / Into::<T>::into(i as f64),
+        );
+    }
+    (
+        surface * radius.powi(n_dim as i32),
+        volume * radius.powi(n_dim as i32),
+    )
+}
+
+pub fn get_n_dim_for_n_loop_momenta(
+    settings: &Settings,
+    n_loop_momenta: usize,
+    force_radius: bool,
+) -> usize {
+    match settings.parameterization.mode {
+        ParameterizationMode::HyperSphericalFlat => {
+            // Because we use Box-Muller, we need to have an even number of angular dimensions
+            let mut n_dim = 3 * n_loop_momenta;
+            if n_dim % 2 == 1 {
+                n_dim += 1;
+            }
+            // Then if the radius is not forced, then we need to add one more dimension
+            if !force_radius {
+                n_dim += 1;
+            }
+            return n_dim;
+        }
+        ParameterizationMode::HyperSpherical
+        | ParameterizationMode::Cartesian
+        | ParameterizationMode::Spherical => {
+            if force_radius {
+                return 3 * n_loop_momenta - 1;
+            } else {
+                return 3 * n_loop_momenta;
+            }
+        }
+    }
+}
+
 pub fn global_parameterize<T: FloatLike>(
     x: &[T],
     e_cm_squared: T,
@@ -474,7 +525,7 @@ pub fn global_parameterize<T: FloatLike>(
     force_radius: bool,
 ) -> (Vec<[T; 3]>, T) {
     match settings.parameterization.mode {
-        ParameterizationMode::HyperSpherical => {
+        ParameterizationMode::HyperSpherical | ParameterizationMode::HyperSphericalFlat => {
             let e_cm = e_cm_squared.sqrt() * Into::<T>::into(settings.parameterization.shifts[0].0);
             let mut jac = T::one();
             // rescale the input to the desired range
@@ -504,10 +555,10 @@ pub fn global_parameterize<T: FloatLike>(
                 match settings.parameterization.mapping {
                     ParameterizationMapping::Log => {
                         // r = e_cm * ln(1 + b*x/(1-x))
-                        let x = x_r[0];
                         let b = Into::<T>::into(settings.parameterization.b);
-                        let radius = e_cm * (T::one() + b * x / (T::one() - x)).ln();
-                        jac *= e_cm * b / (T::one() - x) / (T::one() + x * (b - T::one()));
+                        let radius = e_cm * (T::one() + b * x_r[0] / (T::one() - x_r[0])).ln();
+                        jac *=
+                            e_cm * b / (T::one() - x_r[0]) / (T::one() + x_r[0] * (b - T::one()));
                         radius
                     }
                     ParameterizationMapping::Linear => {
@@ -519,47 +570,88 @@ pub fn global_parameterize<T: FloatLike>(
                     }
                 }
             };
+            match settings.parameterization.mode {
+                ParameterizationMode::HyperSpherical => {
+                    let phi = Into::<T>::into(2.) * <T as FloatConst>::PI() * x_r[1];
+                    jac *= Into::<T>::into(2.) * <T as FloatConst>::PI();
 
-            let phi = Into::<T>::into(2.) * <T as FloatConst>::PI() * x_r[1];
-            jac *= Into::<T>::into(2.) * <T as FloatConst>::PI();
+                    let mut cos_thetas = Vec::with_capacity(x.len() - 2);
+                    let mut sin_thetas = Vec::with_capacity(x.len() - 2);
 
-            let mut cos_thetas = Vec::with_capacity(x.len() - 2);
-            let mut sin_thetas = Vec::with_capacity(x.len() - 2);
+                    for (i, xi) in x_r[2..].iter().enumerate() {
+                        let cos_theta = -T::one() + Into::<T>::into(2.) * *xi;
+                        jac *= Into::<T>::into(2.);
+                        let sin_theta = (T::one() - cos_theta * cos_theta).sqrt();
+                        if i > 0 {
+                            jac *= sin_theta.powi(i as i32);
+                        }
+                        cos_thetas.push(cos_theta);
+                        sin_thetas.push(sin_theta);
+                    }
 
-            for (i, xi) in x_r[2..x_r.len()].iter().enumerate() {
-                let cos_theta = -T::one() + Into::<T>::into(2.) * *xi;
-                jac *= Into::<T>::into(2.);
-                let sin_theta = (T::one() - cos_theta * cos_theta).sqrt();
-                if i > 0 {
-                    jac *= sin_theta.powi(i as i32);
+                    let mut concatenated_vecs = Vec::with_capacity(x.len() / 3);
+                    let mut base = radius;
+                    for (_i, (cos_theta, sin_theta)) in
+                        cos_thetas.iter().zip(sin_thetas.iter()).enumerate()
+                    {
+                        concatenated_vecs.push(base * cos_theta);
+                        base *= *sin_theta;
+                    }
+                    concatenated_vecs.push(base * phi.cos());
+                    concatenated_vecs.push(base * phi.sin());
+
+                    jac *= radius.powi((x.len() - 1) as i32); // hyperspherical coords
+
+                    (
+                        concatenated_vecs
+                            .chunks(3)
+                            .map(|v| [v[0], v[1], v[2]])
+                            .collect(),
+                        jac,
+                    )
                 }
-                cos_thetas.push(cos_theta);
-                sin_thetas.push(sin_theta);
+                ParameterizationMode::HyperSphericalFlat => {
+                    // As we will use Box Muller we expect an even number of random variables
+                    assert!(x_r[1..].len() % 2 == 0);
+                    let mut normal_distributed_xs = vec![];
+                    for x_pair in x_r[1..].chunks(2) {
+                        let (z1, z2) = box_muller(x_pair[0], x_pair[1]);
+                        normal_distributed_xs.push(z1);
+                        normal_distributed_xs.push(z2);
+                    }
+                    // ignore the last variable generated if we had to pad to get the 3*n_loop_momenta
+                    if normal_distributed_xs.len() % 3 != 0 {
+                        normal_distributed_xs.pop();
+                    }
+                    let curr_norm = normal_distributed_xs[..]
+                        .iter()
+                        .map(|&x| x * x)
+                        .sum::<T>()
+                        .sqrt();
+                    let surface =
+                        compute_surface_and_volume(normal_distributed_xs.len() - 1, radius).0;
+                    jac *= surface;
+                    let rescaling_factor = radius / curr_norm;
+                    (
+                        normal_distributed_xs
+                            .chunks(3)
+                            .map(|v| {
+                                [
+                                    v[0] * rescaling_factor,
+                                    v[1] * rescaling_factor,
+                                    v[2] * rescaling_factor,
+                                ]
+                            })
+                            .collect(),
+                        jac,
+                    )
+                }
+                _ => unreachable!(),
             }
-
-            let mut concatenated_vecs = Vec::with_capacity(x.len() / 3);
-            let mut base = radius;
-            for (_i, (cos_theta, sin_theta)) in cos_thetas.iter().zip(sin_thetas.iter()).enumerate()
-            {
-                concatenated_vecs.push(base * cos_theta);
-                base *= *sin_theta;
-            }
-            concatenated_vecs.push(base * phi.cos());
-            concatenated_vecs.push(base * phi.sin());
-
-            jac *= radius.powi((x.len() - 1) as i32); // hyperspherical coords
-
-            (
-                concatenated_vecs
-                    .chunks(3)
-                    .map(|v| [v[0], v[1], v[2]])
-                    .collect(),
-                jac,
-            )
         }
-        _ => {
+        ParameterizationMode::Cartesian | ParameterizationMode::Spherical => {
             if force_radius {
-                panic!("Cannot force radius for non-hyper-spherical parameterization.");
+                panic!("Cannot force radius for non-hyperspherical parameterization.");
             }
             let mut jac = T::one();
             let mut vecs = Vec::with_capacity(x.len() / 3);
@@ -655,9 +747,12 @@ pub fn global_inv_parameterize<T: FloatLike>(
             }
             (xs, inv_jac)
         }
-        _ => {
+        ParameterizationMode::HyperSphericalFlat => {
+            panic!("Inverse of flat hyperspherical sampling is not available since it is not bijective.");
+        }
+        ParameterizationMode::Cartesian | ParameterizationMode::Spherical => {
             if force_radius {
-                panic!("Cannot force radius for non-hyper-spherical parameterization.");
+                panic!("Cannot force radius for non-hyperspherical parameterization.");
             }
             let mut inv_jac = T::one();
             let mut xs = Vec::with_capacity(moms.len() * 3);

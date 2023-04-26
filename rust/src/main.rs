@@ -37,6 +37,8 @@ pub enum ParameterizationMode {
     Spherical,
     #[serde(rename = "hyperspherical")]
     HyperSpherical,
+    #[serde(rename = "hyperspherical_flat")]
+    HyperSphericalFlat,
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq)]
@@ -179,11 +181,30 @@ where
 
     let mut grid = user_data.integrand[0].create_grid();
 
+    let grid_str = match &grid {
+        havana::Grid::DiscreteGrid(g) => format!(
+            "top-level discrete {}-dimensional grid",
+            format!("{}", g.discrete_dimensions.len()).bold().blue()
+        ),
+        havana::Grid::ContinuousGrid(g) => {
+            format!(
+                "top-level continuous {}-dimensional grid",
+                format!("{}", g.continuous_dimensions.len()).bold().blue()
+            )
+        }
+    };
+
     let mut iter = 1;
 
     let cores = user_data.integrand.len();
 
     let t_start = Instant::now();
+    println!(
+        "Beta loop now integrates '{}' over a {} ...",
+        format!("{}", settings.hard_coded_integrand).green(),
+        grid_str
+    );
+    println!();
     while num_points < settings.integrator.n_max {
         let cur_points = settings.integrator.n_start + settings.integrator.n_increase * (iter - 1);
         samples.resize(cur_points, Sample::new());
@@ -348,17 +369,17 @@ where
                 if itg.avg != 0. {
                     if (itg.err / itg.avg).abs() > 0.01 {
                         format!(
-                            "({:-8})",
+                            "{:-8}",
                             format!("{:.3}%", (itg.err / itg.avg).abs() * 100.).red()
                         )
                     } else {
                         format!(
-                            "({:-8})",
+                            "{:-8}",
                             format!("{:.3}%", (itg.err / itg.avg).abs() * 100.).green()
                         )
                     }
                 } else {
-                    format!("{:-10}", "")
+                    format!("{:-8}", "")
                 },
                 if itg.chi_sq / (i_iter as f64) > 5. {
                     format!("{:-6.3} χ²/dof", itg.chi_sq / (i_iter as f64)).red()
@@ -514,7 +535,7 @@ fn main() -> Result<(), Report> {
             Arg::with_name("n_start")
                 .long("n_start")
                 .value_name("N_START")
-                .help("Number of starting samples for Vegas"),
+                .help("Number of starting samples for the integrator"),
         )
         .subcommand(
             SubCommand::with_name("inspect")
@@ -703,11 +724,6 @@ fn main() -> Result<(), Report> {
         );
         println!();
     } else {
-        println!(
-            "Beta loop is at your service and starts integrating '{}' ...",
-            format!("{}", settings.hard_coded_integrand).green()
-        );
-        println!();
         let user_data_generator = |settings: &Settings| UserData {
             integrand: (0..num_integrands)
                 .map(|_i| integrand_factory(settings))

@@ -46,7 +46,7 @@ impl Display for HardCodedIntegrandSettings {
 
 impl Default for HardCodedIntegrandSettings {
     fn default() -> HardCodedIntegrandSettings {
-        HardCodedIntegrandSettings::UnitSurface(UnitSurfaceSettings { n_dim: 8 })
+        HardCodedIntegrandSettings::UnitSurface(UnitSurfaceSettings { n_3d_momenta: 1 })
     }
 }
 
@@ -220,26 +220,15 @@ pub fn integrand_factory(settings: &Settings) -> Integrand {
     }
 }
 
-pub fn compute_surface_and_volume(n_dim: usize, radius: f64) -> (f64, f64) {
-    let mut surface = 2.0;
-    let mut volume = 1.0;
-    for i in 1..n_dim + 1 {
-        (surface, volume) = (2. * std::f64::consts::PI * volume, surface / (i as f64));
-    }
-    (
-        surface * radius.powi(n_dim as i32),
-        volume * radius.powi(n_dim as i32),
-    )
-}
-
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct UnitSurfaceSettings {
-    pub n_dim: usize,
+    pub n_3d_momenta: usize,
 }
 
 pub struct UnitSurfaceIntegrand {
     pub settings: Settings,
     pub n_dim: usize,
+    pub n_3d_momenta: usize,
     pub supergraph: SuperGraph,
     pub surface: f64,
 }
@@ -250,14 +239,17 @@ impl UnitSurfaceIntegrand {
         settings: Settings,
         integrand_settings: UnitSurfaceSettings,
     ) -> UnitSurfaceIntegrand {
-        if (integrand_settings.n_dim + 1) % 3 != 0 {
-            panic!("n_dim must be a multiple of 3 for unit surface integrand");
-        }
-        let surface =
-            compute_surface_and_volume(integrand_settings.n_dim, settings.kinematics.e_cm).0;
+        let n_dim =
+            utils::get_n_dim_for_n_loop_momenta(&settings, integrand_settings.n_3d_momenta, true);
+        let surface = utils::compute_surface_and_volume(
+            integrand_settings.n_3d_momenta * 3 - 1,
+            settings.kinematics.e_cm,
+        )
+        .0;
         UnitSurfaceIntegrand {
             settings,
-            n_dim: integrand_settings.n_dim,
+            n_3d_momenta: integrand_settings.n_3d_momenta,
+            n_dim: n_dim,
             supergraph: SuperGraph::default(),
             surface: surface,
         }
@@ -332,20 +324,21 @@ impl HasIntegrand for UnitSurfaceIntegrand {
             println!("Integrator weight : {:+.16e}", wgt);
             println!("Integrand weight  : {:+.16e}", itg_wgt);
             println!("Sampling jacobian : {:+.16e}", jac);
-            println!("Final contribution: {:+.16e}", itg_wgt * wgt * jac);
+            println!("Final contribution: {:+.16e}", itg_wgt * jac);
         }
-        return Complex::new(itg_wgt, 0.) * wgt * jac;
+        return Complex::new(itg_wgt, 0.) * jac;
     }
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct UnitVolumeSettings {
-    pub n_dim: usize,
+    pub n_3d_momenta: usize,
 }
 
 pub struct UnitVolumeIntegrand {
     pub settings: Settings,
     pub n_dim: usize,
+    pub n_3d_momenta: usize,
     pub supergraph: SuperGraph,
     pub volume: f64,
 }
@@ -353,14 +346,17 @@ pub struct UnitVolumeIntegrand {
 #[allow(unused)]
 impl UnitVolumeIntegrand {
     pub fn new(settings: Settings, integrand_settings: UnitVolumeSettings) -> UnitVolumeIntegrand {
-        if (integrand_settings.n_dim % 3) != 0 {
-            panic!("n_dim must be a multiple of 3 for unit volume integrand");
-        }
-        let volume =
-            compute_surface_and_volume(integrand_settings.n_dim, settings.kinematics.e_cm).1;
+        let n_dim =
+            utils::get_n_dim_for_n_loop_momenta(&settings, integrand_settings.n_3d_momenta, false);
+        let volume = utils::compute_surface_and_volume(
+            integrand_settings.n_3d_momenta * 3,
+            settings.kinematics.e_cm,
+        )
+        .1;
         UnitVolumeIntegrand {
             settings,
-            n_dim: integrand_settings.n_dim,
+            n_3d_momenta: integrand_settings.n_3d_momenta,
+            n_dim: n_dim,
             supergraph: SuperGraph::default(),
             volume: volume,
         }
@@ -443,8 +439,8 @@ impl HasIntegrand for UnitVolumeIntegrand {
             println!("Integrator weight : {:+.16e}", wgt);
             println!("Integrand weight  : {:+.16e}", itg_wgt);
             println!("Sampling jacobian : {:+.16e}", jac);
-            println!("Final contribution: {:+.16e}", itg_wgt * wgt * jac);
+            println!("Final contribution: {:+.16e}", itg_wgt * jac);
         }
-        return Complex::new(itg_wgt, 0.) * wgt * jac;
+        return Complex::new(itg_wgt, 0.) * jac;
     }
 }
