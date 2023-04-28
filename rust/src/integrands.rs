@@ -1,6 +1,7 @@
 use crate::{utils, Settings};
 
 use crate::loop_induced_triboxtri::{LoopInducedTriBoxTriIntegrand, LoopInducedTriBoxTriSettings};
+use crate::triangle_subtraction::{TriangleSubtractionIntegrand, TriangleSubtractionSettings};
 use crate::utils::FloatLike;
 use enum_dispatch::enum_dispatch;
 use havana::Sample;
@@ -18,6 +19,8 @@ pub enum HardCodedIntegrand {
     UnitVolume,
     #[serde(rename = "loop_induced_TriBoxTri")]
     LoopInducedTriBoxTri,
+    #[serde(rename = "triangle_subtraction")]
+    TriangleSubtraction,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -30,6 +33,8 @@ pub enum HardCodedIntegrandSettings {
     UnitVolume(UnitVolumeSettings),
     #[serde(rename = "loop_induced_TriBoxTri")]
     LoopInducedTriBoxTri(LoopInducedTriBoxTriSettings),
+    #[serde(rename = "triangle_subtraction")]
+    TriangleSubtraction(TriangleSubtractionSettings),
 }
 
 impl Display for HardCodedIntegrandSettings {
@@ -39,6 +44,9 @@ impl Display for HardCodedIntegrandSettings {
             HardCodedIntegrandSettings::UnitVolume(_) => write!(f, "unit_volume"),
             HardCodedIntegrandSettings::LoopInducedTriBoxTri(_) => {
                 write!(f, "loop_induced_TriBoxTri")
+            }
+            HardCodedIntegrandSettings::TriangleSubtraction(_) => {
+                write!(f, "triangle_subtraction")
             }
         }
     }
@@ -201,6 +209,8 @@ pub enum Integrand {
     UnitSurface(UnitSurfaceIntegrand),
     UnitVolume(UnitVolumeIntegrand),
     LoopInducedTriBoxTri(LoopInducedTriBoxTriIntegrand),
+    // because of my implementation, I hardcoded it to f64. This should be enough though.
+    TriangleSubtraction(TriangleSubtractionIntegrand<f64>),
 }
 
 pub fn integrand_factory(settings: &Settings) -> Integrand {
@@ -216,6 +226,9 @@ pub fn integrand_factory(settings: &Settings) -> Integrand {
                 settings.clone(),
                 integrand_settings,
             ))
+        }
+        HardCodedIntegrandSettings::TriangleSubtraction(integrand_settings) => {
+            Integrand::TriangleSubtraction(TriangleSubtractionIntegrand::new(integrand_settings))
         }
     }
 }

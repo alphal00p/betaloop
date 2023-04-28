@@ -1,0 +1,71 @@
+General:
+  debug: 0
+HardCodedIntegrand:
+  type: triangle_subtraction
+  p1:
+    - 23.0
+    - 9.0
+    - 3.0
+    - 2.0
+  p2: 
+    - 12.0
+    - 7.0
+    - 1.0
+    - 2.0
+  center:
+    - 0.0
+    - -12.0
+    - -2.0
+    - -4.0
+  masses:
+    - 0.0
+    - 0.0
+    - 0.0
+  n_dim: 9
+Integrator:
+  n_bins: 128
+  min_samples_for_update: 1000
+  n_start: 10000
+  n_increase: 1000
+  n_max: 100000000
+  integrated_phase: real
+  learning_rate: 1.5
+  train_on_avg: false
+Kinematics:
+  e_cm: 1.0
+Parameterization:
+  b: 1.0
+  input_rescaling:
+    - - - 0.0
+        - 1.0
+      - - 0.0
+        - 1.0
+      - - 0.0
+        - 1.0
+    - - - 0.0
+        - 1.0
+      - - 0.0
+        - 1.0
+      - - 0.0
+        - 1.0
+    - - - 0.0
+        - 1.0
+      - - 0.0
+        - 1.0
+      - - 0.0
+        - 1.0
+  mapping: linear
+  mode: hyperspherical
+  shifts:
+    - - 1.0
+      - 0.0
+      - 0.0
+      - 0.0
+    - - 1.0
+      - 0.0
+      - 0.0
+      - 0.0
+    - - 1.0
+      - 0.0
+      - 0.0
+      - 0.0
