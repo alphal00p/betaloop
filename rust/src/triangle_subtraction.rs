@@ -444,41 +444,42 @@ pub struct TriangleSubtractionSettings {
     pub masses: [f64; 3],
 }
 
-pub struct TriangleSubtractionIntegrand<T: FloatLike> {
+pub struct TriangleSubtractionIntegrand {
     _integrand_settings: TriangleSubtractionSettings,
-    integrand: RegulatedIntegrand<T>,
-    sqrt_s: T,
+    integrand_f64: RegulatedIntegrand<f64>,
+    // integrand_f128: RegulatedIntegrand<f128>, todo add f128 support
+    sqrt_s: f64,
 }
 
 #[allow(unused)]
-impl<T: FloatLike> TriangleSubtractionIntegrand<T> {
+impl TriangleSubtractionIntegrand {
     pub fn new(integrand_settings: TriangleSubtractionSettings) -> Self {
         let p1 = LorentzVector::from_args(
-            T::from_f64(integrand_settings.p1[0]).unwrap(),
-            T::from_f64(integrand_settings.p1[1]).unwrap(),
-            T::from_f64(integrand_settings.p1[2]).unwrap(),
-            T::from_f64(integrand_settings.p1[3]).unwrap(),
+            (integrand_settings.p1[0]),
+            (integrand_settings.p1[1]),
+            (integrand_settings.p1[2]),
+            (integrand_settings.p1[3]),
         );
 
         let p2 = LorentzVector::from_args(
-            T::from_f64(integrand_settings.p2[0]).unwrap(),
-            T::from_f64(integrand_settings.p2[1]).unwrap(),
-            T::from_f64(integrand_settings.p2[2]).unwrap(),
-            T::from_f64(integrand_settings.p2[3]).unwrap(),
+            (integrand_settings.p2[0]),
+            (integrand_settings.p2[1]),
+            (integrand_settings.p2[2]),
+            (integrand_settings.p2[3]),
         );
 
         let sqrt_s = (p1 + p2).square().sqrt();
         let shift = LorentzVector::from_args(
-            T::from_f64(integrand_settings.center[0]).unwrap(),
-            T::from_f64(integrand_settings.center[1]).unwrap(),
-            T::from_f64(integrand_settings.center[2]).unwrap(),
-            T::from_f64(integrand_settings.center[3]).unwrap(),
+            (integrand_settings.center[0]),
+            (integrand_settings.center[1]),
+            (integrand_settings.center[2]),
+            (integrand_settings.center[3]),
         );
 
         let masses = [
-            T::from_f64(integrand_settings.masses[0]).unwrap(),
-            T::from_f64(integrand_settings.masses[1]).unwrap(),
-            T::from_f64(integrand_settings.masses[2]).unwrap(),
+            (integrand_settings.masses[0]),
+            (integrand_settings.masses[1]),
+            (integrand_settings.masses[2]),
         ];
 
         let integrand = Integrand::new_triangle(p1, p2, masses, shift);
@@ -504,14 +505,14 @@ impl<T: FloatLike> TriangleSubtractionIntegrand<T> {
 
         Self {
             _integrand_settings: integrand_settings.clone(),
-            integrand: regulated_integrand,
+            integrand_f64: regulated_integrand,
             sqrt_s,
         }
     }
 }
 
 #[allow(unused)]
-impl<T: FloatLike> HasIntegrand for TriangleSubtractionIntegrand<T> {
+impl HasIntegrand for TriangleSubtractionIntegrand {
     fn get_n_dim(&self) -> usize {
         3
     }
@@ -524,15 +525,7 @@ impl<T: FloatLike> HasIntegrand for TriangleSubtractionIntegrand<T> {
         use_f128: bool,
     ) -> Complex<f64> {
         if let Sample::ContinuousGrid(cont_weight, cs) = sample {
-            let mut t_sample = vec![];
-            for val in cs.iter() {
-                t_sample.push(T::from_f64(*val).unwrap())
-            }
-            let res = self
-                .integrand
-                .evaluate_hypercube(&t_sample, self.sqrt_s)
-                .to_f64()
-                .unwrap();
+            let res = self.integrand_f64.evaluate_hypercube(&cs, self.sqrt_s);
             return Complex::new(res, 0.0);
         } else {
             unreachable!()
