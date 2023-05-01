@@ -4,13 +4,16 @@ use crate::{utils, Settings};
 use crate::loop_induced_triboxtri::{LoopInducedTriBoxTriIntegrand, LoopInducedTriBoxTriSettings};
 use crate::triangle_subtraction::{TriangleSubtractionIntegrand, TriangleSubtractionSettings};
 use crate::utils::FloatLike;
+use color_eyre::{Help, Report};
 use enum_dispatch::enum_dispatch;
+use eyre::WrapErr;
 use havana::Sample;
 use havana::{ContinuousGrid, Grid};
 use lorentz_vector::LorentzVector;
 use num::Complex;
 use serde::Deserialize;
 use std::fmt::{Display, Formatter};
+use std::fs::File;
 
 #[derive(Debug, Copy, Clone, PartialEq, Deserialize)]
 pub enum HardCodedIntegrand {
@@ -66,60 +69,70 @@ impl Default for HardCodedIntegrandSettings {
     }
 }
 
+#[derive(Debug, Clone, Default, Deserialize)]
 pub struct Esurface {
     pub edge_ids: Vec<usize>,
-    pub shift: Vec<usize>,
+    pub shift: Vec<isize>,
+    pub id: usize,
 }
 #[allow(unused)]
 impl Esurface {
-    pub fn new(edge_ids: Vec<usize>, shift: Vec<usize>) -> Esurface {
-        Esurface { edge_ids, shift }
-    }
-}
-pub struct CFFDenom {
-    pub e_surfaces: Vec<Esurface>,
-}
-#[allow(unused)]
-impl CFFDenom {
-    pub fn new(e_surfaces: Vec<Esurface>) -> CFFDenom {
-        CFFDenom { e_surfaces }
+    pub fn new(edge_ids: Vec<usize>, shift: Vec<isize>, id: usize) -> Esurface {
+        Esurface {
+            edge_ids,
+            shift,
+            id,
+        }
     }
 }
 
+#[derive(Debug, Clone, Default, Deserialize)]
 pub struct CFFFactor {
-    pub denoms: Vec<CFFDenom>,
+    // Denominator consists of a list of E-surface IDs appearing in the denominator
+    pub denominator: Vec<usize>,
+    pub factors: Vec<CFFFactor>,
 }
 #[allow(unused)]
 impl CFFFactor {
-    pub fn new(denoms: Vec<CFFDenom>) -> CFFFactor {
-        CFFFactor { denoms }
+    pub fn new(denominator: Vec<usize>, factors: Vec<CFFFactor>) -> CFFFactor {
+        CFFFactor {
+            denominator,
+            factors,
+        }
     }
 }
+#[derive(Debug, Clone, Default, Deserialize)]
 pub struct CFFTerm {
-    pub orientation: Vec<bool>,
+    pub orientation: Vec<(usize, isize)>,
     pub factors: Vec<CFFFactor>,
 }
 #[allow(unused)]
 impl CFFTerm {
-    pub fn new(orientation: Vec<bool>, factors: Vec<CFFFactor>) -> CFFTerm {
+    pub fn new(orientation: Vec<(usize, isize)>, factors: Vec<CFFFactor>) -> CFFTerm {
         CFFTerm {
             orientation,
             factors,
         }
     }
 }
+#[derive(Debug, Clone, Default, Deserialize)]
 pub struct CFFExpression {
     pub terms: Vec<CFFTerm>,
+    pub e_surfaces: Vec<Esurface>,
 }
 #[allow(unused)]
 impl CFFExpression {
-    pub fn new(terms: Vec<CFFTerm>) -> CFFExpression {
-        CFFExpression { terms }
+    pub fn new(terms: Vec<CFFTerm>, e_surfaces: Vec<Esurface>) -> CFFExpression {
+        CFFExpression { terms, e_surfaces }
     }
 }
+#[derive(Debug, Clone, Default, Deserialize)]
 pub struct Amplitude {
     pub edges: Vec<Edge>,
-    pub thresholds: Vec<Esurface>,
+    pub lmb_edges: Vec<Edge>,
+    pub external_edge_id_and_flip: Vec<(usize, isize)>,
+    // Thresholds given as list of E-surface ids in the cff_expression
+    pub thresholds: Vec<usize>,
     pub cff_expression: CFFExpression,
     pub n_loop: usize,
 }
@@ -127,52 +140,62 @@ pub struct Amplitude {
 impl Amplitude {
     pub fn new(
         edges: Vec<Edge>,
+        lmb_edges: Vec<Edge>,
+        external_edge_id_and_flip: Vec<(usize, isize)>,
         cff_expression: CFFExpression,
-        thresholds: Vec<Esurface>,
+        thresholds: Vec<usize>,
         n_loop: usize,
     ) -> Amplitude {
         Amplitude {
             edges,
+            lmb_edges,
+            external_edge_id_and_flip,
             cff_expression,
             thresholds,
             n_loop,
         }
     }
 }
+#[derive(Debug, Clone, Default, Deserialize)]
 pub struct Cut {
-    pub cut_edge_ids: Vec<usize>,
+    pub cut_edge_ids_and_flip: Vec<(usize, isize)>,
     pub left_amplitude: Amplitude,
     pub right_amplitude: Amplitude,
 }
 #[allow(unused)]
 impl Cut {
     pub fn new(
-        cut_edge_ids: Vec<usize>,
+        cut_edge_ids_and_flip: Vec<(usize, isize)>,
         left_amplitude: Amplitude,
         right_amplitude: Amplitude,
     ) -> Cut {
         Cut {
-            cut_edge_ids,
+            cut_edge_ids_and_flip,
             left_amplitude,
             right_amplitude,
         }
     }
 }
+#[derive(Debug, Clone, Default, Deserialize)]
 pub struct Edge {
     pub mass: f64,
     pub signature: (Vec<isize>, Vec<isize>),
     pub id: usize,
+    pub power: usize,
 }
 #[allow(unused)]
 impl Edge {
-    pub fn new(mass: f64, signature: (Vec<isize>, Vec<isize>), id: usize) -> Edge {
+    pub fn new(mass: f64, signature: (Vec<isize>, Vec<isize>), power: usize, id: usize) -> Edge {
         Edge {
             mass,
             signature,
             id,
+            power,
         }
     }
 }
+
+#[derive(Debug, Clone, Default, Deserialize)]
 pub struct SuperGraph {
     pub edges: Vec<Edge>,
     pub cuts: Vec<Cut>,
@@ -194,6 +217,15 @@ impl SuperGraph {
             cuts: Vec::new(),
             n_loop: 0,
         }
+    }
+
+    pub fn from_file(filename: &str) -> Result<SuperGraph, Report> {
+        let f = File::open(filename)
+            .wrap_err_with(|| format!("Could not open supergraph file {}", filename))
+            .suggestion("Does the path exist?")?;
+        serde_yaml::from_reader(f)
+            .wrap_err("Could not parse supergraph file")
+            .suggestion("Is it a correct YAML file")
     }
 }
 
@@ -439,7 +471,7 @@ impl HasIntegrand for UnitVolumeIntegrand {
         let mut loop_momenta = vec![];
         for m in &moms {
             loop_momenta.push(LorentzVector {
-                t: ((m[0] + m[1] + m[2]) * (m[0] + m[1] + m[2])).sqrt(),
+                t: 0.,
                 x: m[0],
                 y: m[1],
                 z: m[2],
