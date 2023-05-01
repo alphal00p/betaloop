@@ -1,3 +1,4 @@
+use crate::box_subtraction::{BoxSubtractionIntegrand, BoxSubtractionSettings};
 use crate::{utils, Settings};
 
 use crate::loop_induced_triboxtri::{LoopInducedTriBoxTriIntegrand, LoopInducedTriBoxTriSettings};
@@ -21,6 +22,8 @@ pub enum HardCodedIntegrand {
     LoopInducedTriBoxTri,
     #[serde(rename = "triangle_subtraction")]
     TriangleSubtraction,
+    #[serde(rename = "box_subtraction")]
+    BoxSubtraction,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -35,6 +38,8 @@ pub enum HardCodedIntegrandSettings {
     LoopInducedTriBoxTri(LoopInducedTriBoxTriSettings),
     #[serde(rename = "triangle_subtraction")]
     TriangleSubtraction(TriangleSubtractionSettings),
+    #[serde(rename = "box_subtraction")]
+    BoxSubtraction(BoxSubtractionSettings),
 }
 
 impl Display for HardCodedIntegrandSettings {
@@ -47,6 +52,9 @@ impl Display for HardCodedIntegrandSettings {
             }
             HardCodedIntegrandSettings::TriangleSubtraction(_) => {
                 write!(f, "triangle_subtraction")
+            }
+            HardCodedIntegrandSettings::BoxSubtraction(_) => {
+                write!(f, "box_subtraction")
             }
         }
     }
@@ -209,8 +217,8 @@ pub enum Integrand {
     UnitSurface(UnitSurfaceIntegrand),
     UnitVolume(UnitVolumeIntegrand),
     LoopInducedTriBoxTri(LoopInducedTriBoxTriIntegrand),
-    // because of my implementation, I hardcoded it to f64. This should be enough though.
-    TriangleSubtraction(TriangleSubtractionIntegrand<f64>),
+    TriangleSubtraction(TriangleSubtractionIntegrand),
+    BoxSubtraction(BoxSubtractionIntegrand),
 }
 
 pub fn integrand_factory(settings: &Settings) -> Integrand {
@@ -229,6 +237,9 @@ pub fn integrand_factory(settings: &Settings) -> Integrand {
         }
         HardCodedIntegrandSettings::TriangleSubtraction(integrand_settings) => {
             Integrand::TriangleSubtraction(TriangleSubtractionIntegrand::new(integrand_settings))
+        }
+        HardCodedIntegrandSettings::BoxSubtraction(integrand_settings) => {
+            Integrand::BoxSubtraction(BoxSubtractionIntegrand::new(integrand_settings))
         }
     }
 }

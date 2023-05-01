@@ -1,0 +1,698 @@
+1:
+  Orientation:
+    1: -1
+    2: -1
+    3: -1
+    4: 1
+  Terms:
+  - Esurfs:
+    - OSE:
+      - 1
+      - 4
+      overall_sign: 1
+      shift_signature:
+      - 1
+      - 0
+      - 0
+      - 0
+    - OSE:
+      - 2
+      - 4
+      overall_sign: 1
+      shift_signature:
+      - 0
+      - 0
+      - -1
+      - -1
+    - OSE:
+      - 3
+      - 4
+      overall_sign: 1
+      shift_signature:
+      - 0
+      - 0
+      - 0
+      - -1
+    Num: 1
+    Orderings: null
+2:
+  Orientation:
+    1: -1
+    2: -1
+    3: 1
+    4: -1
+  Terms:
+  - Esurfs:
+    - OSE:
+      - 3
+      - 4
+      overall_sign: 1
+      shift_signature:
+      - 0
+      - 0
+      - 0
+      - 1
+    - OSE:
+      - 1
+      - 3
+      overall_sign: 1
+      shift_signature:
+      - 1
+      - 0
+      - 0
+      - 1
+    - OSE:
+      - 2
+      - 3
+      overall_sign: 1
+      shift_signature:
+      - 0
+      - 0
+      - -1
+      - 0
+    Num: 1
+    Orderings: null
+3:
+  Orientation:
+    1: -1
+    2: -1
+    3: 1
+    4: 1
+  Terms:
+  - Esurfs:
+    - OSE:
+      - 1
+      - 4
+      overall_sign: 1
+      shift_signature:
+      - 1
+      - 0
+      - 0
+      - 0
+    - OSE:
+      - 2
+      - 4
+      overall_sign: 1
+      shift_signature:
+      - 0
+      - 0
+      - -1
+      - -1
+    - OSE:
+      - 2
+      - 3
+      overall_sign: 1
+      shift_signature:
+      - 0
+      - 0
+      - -1
+      - 0
+    Num: 1
+    Orderings: null
+  - Esurfs:
+    - OSE:
+      - 1
+      - 4
+      overall_sign: 1
+      shift_signature:
+      - 1
+      - 0
+      - 0
+      - 0
+    - OSE:
+      - 1
+      - 3
+      overall_sign: 1
+      shift_signature:
+      - 1
+      - 0
+      - 0
+      - 1
+    - OSE:
+      - 2
+      - 3
+      overall_sign: 1
+      shift_signature:
+      - 0
+      - 0
+      - -1
+      - 0
+    Num: 1
+    Orderings: null
+4:
+  Orientation:
+    1: -1
+    2: 1
+    3: -1
+    4: -1
+  Terms:
+  - Esurfs:
+    - OSE:
+      - 2
+      - 3
+      overall_sign: 1
+      shift_signature:
+      - 0
+      - 0
+      - 1
+      - 0
+    - OSE:
+      - 2
+      - 4
+      overall_sign: 1
+      shift_signature:
+      - 0
+      - 0
+      - 1
+      - 1
+    - OSE:
+      - 1
+      - 2
+      overall_sign: 1
+      shift_signature:
+      - 1
+      - 0
+      - 1
+      - 1
+    Num: 1
+    Orderings: null
+5:
+  Orientation:
+    1: -1
+    2: 1
+    3: -1
+    4: 1
+  Terms:
+  - Esurfs:
+    - OSE:
+      - 1
+      - 4
+      overall_sign: 1
+      shift_signature:
+      - 1
+      - 0
+      - 0
+      - 0
+    - OSE:
+      - 2
+      - 3
+      overall_sign: 1
+      shift_signature:
+      - 0
+      - 0
+      - 1
+      - 0
+    - OSE:
+      - 3
+      - 4
+      overall_sign: 1
+      shift_signature:
+      - 0
+      - 0
+      - 0
+      - -1
+    Num: 1
+    Orderings: null
+  - Esurfs:
+    - OSE:
+      - 1
+      - 4
+      overall_sign: 1
+      shift_signature:
+      - 1
+      - 0
+      - 0
+      - 0
+    - OSE:
+      - 2
+      - 3
+      overall_sign: 1
+      shift_signature:
+      - 0
+      - 0
+      - 1
+      - 0
+    - OSE:
+      - 1
+      - 2
+      overall_sign: 1
+      shift_signature:
+      - 1
+      - 0
+      - 1
+      - 1
+    Num: 1
+    Orderings: null
+6:
+  Orientation:
+    1: -1
+    2: 1
+    3: 1
+    4: -1
+  Terms:
+  - Esurfs:
+    - OSE:
+      - 3
+      - 4
+      overall_sign: 1
+      shift_signature:
+      - 0
+      - 0
+      - 0
+      - 1
+    - OSE:
+      - 2
+      - 4
+      overall_sign: 1
+      shift_signature:
+      - 0
+      - 0
+      - 1
+      - 1
+    - OSE:
+      - 1
+      - 2
+      overall_sign: 1
+      shift_signature:
+      - 1
+      - 0
+      - 1
+      - 1
+    Num: 1
+    Orderings: null
+  - Esurfs:
+    - OSE:
+      - 3
+      - 4
+      overall_sign: 1
+      shift_signature:
+      - 0
+      - 0
+      - 0
+      - 1
+    - OSE:
+      - 1
+      - 3
+      overall_sign: 1
+      shift_signature:
+      - 1
+      - 0
+      - 0
+      - 1
+    - OSE:
+      - 1
+      - 2
+      overall_sign: 1
+      shift_signature:
+      - 1
+      - 0
+      - 1
+      - 1
+    Num: 1
+    Orderings: null
+7:
+  Orientation:
+    1: -1
+    2: 1
+    3: 1
+    4: 1
+  Terms:
+  - Esurfs:
+    - OSE:
+      - 1
+      - 4
+      overall_sign: 1
+      shift_signature:
+      - 1
+      - 0
+      - 0
+      - 0
+    - OSE:
+      - 1
+      - 3
+      overall_sign: 1
+      shift_signature:
+      - 1
+      - 0
+      - 0
+      - 1
+    - OSE:
+      - 1
+      - 2
+      overall_sign: 1
+      shift_signature:
+      - 1
+      - 0
+      - 1
+      - 1
+    Num: 1
+    Orderings: null
+8:
+  Orientation:
+    1: 1
+    2: -1
+    3: -1
+    4: -1
+  Terms:
+  - Esurfs:
+    - OSE:
+      - 1
+      - 2
+      overall_sign: 1
+      shift_signature:
+      - -1
+      - 0
+      - -1
+      - -1
+    - OSE:
+      - 1
+      - 3
+      overall_sign: 1
+      shift_signature:
+      - -1
+      - 0
+      - 0
+      - -1
+    - OSE:
+      - 1
+      - 4
+      overall_sign: 1
+      shift_signature:
+      - -1
+      - 0
+      - 0
+      - 0
+    Num: 1
+    Orderings: null
+9:
+  Orientation:
+    1: 1
+    2: -1
+    3: -1
+    4: 1
+  Terms:
+  - Esurfs:
+    - OSE:
+      - 1
+      - 2
+      overall_sign: 1
+      shift_signature:
+      - -1
+      - 0
+      - -1
+      - -1
+    - OSE:
+      - 2
+      - 4
+      overall_sign: 1
+      shift_signature:
+      - 0
+      - 0
+      - -1
+      - -1
+    - OSE:
+      - 3
+      - 4
+      overall_sign: 1
+      shift_signature:
+      - 0
+      - 0
+      - 0
+      - -1
+    Num: 1
+    Orderings: null
+  - Esurfs:
+    - OSE:
+      - 1
+      - 2
+      overall_sign: 1
+      shift_signature:
+      - -1
+      - 0
+      - -1
+      - -1
+    - OSE:
+      - 1
+      - 3
+      overall_sign: 1
+      shift_signature:
+      - -1
+      - 0
+      - 0
+      - -1
+    - OSE:
+      - 3
+      - 4
+      overall_sign: 1
+      shift_signature:
+      - 0
+      - 0
+      - 0
+      - -1
+    Num: 1
+    Orderings: null
+10:
+  Orientation:
+    1: 1
+    2: -1
+    3: 1
+    4: -1
+  Terms:
+  - Esurfs:
+    - OSE:
+      - 1
+      - 2
+      overall_sign: 1
+      shift_signature:
+      - -1
+      - 0
+      - -1
+      - -1
+    - OSE:
+      - 3
+      - 4
+      overall_sign: 1
+      shift_signature:
+      - 0
+      - 0
+      - 0
+      - 1
+    - OSE:
+      - 2
+      - 3
+      overall_sign: 1
+      shift_signature:
+      - 0
+      - 0
+      - -1
+      - 0
+    Num: 1
+    Orderings: null
+  - Esurfs:
+    - OSE:
+      - 1
+      - 2
+      overall_sign: 1
+      shift_signature:
+      - -1
+      - 0
+      - -1
+      - -1
+    - OSE:
+      - 3
+      - 4
+      overall_sign: 1
+      shift_signature:
+      - 0
+      - 0
+      - 0
+      - 1
+    - OSE:
+      - 1
+      - 4
+      overall_sign: 1
+      shift_signature:
+      - -1
+      - 0
+      - 0
+      - 0
+    Num: 1
+    Orderings: null
+11:
+  Orientation:
+    1: 1
+    2: -1
+    3: 1
+    4: 1
+  Terms:
+  - Esurfs:
+    - OSE:
+      - 1
+      - 2
+      overall_sign: 1
+      shift_signature:
+      - -1
+      - 0
+      - -1
+      - -1
+    - OSE:
+      - 2
+      - 4
+      overall_sign: 1
+      shift_signature:
+      - 0
+      - 0
+      - -1
+      - -1
+    - OSE:
+      - 2
+      - 3
+      overall_sign: 1
+      shift_signature:
+      - 0
+      - 0
+      - -1
+      - 0
+    Num: 1
+    Orderings: null
+12:
+  Orientation:
+    1: 1
+    2: 1
+    3: -1
+    4: -1
+  Terms:
+  - Esurfs:
+    - OSE:
+      - 2
+      - 3
+      overall_sign: 1
+      shift_signature:
+      - 0
+      - 0
+      - 1
+      - 0
+    - OSE:
+      - 1
+      - 3
+      overall_sign: 1
+      shift_signature:
+      - -1
+      - 0
+      - 0
+      - -1
+    - OSE:
+      - 1
+      - 4
+      overall_sign: 1
+      shift_signature:
+      - -1
+      - 0
+      - 0
+      - 0
+    Num: 1
+    Orderings: null
+  - Esurfs:
+    - OSE:
+      - 2
+      - 3
+      overall_sign: 1
+      shift_signature:
+      - 0
+      - 0
+      - 1
+      - 0
+    - OSE:
+      - 2
+      - 4
+      overall_sign: 1
+      shift_signature:
+      - 0
+      - 0
+      - 1
+      - 1
+    - OSE:
+      - 1
+      - 4
+      overall_sign: 1
+      shift_signature:
+      - -1
+      - 0
+      - 0
+      - 0
+    Num: 1
+    Orderings: null
+13:
+  Orientation:
+    1: 1
+    2: 1
+    3: -1
+    4: 1
+  Terms:
+  - Esurfs:
+    - OSE:
+      - 2
+      - 3
+      overall_sign: 1
+      shift_signature:
+      - 0
+      - 0
+      - 1
+      - 0
+    - OSE:
+      - 1
+      - 3
+      overall_sign: 1
+      shift_signature:
+      - -1
+      - 0
+      - 0
+      - -1
+    - OSE:
+      - 3
+      - 4
+      overall_sign: 1
+      shift_signature:
+      - 0
+      - 0
+      - 0
+      - -1
+    Num: 1
+    Orderings: null
+14:
+  Orientation:
+    1: 1
+    2: 1
+    3: 1
+    4: -1
+  Terms:
+  - Esurfs:
+    - OSE:
+      - 3
+      - 4
+      overall_sign: 1
+      shift_signature:
+      - 0
+      - 0
+      - 0
+      - 1
+    - OSE:
+      - 2
+      - 4
+      overall_sign: 1
+      shift_signature:
+      - 0
+      - 0
+      - 1
+      - 1
+    - OSE:
+      - 1
+      - 4
+      overall_sign: 1
+      shift_signature:
+      - -1
+      - 0
+      - 0
+      - 0
+    Num: 1
+    Orderings: null
