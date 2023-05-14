@@ -1,4 +1,5 @@
 mod box_subtraction;
+mod h_function_test;
 mod integrands;
 mod loop_induced_triboxtri;
 mod triangle_subtraction;
@@ -30,6 +31,26 @@ pub const MAX_CORES: usize = 1000;
 pub const MAX_LOOP: usize = 3;
 #[cfg(feature = "higher_loops")]
 pub const MAX_LOOP: usize = 6;
+
+#[derive(Debug, Clone, Default, Deserialize, PartialEq)]
+pub enum HFunction {
+    #[default]
+    #[serde(rename = "poly_exponential")]
+    PolyExponential,
+    #[serde(rename = "exponential")]
+    Exponential,
+    #[serde(rename = "poly_left_right_exponential")]
+    PolyLeftRightExponential,
+    #[serde(rename = "exponential_ct")]
+    ExponentialCT,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct HFunctionSettings {
+    pub function: HFunction,
+    pub sigma: f64,
+    pub power: Option<usize>,
+}
 
 #[derive(Debug, Clone, Deserialize, PartialEq)]
 pub enum ParameterizationMode {
@@ -87,6 +108,7 @@ pub struct IntegratorSettings {
     pub integrated_phase: IntegratedPhase,
     pub learning_rate: f64,
     pub train_on_avg: bool,
+    pub show_max_wgt_info: bool,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -196,7 +218,7 @@ where
         }
     };
 
-    let mut iter = 1;
+    let mut iter = 0;
 
     let cores = user_data.integrand.len();
 
@@ -328,9 +350,9 @@ where
         num_points += cur_points;
 
         println!(
-            "/ [ {} ] {}: n_pts={:-7.0}K {} | {} /sample/core ",
+            "/ [ {} ] {}: n_pts={:-7.0}K {} {} /sample/core ",
             format!(
-                "{}",
+                "{:^7}",
                 utils::format_wdhms(t_start.elapsed().as_secs() as usize)
             )
             .bold(),
@@ -346,7 +368,7 @@ where
                     .green()
             },
             format!(
-                "{:.3} ms",
+                "{:-17.3} ms",
                 (((t_start.elapsed().as_secs() as f64) * 1000.) / (num_points as f64))
                     * (cores as f64)
             )
@@ -365,7 +387,7 @@ where
                 "|  itg #{:-3} {}: {} {} {} {} {}",
                 i_itg,
                 format!("{:-2}", tag).blue().bold(),
-                format!("{:-13}", utils::format_uncertainty(itg.avg, itg.err))
+                format!("{:-19}", utils::format_uncertainty(itg.avg, itg.err))
                     .blue()
                     .bold(),
                 if itg.avg != 0. {
@@ -458,6 +480,63 @@ where
                     None
                 },
             );
+        }
+        if settings.integrator.show_max_wgt_info {
+            println!("|  -------------------------------------------------------------------------------------------");
+            println!(
+                "|  {:<16} | {:<23} | {}",
+                "Integrand", "Max Eval", "Max Eval xs",
+            );
+            for i_integrand in 0..(N_INTEGRAND_ACCUMULATORS / 2) {
+                for part in 0..=1 {
+                    for sgn in 0..=1 {
+                        if (if sgn == 0 {
+                            all_integrals[2 * i_integrand + part].max_eval_positive
+                        } else {
+                            all_integrals[2 * i_integrand + part].max_eval_negative
+                        }) == 0.
+                        {
+                            continue;
+                        }
+                        println!(
+                            "|  {:<20} | {:<23} | {}",
+                            format!(
+                                "itg #{:-3} {} [{}] ",
+                                format!("{:<3}", i_integrand + 1),
+                                format!("{:<2}", if part == 0 { "re" } else { "im" }).blue(),
+                                format!("{:<1}", if sgn == 0 { "+" } else { "-" }).blue()
+                            ),
+                            format!(
+                                "{:+.16e}",
+                                if sgn == 0 {
+                                    all_integrals[2 * i_integrand + part].max_eval_positive
+                                } else {
+                                    all_integrals[2 * i_integrand + part].max_eval_negative
+                                }
+                            ),
+                            format!(
+                                "( {} )",
+                                if let Some(sample) = if sgn == 0 {
+                                    &all_integrals[2 * i_integrand + part].max_eval_positive_xs
+                                } else {
+                                    &all_integrals[2 * i_integrand + part].max_eval_negative_xs
+                                } {
+                                    match sample {
+                                        Sample::ContinuousGrid(_w, v) => v
+                                            .iter()
+                                            .map(|&x| format!("{:.16}", x))
+                                            .collect::<Vec<_>>()
+                                            .join(", "),
+                                        _ => panic!("Wrong sample type"),
+                                    }
+                                } else {
+                                    format!("{}", "N/A")
+                                }
+                            )
+                        );
+                    }
+                }
+            }
         }
         println!("");
     }
@@ -633,12 +712,18 @@ fn main() -> Result<(), Report> {
         if let Some(x) = matches.value_of("debug") {
             settings.general.debug = usize::from_str(x).unwrap();
         }
+
+        let integrand = integrand_factory(&settings);
+
         let mut pt: Vec<_> = matches
             .values_of("point")
             .unwrap()
             .map(|x| f64::from_str(x.trim_end_matches(',')).unwrap())
             .collect();
-        let force_radius = matches.is_present("force_radius");
+        let mut force_radius = matches.is_present("force_radius");
+        if integrand.get_n_dim() == pt.len() - 1 {
+            force_radius = true;
+        }
         let xs_f128 = if matches.is_present("momentum_space") {
             let (xs, inv_jac) = utils::global_inv_parameterize::<f128::f128>(
                 &pt.chunks_exact_mut(3)
@@ -664,7 +749,7 @@ fn main() -> Result<(), Report> {
             .collect::<Vec<_>>();
         let use_f128 = matches.is_present("use_f128");
 
-        let eval = integrand_factory(&settings).evaluate_sample(
+        let eval = integrand.evaluate_sample(
             &Sample::ContinuousGrid(
                 1.,
                 if force_radius {

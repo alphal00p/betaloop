@@ -12,6 +12,12 @@ use std::ops::Neg;
 #[allow(unused)]
 const MAX_DIMENSION: usize = MAX_LOOP * 3;
 
+pub const LEFT: usize = 0;
+pub const RIGHT: usize = 1;
+
+pub const PLUS: usize = 0;
+pub const MINUS: usize = 1;
+
 pub trait FloatConvertFrom<U> {
     fn convert_from(x: &U) -> Self;
 }
@@ -353,6 +359,97 @@ pub fn evaluate_signature<T: Field>(
     momentum
 }
 
+pub fn h<T: FloatLike>(
+    t: T,
+    tstar: Option<T>,
+    sigma: Option<T>,
+    h_function_settings: &crate::HFunctionSettings,
+) -> T {
+    let sig = if let Some(s) = sigma {
+        s
+    } else {
+        Into::<T>::into(h_function_settings.sigma as f64)
+    };
+    let power = h_function_settings.power;
+    match h_function_settings.function {
+        crate::HFunction::Exponential => {
+            (-(t * t) / (sig * sig)).exp() * Into::<T>::into(2 as f64)
+                / (<T as FloatConst>::PI().sqrt() * sig)
+        }
+        crate::HFunction::PolyExponential => {
+            // Result of \int_0^{\infty} dt (t/sigma)^{-p} exp(2-t^2/sigma^2-sigma^2/t^2)
+            let normalisation = match power {
+                None | Some(0) => <T as FloatConst>::PI().sqrt() * sig / Into::<T>::into(2 as f64),
+                Some(1) => Into::<T>::into(0.84156821507077141791912486734584) * sig,
+                Some(3) => Into::<T>::into(1.0334768470686885731753571058796) * sig,
+                Some(4) => Into::<T>::into(1.3293403881791370204736256125059) * sig,
+                Some(6) => Into::<T>::into(2.8802375077214635443595221604294) * sig,
+                Some(7) => Into::<T>::into(4.7835669713476085553643210523305) * sig,
+                Some(9) => Into::<T>::into(16.225745976182285657187445130217) * sig,
+                Some(10) => Into::<T>::into(32.735007058911249129163030707957) * sig,
+                Some(12) => Into::<T>::into(155.83746592258341696260606919938) * sig,
+                Some(13) => Into::<T>::into(364.65850035656604157775795299621) * sig,
+                Some(15) => Into::<T>::into(2257.6375530154730006506618195504) * sig,
+                Some(16) => Into::<T>::into(5939.8044185378636927153327426791) * sig,
+                _ => panic!(
+                    "Value {} of power in poly exponential h function not supported",
+                    power.unwrap()
+                ),
+            };
+            let prefactor = match power {
+                None | Some(0) => normalisation.inv(),
+                Some(p) => (t / sig).powi(-(p as i32)) / normalisation,
+            };
+            prefactor
+                * (Into::<T>::into(2 as f64) - (t * t) / (sig * sig) - (sig * sig) / (t * t)).exp()
+        }
+        crate::HFunction::PolyLeftRightExponential => {
+            // Result of \int_0^{\infty} dt (t/sigma)^{-p} exp( -((t^2/sigma^2 +1)/ (t/sigma) -2) )
+            let normalisation = match power {
+                None | Some(0) => Into::<T>::into(2.0669536941373771463507142117592) * sig,
+                Some(1) => Into::<T>::into(1.6831364301415428358382497346917) * sig,
+                Some(3) => Into::<T>::into(3.7500901242789199821889639464509) * sig,
+                Some(4) => Into::<T>::into(9.567133942695217110728642104661) * sig,
+                Some(6) => Into::<T>::into(139.3731017521535023682282031464) * sig,
+                Some(7) => Into::<T>::into(729.31700071313208315551590599241) * sig,
+                Some(9) => Into::<T>::into(32336.242742929754092264781379699) * sig,
+                Some(10) => Into::<T>::into(263205.21704946897873941957467669) * sig,
+                Some(12) => Into::<T>::into(2.4275037178930974606209829109376e7) * sig,
+                Some(13) => Into::<T>::into(2.694265921644288712310551611566e8) * sig,
+                Some(15) => Into::<T>::into(9.0407420577601240420566809613266e12) * sig,
+                Some(16) => Into::<T>::into(1.4525174802464911684668046368611e14) * sig,
+                _ => panic!(
+                    "Value {} of power in poly exponential h function not supported",
+                    power.unwrap()
+                ),
+            };
+            let prefactor = match power {
+                None | Some(0) => normalisation.inv(),
+                Some(p) => (t / sig).powi(-(p as i32)) / normalisation,
+            };
+            prefactor
+                * (Into::<T>::into(2 as f64) - ((t * t) / (sig * sig) + T::one()) / (t / sig)).exp()
+        }
+        crate::HFunction::ExponentialCT => {
+            let delta_t_sq = (t - tstar.unwrap()) * (t - tstar.unwrap());
+            let tstar_sq = tstar.unwrap() * tstar.unwrap();
+            let dampener = delta_t_sq / (delta_t_sq - tstar_sq);
+            // println!("dampener: {}", dampener);
+            // println!("delta_t_sq: {}", delta_t_sq);
+            // println!("tstar_sq: {}", tstar_sq);
+            // println!(
+            //     "Exp arg: {}",
+            //     -sig.inv() * (delta_t_sq / tstar_sq + sig * sig * (dampener * dampener))
+            // );
+            // println!(
+            //     "result: {}",
+            //     (-sig.inv() * (delta_t_sq / tstar_sq + sig * sig * (dampener * dampener))).exp()
+            // );
+            (-sig.inv() * (delta_t_sq / tstar_sq + sig * sig * (dampener * dampener))).exp()
+        }
+    }
+}
+
 /// Calculate the determinant of any complex-valued input matrix using LU-decomposition.
 /// Original C-code by W. Gong and D.E. Soper.
 #[allow(unused)]
@@ -465,6 +562,146 @@ pub fn next_combination_with_replacement(state: &mut [usize], max_entry: usize) 
         }
     }
     false
+}
+
+pub fn compute_momentum<T: FloatLike>(
+    signature: &(Vec<isize>, Vec<isize>),
+    loop_moms: &Vec<LorentzVector<T>>,
+    external_moms: &Vec<LorentzVector<T>>,
+) -> LorentzVector<T> {
+    let mut res = LorentzVector::default();
+    for (i_l, sign) in signature.0.iter().enumerate() {
+        res += loop_moms[i_l] * Into::<T>::into(*sign as f64);
+    }
+    for (i_l, sign) in signature.1.iter().enumerate() {
+        res += external_moms[i_l] * Into::<T>::into(*sign as f64);
+    }
+    res
+}
+
+// Bilinear form for E-surface defined as sqrt[(k+p1)^2+m1sq] + sqrt[(k+p2)^2+m2sq] + e_shift
+// The Bilinear system then reads 4 k.a.k + 4 k.n + C = 0
+pub fn one_loop_e_surface_bilinear_form<T: FloatLike>(
+    p1: &[T; 3],
+    p2: &[T; 3],
+    m1_sq: T,
+    m2_sq: T,
+    e_shift: T,
+) -> ([[T; 3]; 3], [T; 3], T) {
+    let two = Into::<T>::into(2 as f64);
+    let e_shift_sq = e_shift * e_shift;
+    let p1_sq = p1[0] * p1[0] + p1[1] * p1[1] + p1[2] * p1[2];
+    let p2_sq = p2[0] * p2[0] + p2[1] * p2[1] + p2[2] * p2[2];
+
+    let mut a = [[T::zero(); 3]; 3];
+    a[0][0] = (p1[0] - p2[0] - e_shift) * (p2[0] - p1[0] - e_shift);
+    a[0][1] = (p1[0] - p2[0]) * (p2[1] - p1[1]);
+    a[1][0] = a[0][1];
+    a[0][2] = (p1[0] - p2[0]) * (p2[2] - p1[2]);
+    a[2][0] = a[0][2];
+    a[1][1] = (p1[1] - p2[1] - e_shift) * (p2[1] - p1[1] - e_shift);
+    a[1][2] = (p1[1] - p2[1]) * (p2[2] - p1[2]);
+    a[2][1] = a[1][2];
+    a[2][2] = (p1[2] - p2[2] - e_shift) * (p2[2] - p1[2] - e_shift);
+
+    let mut b = [T::zero(); 3];
+    b[0] = (p2[0] - p1[0]) * (m1_sq - m2_sq + p1_sq - p2_sq) + e_shift_sq * (p1[0] + p2[0]);
+    b[1] = (p2[1] - p1[1]) * (m1_sq - m2_sq + p1_sq - p2_sq) + e_shift_sq * (p1[1] + p2[1]);
+    b[2] = (p2[2] - p1[2]) * (m1_sq - m2_sq + p1_sq - p2_sq) + e_shift_sq * (p1[2] + p2[2]);
+
+    let c = -e_shift_sq * e_shift_sq + two * e_shift_sq * (m1_sq + m2_sq + p1_sq + p2_sq)
+        - (m1_sq - m2_sq + p1_sq - p2_sq) * (m1_sq - m2_sq + p1_sq - p2_sq);
+
+    (a, b, c)
+}
+
+pub fn one_loop_e_surface_exists<T: FloatLike>(
+    p1: &[T; 3],
+    p2: &[T; 3],
+    m1_sq: T,
+    m2_sq: T,
+    e_shift: T,
+) -> bool {
+    let p_norm_sq = (p1[0] - p2[0]) * (p1[0] - p2[0])
+        + (p1[1] - p2[1]) * (p1[1] - p2[1])
+        + (p1[2] - p2[2]) * (p1[2] - p2[2]);
+    e_shift < T::zero()
+        && e_shift * e_shift - p_norm_sq
+            > (m1_sq.sqrt() + m2_sq.sqrt()) * (m1_sq.sqrt() + m2_sq.sqrt())
+}
+
+pub fn one_loop_eval_e_surf<T: FloatLike>(
+    k: &[T; 3],
+    p1: &[T; 3],
+    p2: &[T; 3],
+    m1_sq: T,
+    m2_sq: T,
+    e_shift: T,
+) -> T {
+    ((k[0] + p1[0]) * (k[0] + p1[0])
+        + (k[1] + p1[1]) * (k[1] + p1[1])
+        + (k[2] + p1[2]) * (k[2] + p1[2])
+        + m1_sq)
+        .sqrt()
+        + ((k[0] + p2[0]) * (k[0] + p2[0])
+            + (k[1] + p2[1]) * (k[1] + p2[1])
+            + (k[2] + p2[2]) * (k[2] + p2[2])
+            + m2_sq)
+            .sqrt()
+        + e_shift
+}
+
+pub fn one_loop_eval_e_surf_k_derivative<T: FloatLike>(
+    k: &[T; 3],
+    p1: &[T; 3],
+    p2: &[T; 3],
+    m1_sq: T,
+    m2_sq: T,
+) -> T {
+    (k[0] * k[0] + k[1] * k[1] + k[2] * k[2] + k[0] * p1[0] + k[1] * p1[1] + k[2] * p1[2])
+        / ((k[0] + p1[0]) * (k[0] + p1[0])
+            + (k[1] + p1[1]) * (k[1] + p1[1])
+            + (k[2] + p1[2]) * (k[2] + p1[2])
+            + m1_sq)
+            .sqrt()
+        + (k[0] * k[0] + k[1] * k[1] + k[2] * k[2] + k[0] * p2[0] + k[1] * p2[1] + k[2] * p2[2])
+            / ((k[0] + p2[0]) * (k[0] + p2[0])
+                + (k[1] + p2[1]) * (k[1] + p2[1])
+                + (k[2] + p2[2]) * (k[2] + p2[2])
+                + m2_sq)
+                .sqrt()
+}
+
+pub fn one_loop_get_e_surf_t_scaling<T: FloatLike>(
+    k: &[T; 3],
+    p1: &[T; 3],
+    p2: &[T; 3],
+    m1_sq: T,
+    m2_sq: T,
+    e_shift: T,
+) -> [T; 2] {
+    let (a, b, c_coef) = one_loop_e_surface_bilinear_form(p1, p2, m1_sq, m2_sq, e_shift);
+    let mut a_coef = T::zero();
+    for i in 0..=2 {
+        for j in 0..=2 {
+            a_coef += k[i] * a[i][j] * k[j];
+        }
+    }
+    a_coef *= Into::<T>::into(4 as f64);
+    let mut b_coef = T::zero();
+    for i in 0..=2 {
+        b_coef += k[i] * b[i];
+    }
+    b_coef *= Into::<T>::into(4 as f64);
+    let discr = b_coef * b_coef - Into::<T>::into(4 as f64) * a_coef * c_coef;
+    if discr < T::zero() {
+        [T::zero(), T::zero()]
+    } else {
+        [
+            (-b_coef + discr.sqrt()) / (Into::<T>::into(2 as f64) * a_coef),
+            (-b_coef - discr.sqrt()) / (Into::<T>::into(2 as f64) * a_coef),
+        ]
+    }
 }
 
 pub fn box_muller<T: FloatLike>(x1: T, x2: T) -> (T, T) {

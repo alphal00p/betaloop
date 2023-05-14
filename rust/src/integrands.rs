@@ -1,9 +1,11 @@
 use crate::box_subtraction::{BoxSubtractionIntegrand, BoxSubtractionSettings};
-use crate::{utils, Settings};
-
-use crate::loop_induced_triboxtri::{LoopInducedTriBoxTriIntegrand, LoopInducedTriBoxTriSettings};
+use crate::h_function_test::{HFunctionTestIntegrand, HFunctionTestSettings};
+use crate::loop_induced_triboxtri::{
+    ESurfaceCache, LoopInducedTriBoxTriIntegrand, LoopInducedTriBoxTriSettings,
+};
 use crate::triangle_subtraction::{TriangleSubtractionIntegrand, TriangleSubtractionSettings};
 use crate::utils::FloatLike;
+use crate::{utils, Settings};
 use color_eyre::{Help, Report};
 use enum_dispatch::enum_dispatch;
 use eyre::WrapErr;
@@ -27,6 +29,8 @@ pub enum HardCodedIntegrand {
     TriangleSubtraction,
     #[serde(rename = "box_subtraction")]
     BoxSubtraction,
+    #[serde(rename = "h_function_test")]
+    HFunctionTest,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -43,6 +47,8 @@ pub enum HardCodedIntegrandSettings {
     TriangleSubtraction(TriangleSubtractionSettings),
     #[serde(rename = "box_subtraction")]
     BoxSubtraction(BoxSubtractionSettings),
+    #[serde(rename = "h_function_test")]
+    HFunctionTest(HFunctionTestSettings),
 }
 
 impl Display for HardCodedIntegrandSettings {
@@ -58,6 +64,9 @@ impl Display for HardCodedIntegrandSettings {
             }
             HardCodedIntegrandSettings::BoxSubtraction(_) => {
                 write!(f, "box_subtraction")
+            }
+            HardCodedIntegrandSettings::HFunctionTest(_) => {
+                write!(f, "h_function_test")
             }
         }
     }
@@ -100,7 +109,49 @@ impl CFFFactor {
             factors,
         }
     }
+
+    pub fn evaluate<T: FloatLike>(
+        &self,
+        e_surface_caches: &Vec<ESurfaceCache<T>>,
+        expand_e_surf: Option<(usize, T)>,
+    ) -> T {
+        let mut coef = T::one();
+        for e_surf_id in self.denominator.iter() {
+            if let Some((expanded_e_surf_id, expanded_e_surf)) = expand_e_surf {
+                if expanded_e_surf_id != *e_surf_id {
+                    coef *= e_surface_caches[*e_surf_id].eval;
+                } else {
+                    coef *= expanded_e_surf;
+                }
+            } else {
+                coef *= e_surface_caches[*e_surf_id].eval;
+            }
+        }
+        if self.factors.len() > 0 {
+            let mut factors_sum = T::zero();
+            for factor in self.factors.iter() {
+                factors_sum += factor.evaluate(e_surface_caches, expand_e_surf);
+            }
+            coef.inv() * factors_sum
+        } else {
+            coef.inv()
+        }
+    }
+
+    pub fn contains_e_surf_id(&self, e_surf_id: usize) -> bool {
+        if self.denominator.contains(&e_surf_id) {
+            true
+        } else {
+            for factor in self.factors.iter() {
+                if factor.contains_e_surf_id(e_surf_id) {
+                    return true;
+                }
+            }
+            false
+        }
+    }
 }
+
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct CFFTerm {
     pub orientation: Vec<(usize, isize)>,
@@ -113,6 +164,27 @@ impl CFFTerm {
             orientation,
             factors,
         }
+    }
+
+    pub fn evaluate<T: FloatLike>(
+        &self,
+        e_surface_caches: &Vec<ESurfaceCache<T>>,
+        expand_e_surf: Option<(usize, T)>,
+    ) -> T {
+        let mut result = T::zero();
+        for factor in self.factors.iter() {
+            result += factor.evaluate(e_surface_caches, expand_e_surf);
+        }
+        result
+    }
+
+    pub fn contains_e_surf_id(&self, e_surf_id: usize) -> bool {
+        for factor in self.factors.iter() {
+            if factor.contains_e_surf_id(e_surf_id) {
+                return true;
+            }
+        }
+        return false;
     }
 }
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -130,9 +202,7 @@ impl CFFExpression {
 pub struct Amplitude {
     pub edges: Vec<Edge>,
     pub lmb_edges: Vec<Edge>,
-    pub external_edge_id_and_flip: Vec<(usize, isize)>,
-    // Thresholds given as list of E-surface ids in the cff_expression
-    pub thresholds: Vec<usize>,
+    pub external_edge_id_and_flip: Vec<(isize, isize)>,
     pub cff_expression: CFFExpression,
     pub n_loop: usize,
 }
@@ -141,7 +211,7 @@ impl Amplitude {
     pub fn new(
         edges: Vec<Edge>,
         lmb_edges: Vec<Edge>,
-        external_edge_id_and_flip: Vec<(usize, isize)>,
+        external_edge_id_and_flip: Vec<(isize, isize)>,
         cff_expression: CFFExpression,
         thresholds: Vec<usize>,
         n_loop: usize,
@@ -151,7 +221,6 @@ impl Amplitude {
             lmb_edges,
             external_edge_id_and_flip,
             cff_expression,
-            thresholds,
             n_loop,
         }
     }
@@ -248,6 +317,7 @@ pub trait HasIntegrand {
 pub enum Integrand {
     UnitSurface(UnitSurfaceIntegrand),
     UnitVolume(UnitVolumeIntegrand),
+    HFunctionTest(HFunctionTestIntegrand),
     LoopInducedTriBoxTri(LoopInducedTriBoxTriIntegrand),
     TriangleSubtraction(TriangleSubtractionIntegrand),
     BoxSubtraction(BoxSubtractionIntegrand),
@@ -260,6 +330,9 @@ pub fn integrand_factory(settings: &Settings) -> Integrand {
         ),
         HardCodedIntegrandSettings::UnitVolume(integrand_settings) => Integrand::UnitVolume(
             UnitVolumeIntegrand::new(settings.clone(), integrand_settings),
+        ),
+        HardCodedIntegrandSettings::HFunctionTest(integrand_settings) => Integrand::HFunctionTest(
+            HFunctionTestIntegrand::new(settings.clone(), integrand_settings),
         ),
         HardCodedIntegrandSettings::LoopInducedTriBoxTri(integrand_settings) => {
             Integrand::LoopInducedTriBoxTri(LoopInducedTriBoxTriIntegrand::new(
