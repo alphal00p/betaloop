@@ -2,19 +2,20 @@ use crate::integrands::*;
 use crate::utils;
 use crate::utils::FloatLike;
 use crate::Settings;
+use crate::{CTVariable, HFunctionSettings};
 use colored::Colorize;
 use havana::{ContinuousGrid, Grid, Sample};
 use lorentz_vector::LorentzVector;
 use num::Complex;
 use num_traits::ToPrimitive;
 use serde::Deserialize;
-#[allow(unused)]
 use utils::{LEFT, MINUS, PLUS, RIGHT};
 
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct LoopInducedTriBoxTriCTSettings {
+    pub variable: CTVariable,
     pub enabled: bool,
-    pub h_function: crate::HFunctionSettings,
+    pub h_function: HFunctionSettings,
     pub sliver_width: Option<f64>,
 }
 
@@ -22,7 +23,7 @@ pub struct LoopInducedTriBoxTriCTSettings {
 pub struct LoopInducedTriBoxTriSettings {
     pub supegraph_yaml_file: String,
     pub q: [f64; 4],
-    pub h_function: crate::HFunctionSettings,
+    pub h_function: HFunctionSettings,
     #[serde(rename = "threshold_CT_settings")]
     pub threshold_ct_settings: LoopInducedTriBoxTriCTSettings,
 }
@@ -193,11 +194,12 @@ impl LoopInducedTriBoxTriIntegrand {
         )
     }
 
-    fn evaluate_e_surfaces<T: FloatLike>(
+    fn build_e_surfaces<T: FloatLike>(
         &self,
         onshell_edge_momenta: &Vec<LorentzVector<T>>,
         cache: &ComputationCache<T>,
         amplitude: &Amplitude,
+        e_surfaces: &Vec<Esurface>,
         loop_momenta: &Vec<LorentzVector<T>>,
     ) -> Vec<ESurfaceCache<T>> {
         let mut e_surf_caches: Vec<ESurfaceCache<T>> = vec![];
@@ -214,7 +216,7 @@ impl LoopInducedTriBoxTriIntegrand {
                 }
             })
             .collect::<Vec<_>>();
-        for e_surf in amplitude.cff_expression.e_surfaces.iter() {
+        for e_surf in e_surfaces.iter() {
             // Should typically be computed from the signatures, but in this simple case doing like below is easier
             let p1 = onshell_edge_momenta[e_surf.edge_ids[0]]
                 - onshell_edge_momenta[amplitude.lmb_edges[0].id];
@@ -257,15 +259,11 @@ impl LoopInducedTriBoxTriIntegrand {
         side: usize,
         amplitude: &Amplitude,
         e_surf_id: usize,
-        e_surf_cache: &ESurfaceCache<T>,
-        rescaled_loop_momenta: &Vec<LorentzVector<T>>,
+        t_scaled_loop_momenta: &Vec<LorentzVector<T>>,
+        t_scaled_onshell_edge_momenta: &Vec<LorentzVector<T>>,
         cache: &ComputationCache<T>,
         cut: &Cut,
     ) -> Vec<ESurfaceCT<T>> {
-        if !e_surf_cache.exists {
-            return vec![];
-        }
-
         // Quite some gynmastic needs to take place in order to dynamically build the right basis for solving this E-surface CT
         // I hard-code it for now
         let mut ct_basis_signature = if side == LEFT {
@@ -276,32 +274,102 @@ impl LoopInducedTriBoxTriIntegrand {
         // Same for the center coordinates, the whole convex solver will need to be implemented for this.
         // And of course E-surf multi-channeling on top if there needs to be multiple centers.
         let center_coordinates = vec![[T::zero(); 3]];
-        let center_eval = e_surf_cache.eval(&center_coordinates[0]);
+        // let center_coordinates = vec![[
+        //     Into::<T>::into(0.1),
+        //     Into::<T>::into(0.2),
+        //     Into::<T>::into(0.3),
+        // ]];
+
+        let mut loop_momenta_in_e_surf_basis = t_scaled_loop_momenta.clone();
+        if side == LEFT {
+            loop_momenta_in_e_surf_basis[0] -= LorentzVector {
+                t: T::zero(),
+                x: center_coordinates[0][0],
+                y: center_coordinates[0][1],
+                z: center_coordinates[0][2],
+            };
+        } else {
+            loop_momenta_in_e_surf_basis[1] -= LorentzVector {
+                t: T::zero(),
+                x: center_coordinates[0][0],
+                y: center_coordinates[0][1],
+                z: center_coordinates[0][2],
+            };
+        };
+        // The building of the E-surface should be done more generically and efficiently, but here in this simple case we can do it this way
+        let subtracted_e_surface = &self.build_e_surfaces(
+            &t_scaled_onshell_edge_momenta,
+            &cache,
+            &amplitude,
+            &vec![amplitude.cff_expression.e_surfaces[e_surf_id].clone()],
+            &loop_momenta_in_e_surf_basis,
+        )[0];
+
+        let center_eval = subtracted_e_surface.eval(&center_coordinates[0]);
         assert!(center_eval < T::zero());
+        assert!(subtracted_e_surface.t_scaling[MINUS] < T::zero());
+        assert!(subtracted_e_surface.t_scaling[PLUS] > T::zero());
+
+        let t_scaled_r = if side == LEFT {
+            t_scaled_loop_momenta[0].spatial_squared().sqrt()
+        } else {
+            t_scaled_loop_momenta[1].spatial_squared().sqrt()
+        };
 
         let mut all_new_cts = vec![];
-        // Including both solution types does not seem necessary. CHECK!
-        // for solution_type in [PLUS, MINUS] {
-        for solution_type in [PLUS] {
+        // CHECK: when using R, no negative solution nor absolute value is necessary when using sliver_width <= 1.
+        let (solutions_to_consider, sliver_width) = match self
+            .integrand_settings
+            .threshold_ct_settings
+            .variable
+        {
+            // This would be for hemispherical coordinates
+            // CTVariable::Radius => vec![PLUS, MINUS],
+            CTVariable::Radius => (
+                vec![PLUS],
+                if let Some(s) = self.integrand_settings.threshold_ct_settings.sliver_width {
+                    if s > 1. {
+                        panic!("Solving threshold CTs in the R variable is not yet implemented for sliver_width > 1 as this required hemispherical coordinates.");
+                    } else {
+                        Some(Into::<T>::into(s as f64))
+                    }
+                } else {
+                    Some(T::one())
+                },
+            ),
+            CTVariable::LogRadius => (
+                vec![PLUS],
+                self.integrand_settings
+                    .threshold_ct_settings
+                    .sliver_width
+                    .map(|s| Into::<T>::into(s as f64)),
+            ),
+        };
+        for solution_type in solutions_to_consider {
             let scaled_loop_momentum_e_surf_basis = if side == LEFT {
-                rescaled_loop_momenta[0] * e_surf_cache.t_scaling[solution_type]
+                loop_momenta_in_e_surf_basis[0] * subtracted_e_surface.t_scaling[solution_type]
             } else {
-                rescaled_loop_momenta[1] * e_surf_cache.t_scaling[solution_type]
+                loop_momenta_in_e_surf_basis[1] * subtracted_e_surface.t_scaling[solution_type]
             };
 
             let r_star = scaled_loop_momentum_e_surf_basis
                 .spatial_squared()
                 .abs()
                 .sqrt();
-            let r = r_star / e_surf_cache.t_scaling[solution_type];
+            let r = r_star / subtracted_e_surface.t_scaling[solution_type];
 
-            if let Some(sliver) = self.integrand_settings.threshold_ct_settings.sliver_width {
-                if (r - r_star).abs() > Into::<T>::into(sliver / self.settings.kinematics.e_cm) {
+            let (mut t, mut t_star) = match self.integrand_settings.threshold_ct_settings.variable {
+                CTVariable::Radius => (r, r_star),
+                CTVariable::LogRadius => (r.ln(), r_star.ln()),
+            };
+
+            if let Some(sliver) = sliver_width {
+                if ((t - t_star) / t_star) * ((t - t_star) / t_star) > sliver * sliver {
                     continue;
                 }
             }
 
-            let mut ct_scaled_loop_momenta = rescaled_loop_momenta.clone();
+            let mut ct_scaled_loop_momenta = loop_momenta_in_e_surf_basis.clone();
             if side == LEFT {
                 ct_scaled_loop_momenta[0] = scaled_loop_momentum_e_surf_basis;
             } else {
@@ -313,32 +381,64 @@ impl LoopInducedTriBoxTriIntegrand {
                 &cache.external_momenta,
                 cut,
             );
-            let e_surface_cache_for_this_ct = self.evaluate_e_surfaces(
+            let e_surface_cache_for_this_ct = self.build_e_surfaces(
                 &onshell_edge_momenta_for_this_ct,
                 &cache,
                 &amplitude,
+                &amplitude.cff_expression.e_surfaces,
                 &ct_scaled_loop_momenta,
             );
 
-            let e_surf_expanded = r_star.inv()
-                * e_surf_cache.eval_t_derivative(&[
-                    scaled_loop_momentum_e_surf_basis.x,
-                    scaled_loop_momentum_e_surf_basis.y,
-                    scaled_loop_momentum_e_surf_basis.z,
-                ])
-                * (r - r_star);
+            let mut e_surf_expanded = subtracted_e_surface.eval_t_derivative(&[
+                scaled_loop_momentum_e_surf_basis.x,
+                scaled_loop_momentum_e_surf_basis.y,
+                scaled_loop_momentum_e_surf_basis.z,
+            ]) * (t - t_star);
+            match self.integrand_settings.threshold_ct_settings.variable {
+                CTVariable::Radius => {
+                    e_surf_expanded *= r_star.inv();
+                }
+                CTVariable::LogRadius => {}
+            }
 
             let h_function_wgt = utils::h(
-                r,
-                Some(r_star),
+                t,
+                Some(t_star),
                 None,
                 &self.integrand_settings.threshold_ct_settings.h_function,
             );
 
-            let (_xs, inv_param_jac) = self.inv_parameterize(&ct_scaled_loop_momenta);
-            let (_xs, inv_param_jac_orig) = self.inv_parameterize(&rescaled_loop_momenta);
+            // This step is not necessary here because we have the same solving center than sampling one
+            // but in general we have to do it when the CT center is different
+            // We downscale back the loop momenta to the original scale because we only want to capture the
+            // difference in the Jacobian coming from the change of basis and center, not of hyperadius.
+            let mut ct_rescaled_loop_momenta = ct_scaled_loop_momenta.clone();
+            if side == LEFT {
+                let rescaling_factor = t_scaled_loop_momenta[0].spatial_squared().sqrt()
+                    / ct_rescaled_loop_momenta[0].spatial_squared().sqrt();
+                ct_rescaled_loop_momenta[0] *= rescaling_factor;
+            } else {
+                let rescaling_factor = t_scaled_loop_momenta[1].spatial_squared().sqrt()
+                    / ct_rescaled_loop_momenta[1].spatial_squared().sqrt();
+                ct_rescaled_loop_momenta[1] *= rescaling_factor;
+            }
+            let (_xs, inv_param_jac) = self.inv_parameterize(&ct_rescaled_loop_momenta);
+            let (_xs, inv_param_jac_orig) = self.inv_parameterize(&t_scaled_loop_momenta);
+            let param_jac = inv_param_jac.inv();
+            let param_jac_orig = inv_param_jac_orig.inv();
 
-            let adjusted_sampling_jac = inv_param_jac_orig / inv_param_jac;
+            // TODO: INVESTIGATE WHAT TO DO IF THE RATIO BELOW IS NOT ONE!!
+            let mut adjusted_sampling_jac = param_jac / param_jac_orig;
+            // Now account for the radius impact on the jacobian. TOCHECK: IS THIS FACTOR THEN UNIVERSAL (THE SAME FOR ANY SAMPLING PARAMETERISATION) ONCE THE ABOVE FACTOR IS CONSIDERED?
+            adjusted_sampling_jac *= (r_star / t_scaled_r).powi(3 - 1);
+            //println!("adjusted_sampling_jac = {}", adjusted_sampling_jac);
+
+            match self.integrand_settings.threshold_ct_settings.variable {
+                CTVariable::Radius => {}
+                CTVariable::LogRadius => {
+                    adjusted_sampling_jac *= r_star / t_scaled_r;
+                }
+            }
 
             let mut cff_evaluations = vec![];
             for (i_cff, cff_term) in amplitude.cff_expression.terms.iter().enumerate() {
@@ -405,7 +505,7 @@ impl LoopInducedTriBoxTriIntegrand {
             println!(
                 "{}",
                 format!(
-                "  > Starting evaluation of cut #{} ( n_loop_left={} | cur_cardinality={} | n_loop_right={} )",
+                "  > Starting evaluation of cut #{} ( n_loop_left={} | cut_cardinality={} | n_loop_right={} )",
                 i_cut,
                 cut.left_amplitude.n_loop,
                 cut.cut_edge_ids_and_flip.len(),
@@ -540,10 +640,11 @@ impl LoopInducedTriBoxTriIntegrand {
             } else {
                 &cut.right_amplitude
             };
-            e_surf_caches[side] = self.evaluate_e_surfaces(
+            e_surf_caches[side] = self.build_e_surfaces(
                 &onshell_edge_momenta_for_this_cut,
                 &cache,
                 &amplitude,
+                &amplitude.cff_expression.e_surfaces,
                 &rescaled_loop_momenta,
             );
         }
@@ -602,15 +703,17 @@ impl LoopInducedTriBoxTriIntegrand {
                 for (e_surf_id, _e_surface) in
                     amplitude.cff_expression.e_surfaces.iter().enumerate()
                 {
-                    cts[side].extend(self.build_cts_for_e_surf_id_and_amplitude(
-                        side,
-                        amplitude,
-                        e_surf_id,
-                        &e_surf_caches[side][e_surf_id],
-                        &rescaled_loop_momenta,
-                        cache,
-                        cut,
-                    ))
+                    if e_surf_caches[side][e_surf_id].exists {
+                        cts[side].extend(self.build_cts_for_e_surf_id_and_amplitude(
+                            side,
+                            amplitude,
+                            e_surf_id,
+                            &rescaled_loop_momenta,
+                            &onshell_edge_momenta_for_this_cut,
+                            cache,
+                            cut,
+                        ))
+                    }
                 }
             }
         }
@@ -789,7 +892,7 @@ impl LoopInducedTriBoxTriIntegrand {
             println!(
             "{}",
             format!(
-            "  > Result for cut #{} ( n_loop_left={} | cur_cardinality={} | n_loop_right={} ): {:+e} ( ∑ CTs = {:+e} )",
+            "  > Result for cut #{} ( n_loop_left={} | cut_cardinality={} | n_loop_right={} ): {:+e} ( ∑ CTs = {:+e} )",
             i_cut,
             cut.left_amplitude.n_loop,
             cut.cut_edge_ids_and_flip.len(),

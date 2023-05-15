@@ -433,7 +433,6 @@ pub fn h<T: FloatLike>(
         crate::HFunction::ExponentialCT => {
             let delta_t_sq = (t - tstar.unwrap()) * (t - tstar.unwrap());
             let tstar_sq = tstar.unwrap() * tstar.unwrap();
-            let dampener = delta_t_sq / (delta_t_sq - tstar_sq);
             // println!("dampener: {}", dampener);
             // println!("delta_t_sq: {}", delta_t_sq);
             // println!("tstar_sq: {}", tstar_sq);
@@ -445,7 +444,12 @@ pub fn h<T: FloatLike>(
             //     "result: {}",
             //     (-sig.inv() * (delta_t_sq / tstar_sq + sig * sig * (dampener * dampener))).exp()
             // );
-            (-sig.inv() * (delta_t_sq / tstar_sq + sig * sig * (dampener * dampener))).exp()
+            if h_function_settings.enabled_dampening {
+                let dampener = delta_t_sq / (delta_t_sq - tstar_sq);
+                (-sig.inv() * (delta_t_sq / tstar_sq + sig * sig * (dampener * dampener))).exp()
+            } else {
+                (-sig.inv() * (delta_t_sq / tstar_sq)).exp()
+            }
         }
     }
 }

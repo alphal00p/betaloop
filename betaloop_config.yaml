@@ -3,18 +3,19 @@ General:
 HardCodedIntegrand:
   type: loop_induced_TriBoxTri
   supegraph_yaml_file: ./data/loop_induced_TriBoxTri.yaml
-  q: [1.0, 0.0, 0.0, 0.0]
+  q: [30.0, 0.0, 0.0, 0.0]
   h_function:
     function: poly_left_right_exponential # Options are poly_exponential, poly_left_right_exponential, exponential
-    sigma: 25.
+    sigma: 5.
     power: 10
   threshold_CT_settings:
     enabled: true
+    variable: logR # options in this case are R and logR
     sliver_width: null # Specify an f64 for a finite sliver width, otherwise leave Option to null
     h_function:
       function: exponential_ct # Options in this case is just exponential_ct
-      sigma: 1.0
-      power: 0
+      sigma: 5.
+      enabled_dampening: true
 # HardCodedIntegrand:
 #    type: unit_volume
 #    n_3d_momenta: 11
@@ -35,7 +36,7 @@ Integrator:
   train_on_avg: false
   show_max_wgt_info: true
 Kinematics:
-  e_cm: 1.0
+  e_cm: 30.0
 Parameterization:
   b: 1.0
   input_rescaling:

@@ -45,10 +45,23 @@ pub enum HFunction {
     ExponentialCT,
 }
 
+const fn _default_true() -> bool {
+    true
+}
+const fn _default_false() -> bool {
+    false
+}
+const fn _default_usize_null() -> Option<usize> {
+    None
+}
+
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct HFunctionSettings {
     pub function: HFunction,
     pub sigma: f64,
+    #[serde(default = "_default_true")]
+    pub enabled_dampening: bool,
+    #[serde(default = "_default_usize_null")]
     pub power: Option<usize>,
 }
 
@@ -70,6 +83,15 @@ pub enum ParameterizationMapping {
     Log,
     #[serde(rename = "linear")]
     Linear,
+}
+
+#[derive(Debug, Default, Clone, Deserialize, PartialEq)]
+pub enum CTVariable {
+    #[default]
+    #[serde(rename = "R")]
+    Radius,
+    #[serde(rename = "logR")]
+    LogRadius,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
