@@ -114,13 +114,19 @@ impl CFFFactor {
         &self,
         e_surface_caches: &Vec<ESurfaceCache<T>>,
         expand_e_surf: Option<(usize, T)>,
+        has_found_expanded_e_surf: bool,
     ) -> T {
         let mut coef = T::one();
+        let mut next_has_found_expanded_e_surf = has_found_expanded_e_surf;
         for e_surf_id in self.denominator.iter() {
             if let Some((expanded_e_surf_id, expanded_e_surf)) = expand_e_surf {
                 if expanded_e_surf_id != *e_surf_id {
                     coef *= e_surface_caches[*e_surf_id].eval;
                 } else {
+                    if has_found_expanded_e_surf {
+                        panic!("Current implementation only supports E-surfaces that appear as single-pole only.");
+                    }
+                    next_has_found_expanded_e_surf = true;
                     coef *= expanded_e_surf;
                 }
             } else {
@@ -130,11 +136,19 @@ impl CFFFactor {
         if self.factors.len() > 0 {
             let mut factors_sum = T::zero();
             for factor in self.factors.iter() {
-                factors_sum += factor.evaluate(e_surface_caches, expand_e_surf);
+                factors_sum += factor.evaluate(
+                    e_surface_caches,
+                    expand_e_surf,
+                    next_has_found_expanded_e_surf,
+                );
             }
             coef.inv() * factors_sum
         } else {
-            coef.inv()
+            if expand_e_surf.is_some() && !next_has_found_expanded_e_surf {
+                T::zero()
+            } else {
+                coef.inv()
+            }
         }
     }
 
@@ -173,7 +187,7 @@ impl CFFTerm {
     ) -> T {
         let mut result = T::zero();
         for factor in self.factors.iter() {
-            result += factor.evaluate(e_surface_caches, expand_e_surf);
+            result += factor.evaluate(e_surface_caches, expand_e_surf, false);
         }
         result
     }

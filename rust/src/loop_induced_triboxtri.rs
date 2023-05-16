@@ -292,7 +292,7 @@ impl LoopInducedTriBoxTriIntegrand {
         // Same for the center coordinates, the whole convex solver will need to be implemented for this.
         // And of course E-surf multi-channeling on top if there needs to be multiple centers.
         let center_coordinates = vec![[T::zero(); 3]];
-        // let center_coordinates = vec![[
+        // let center_coordinates: Vec<[T; 3]> = vec![[
         //     Into::<T>::into(1.0),
         //     Into::<T>::into(2.0),
         //     Into::<T>::into(3.0),
@@ -358,17 +358,31 @@ impl LoopInducedTriBoxTriIntegrand {
             CTVariable::LogRadius => vec![PLUS],
         };
         for solution_type in solutions_to_consider {
+            // println!(
+            //     "t considered = {:+e}=",
+            //     subtracted_e_surface.t_scaling[solution_type]
+            // );
             let mut loop_momenta_star_in_e_surf_basis = loop_momenta_in_e_surf_basis.clone();
             loop_momenta_star_in_e_surf_basis[loop_index_for_this_ct] *=
                 subtracted_e_surface.t_scaling[solution_type];
+            // println!(
+            //     "loop_momenta_star_in_e_surf_basis={:?}",
+            //     loop_momenta_star_in_e_surf_basis
+            // );
             let mut loop_momenta_star_in_sampling_basis = loop_momenta_star_in_e_surf_basis.clone();
-            loop_momenta_star_in_e_surf_basis[loop_index_for_this_ct] += center_shift;
+            loop_momenta_star_in_sampling_basis[loop_index_for_this_ct] += center_shift;
+            // println!(
+            //     "loop_momenta_star_in_sampling_basis={:?}",
+            //     loop_momenta_star_in_sampling_basis
+            // );
 
             let r_star = loop_momenta_star_in_e_surf_basis[loop_index_for_this_ct]
                 .spatial_squared()
                 .abs()
                 .sqrt();
             let r = r_star / subtracted_e_surface.t_scaling[solution_type];
+            // println!("r = {}", r);
+            // println!("r_star = {}", r_star);
 
             let (mut t, mut t_star) = match self.integrand_settings.threshold_ct_settings.variable {
                 CTVariable::Radius => (r, r_star),
@@ -390,14 +404,13 @@ impl LoopInducedTriBoxTriIntegrand {
             let mut e_surface_cache_for_this_ct = e_surf_cache.clone();
             for e_surf in e_surface_cache_for_this_ct.iter_mut() {
                 e_surf.eval =
-                    e_surf.eval(&loop_momenta_star_in_e_surf_basis[loop_index_for_this_ct]);
+                    e_surf.eval(&loop_momenta_star_in_sampling_basis[loop_index_for_this_ct]);
             }
 
             let mut e_surf_expanded = e_surf_cache[e_surf_id]
                 .norm(&loop_momenta_star_in_sampling_basis[loop_index_for_this_ct])
                 .spatial_dot(&loop_momenta_star_in_e_surf_basis[loop_index_for_this_ct])
                 * (t - t_star);
-
             match self.integrand_settings.threshold_ct_settings.variable {
                 CTVariable::Radius => {
                     e_surf_expanded *= r_star.inv();

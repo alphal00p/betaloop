@@ -15,7 +15,7 @@ HardCodedIntegrand:
     h_function:
       function: exponential_ct # Options in this case is just exponential_ct
       sigma: 1.
-      enabled_dampening: false
+      enabled_dampening: true
 # HardCodedIntegrand:
 #    type: unit_volume
 #    n_3d_momenta: 11
