@@ -372,7 +372,7 @@ where
         num_points += cur_points;
 
         println!(
-            "/ [ {} ] {}: n_pts={:-7.0}K {} {} /sample/core ",
+            "/  [ {} ] {}: n_pts={:-6.0}K {} {} /sample/core ",
             format!(
                 "{:^7}",
                 utils::format_wdhms(t_start.elapsed().as_secs() as usize)
@@ -407,7 +407,7 @@ where
         ) {
             println!(
                 "|  itg #{:-3} {}: {} {} {} {} {}",
-                i_itg,
+                format!("{:<3}", i_itg),
                 format!("{:-2}", tag).blue().bold(),
                 format!("{:-19}", utils::format_uncertainty(itg.avg, itg.err))
                     .blue()

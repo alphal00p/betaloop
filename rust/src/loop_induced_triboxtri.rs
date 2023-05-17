@@ -7,7 +7,7 @@ use colored::Colorize;
 use havana::{ContinuousGrid, Grid, Sample};
 use lorentz_vector::LorentzVector;
 use num::Complex;
-use num_traits::ToPrimitive;
+use num_traits::{FloatConst, ToPrimitive};
 use serde::Deserialize;
 use utils::{LEFT, MINUS, PLUS, RIGHT};
 
@@ -15,8 +15,12 @@ use utils::{LEFT, MINUS, PLUS, RIGHT};
 pub struct LoopInducedTriBoxTriCTSettings {
     pub variable: CTVariable,
     pub enabled: bool,
-    pub h_function: HFunctionSettings,
-    pub sliver_width: Option<f64>,
+    pub include_integrated_ct: bool,
+    pub parameterization_center: Vec<[f64; 3]>,
+    pub local_ct_h_function: HFunctionSettings,
+    pub integrated_ct_h_function: HFunctionSettings,
+    pub local_ct_sliver_width: Option<f64>,
+    pub integrated_ct_sliver_width: Option<f64>,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -47,6 +51,13 @@ impl<T: FloatLike> ComputationCache<T> {
 }
 
 #[derive(Debug)]
+pub struct ESurfaceIntegratedCT<T: FloatLike> {
+    pub adjusted_sampling_jac: T,
+    pub h_function_wgt: T,
+    pub e_surf_residue: T,
+}
+
+#[derive(Debug)]
 pub struct ESurfaceCT<T: FloatLike> {
     pub e_surf_id: usize,
     pub ct_basis_signature: Vec<Vec<isize>>,
@@ -57,8 +68,9 @@ pub struct ESurfaceCT<T: FloatLike> {
     pub loop_momenta_star: Vec<LorentzVector<T>>,
     pub onshell_edges: Vec<LorentzVector<T>>,
     pub e_surface_evals: Vec<ESurfaceCache<T>>,
-    pub cff_evaluations: Vec<T>,
+    pub cff_evaluations: [Vec<T>; 2],
     pub solution_type: usize,
+    pub integrated_ct: Option<ESurfaceIntegratedCT<T>>,
 }
 
 #[derive(Debug, Clone)]
@@ -276,7 +288,6 @@ impl LoopInducedTriBoxTriIntegrand {
         &self,
         side: usize,
         e_surf_id: usize,
-        amplitude: &Amplitude,
         scaled_loop_momenta_in_sampling_basis: &Vec<LorentzVector<T>>,
         e_surf_cache: Vec<ESurfaceCache<T>>,
         cache: &ComputationCache<T>,
@@ -291,12 +302,15 @@ impl LoopInducedTriBoxTriIntegrand {
         };
         // Same for the center coordinates, the whole convex solver will need to be implemented for this.
         // And of course E-surf multi-channeling on top if there needs to be multiple centers.
-        let center_coordinates = vec![[T::zero(); 3]];
-        // let center_coordinates: Vec<[T; 3]> = vec![[
-        //     Into::<T>::into(1.0),
-        //     Into::<T>::into(2.0),
-        //     Into::<T>::into(3.0),
-        // ]];
+        let c = &self
+            .integrand_settings
+            .threshold_ct_settings
+            .parameterization_center;
+        let center_coordinates = vec![[
+            Into::<T>::into(c[0][0]),
+            Into::<T>::into(c[0][1]),
+            Into::<T>::into(c[0][2]),
+        ]];
         let center_shift = LorentzVector {
             t: T::zero(),
             x: center_coordinates[0][0],
@@ -335,17 +349,19 @@ impl LoopInducedTriBoxTriIntegrand {
             .sqrt();
 
         let mut all_new_cts = vec![];
-        // CHECK: when using R, no negative solution nor absolute value is necessary when using sliver_width <= 1.
-        let sliver_width = self
+        let local_ct_sliver_width = self
             .integrand_settings
             .threshold_ct_settings
-            .sliver_width
+            .local_ct_sliver_width
+            .map(|s| Into::<T>::into(s));
+        let integrated_ct_sliver_width = self
+            .integrand_settings
+            .threshold_ct_settings
+            .integrated_ct_sliver_width
             .map(|s| Into::<T>::into(s));
         let solutions_to_consider = match self.integrand_settings.threshold_ct_settings.variable {
-            // This would be for hemispherical coordinates
-            // CTVariable::Radius => vec![PLUS, MINUS],
             CTVariable::Radius => {
-                if let Some(s) = sliver_width {
+                if let Some(s) = local_ct_sliver_width {
                     if s > T::one() {
                         vec![PLUS, MINUS]
                     } else {
@@ -389,10 +405,33 @@ impl LoopInducedTriBoxTriIntegrand {
                 CTVariable::LogRadius => (r.ln(), r_star.ln()),
             };
 
-            if let Some(sliver) = sliver_width {
+            let mut include_local_ct = true;
+            if let Some(sliver) = local_ct_sliver_width {
                 if ((t - t_star) / t_star) * ((t - t_star) / t_star) > sliver * sliver {
-                    continue;
+                    include_local_ct = false;
                 }
+            };
+            let mut include_integrated_ct = solution_type == PLUS
+                && self
+                    .integrand_settings
+                    .threshold_ct_settings
+                    .include_integrated_ct;
+            if include_integrated_ct {
+                if let Some(sliver) = integrated_ct_sliver_width {
+                    if sliver > T::one() {
+                        panic!("{}", format!("{}","It is typically unsafe to set the integrated CT sliver width to be larger \
+                        than around one.
+                        This is because this region above will typically be undersampled.
+                        The result will be inacurate with a bias not represented in the MC accuracy.
+                        Comment this check in the code if you really want to proceed.").red());
+                    }
+                    if ((t - t_star) / t_star) * ((t - t_star) / t_star) > sliver * sliver {
+                        include_integrated_ct = false;
+                    }
+                }
+            }
+            if !include_local_ct && !include_integrated_ct {
+                continue;
             }
 
             let onshell_edge_momenta_for_this_ct = self.evaluate_onshell_edge_momenta(
@@ -407,27 +446,35 @@ impl LoopInducedTriBoxTriIntegrand {
                     e_surf.eval(&loop_momenta_star_in_sampling_basis[loop_index_for_this_ct]);
             }
 
-            let mut e_surf_expanded = e_surf_cache[e_surf_id]
+            // The factor (t - t_star) will be included at the end because we need the same quantity for the integrated CT
+            let e_surf_derivative = e_surf_cache[e_surf_id]
                 .norm(&loop_momenta_star_in_sampling_basis[loop_index_for_this_ct])
                 .spatial_dot(&loop_momenta_star_in_e_surf_basis[loop_index_for_this_ct])
-                * (t - t_star);
-            match self.integrand_settings.threshold_ct_settings.variable {
-                CTVariable::Radius => {
-                    e_surf_expanded *= r_star.inv();
-                }
-                CTVariable::LogRadius => {}
-            }
+                / r_star;
+            let e_surf_expanded = match self.integrand_settings.threshold_ct_settings.variable {
+                CTVariable::Radius => e_surf_derivative * (t - t_star),
+                CTVariable::LogRadius => e_surf_derivative * r_star * (t - t_star),
+            };
 
             let h_function_wgt = utils::h(
                 t,
                 Some(t_star),
                 None,
-                &self.integrand_settings.threshold_ct_settings.h_function,
+                &self
+                    .integrand_settings
+                    .threshold_ct_settings
+                    .local_ct_h_function,
             );
             let mut adjusted_sampling_jac = T::one();
             // Now account for the radius impact on the jacobian.
             adjusted_sampling_jac *= (r_star / r).powi(3 - 1);
 
+            // Disable the local CT by setting the weight of the adjusted_sampling_jac to zero.
+            // We cannot skip any computation here because they are needed for the computation of the integrated CT which is
+            // not disabled if this point in the code is reached.
+            if !include_local_ct {
+                adjusted_sampling_jac = T::zero();
+            }
             match self.integrand_settings.threshold_ct_settings.variable {
                 CTVariable::Radius => {}
                 CTVariable::LogRadius => {
@@ -435,17 +482,69 @@ impl LoopInducedTriBoxTriIntegrand {
                 }
             }
 
-            let mut cff_evaluations = vec![];
+            let amplitude = if side == LEFT {
+                &cut.left_amplitude
+            } else {
+                &cut.right_amplitude
+            };
+            let mut cff_evaluations = [vec![], vec![]];
             for (i_cff, cff_term) in amplitude.cff_expression.terms.iter().enumerate() {
                 if !cff_term.contains_e_surf_id(e_surf_id) {
-                    cff_evaluations.push(T::zero());
+                    cff_evaluations[side].push(T::zero());
                 } else {
-                    cff_evaluations.push(cff_term.evaluate(
-                        &e_surface_cache_for_this_ct,
-                        Some((e_surf_id, e_surf_expanded)),
-                    ));
+                    cff_evaluations[side].push(
+                        cff_term
+                            .evaluate(&e_surface_cache_for_this_ct, Some((e_surf_id, T::one()))),
+                    );
                 }
             }
+
+            let integrated_ct = if include_integrated_ct {
+                // let radius_in_sampling_basis = scaled_loop_momenta_in_sampling_basis
+                //     [loop_index_for_this_ct]
+                //     .spatial_distance();
+                // let radius_star_in_sampling_basis =
+                //     loop_momenta_star_in_sampling_basis[loop_index_for_this_ct].spatial_distance();
+
+                // Keep in mind that the suface element d S_r keeps an r^2 fact, but that of the solved radius, so we
+                // still need this correction factor.
+                // So it happens to be the same correction factor as for the local CT but it's not immediatlly obvious so I keep them separate
+                let ict_adjusted_sampling_jac = (r_star / r).powi(3 - 1);
+
+                // Notice that for the arguments of the h function of the iCT, once can put pretty much anything that goes from 0 to infty.
+                // It would all work, but it's likely best to have an argument of one when the integrator samples directly the e-surface.
+                let ict_h_function = if let Some(sliver) = integrated_ct_sliver_width {
+                    match self.integrand_settings.threshold_ct_settings.variable {
+                        CTVariable::Radius => (Into::<T>::into(2 as f64) * sliver * r_star).inv(),
+                        CTVariable::LogRadius => {
+                            (r_star.powf(T::one() + sliver) - r_star.powf(T::one() - sliver)).inv()
+                        }
+                    }
+                } else {
+                    r_star.inv()
+                        * utils::h(
+                            r / r_star,
+                            None,
+                            None, // Some(radius_star_in_sampling_basis*radius_star_in_sampling_basis)
+                            &self
+                                .integrand_settings
+                                .threshold_ct_settings
+                                .integrated_ct_h_function,
+                        )
+                };
+
+                // TODO investigate factor 1/2, why is it needed?
+                let e_surf_residue = e_surf_derivative.inv()
+                    * (Into::<T>::into(2 as f64) * <T as FloatConst>::PI())
+                    / Into::<T>::into(2 as f64);
+                Some(ESurfaceIntegratedCT {
+                    adjusted_sampling_jac: ict_adjusted_sampling_jac,
+                    h_function_wgt: ict_h_function,
+                    e_surf_residue: e_surf_residue,
+                })
+            } else {
+                None
+            };
 
             all_new_cts.push(ESurfaceCT {
                 e_surf_id,
@@ -453,12 +552,13 @@ impl LoopInducedTriBoxTriIntegrand {
                 center_coordinates: center_coordinates.clone(),
                 adjusted_sampling_jac,
                 h_function_wgt,
-                e_surf_expanded,
+                e_surf_expanded: e_surf_expanded,
                 loop_momenta_star: loop_momenta_star_in_sampling_basis,
                 onshell_edges: onshell_edge_momenta_for_this_ct,
                 e_surface_evals: e_surface_cache_for_this_ct,
                 solution_type,
                 cff_evaluations,
+                integrated_ct,
             });
         }
 
@@ -696,7 +796,6 @@ impl LoopInducedTriBoxTriIntegrand {
                         cts[side].extend(self.build_cts_for_e_surf_id_and_amplitude(
                             side,
                             e_surf_id,
-                            &amplitude,
                             &rescaled_loop_momenta,
                             e_surf_caches[side].clone(),
                             cache,
@@ -743,10 +842,10 @@ impl LoopInducedTriBoxTriIntegrand {
                 // Now include counterterms
                 let amplitudes_pair = [&cut.left_amplitude, &cut.right_amplitude];
                 let i_cff_pair = [left_i_cff, right_i_cff];
-                let mut cts_sum_for_this_term = T::zero();
+                let mut cts_sum_for_this_term = Complex::new(T::zero(), T::zero());
                 for ct_side in [LEFT, RIGHT] {
                     for ct in cts[ct_side].iter() {
-                        if ct.cff_evaluations[i_cff_pair[ct_side]] == T::zero() {
+                        if ct.cff_evaluations[ct_side][i_cff_pair[ct_side]] == T::zero() {
                             continue;
                         }
                         let ct_numerator_wgt = self.evaluate_numerator(
@@ -766,10 +865,11 @@ impl LoopInducedTriBoxTriIntegrand {
                         };
 
                         let ct_weight = -other_side_terms
-                            * ct.adjusted_sampling_jac
                             * ct_numerator_wgt
-                            * ct.cff_evaluations[i_cff_pair[ct_side]]
                             * ct_e_product.inv()
+                            * ct.cff_evaluations[ct_side][i_cff_pair[ct_side]]
+                            * ct.e_surf_expanded.inv()
+                            * ct.adjusted_sampling_jac
                             * ct.h_function_wgt;
                         // println!("other_side_terms = {:+e}", other_side_terms);
                         // println!("ct.adjusted_sampling_jac = {:+e}", ct.adjusted_sampling_jac);
@@ -789,6 +889,7 @@ impl LoopInducedTriBoxTriIntegrand {
                         //     ct.cff_evaluations[i_cff_pair[ct_side]],
                         //     cff_left_wgt / ct.cff_evaluations[i_cff_pair[ct_side]],
                         // );
+
                         if self.settings.general.debug > 3 {
                             println!(
                                 "   > cFF Evaluation #{} : CT for {} E-surface #{} : {:+e}",
@@ -802,9 +903,32 @@ impl LoopInducedTriBoxTriIntegrand {
                                 ct_weight
                             );
                         }
-                        cts_sum_for_this_term += ct_weight;
+                        let mut i_ct_weight = if let Some(i_ct) = &ct.integrated_ct {
+                            other_side_terms
+                                * ct_numerator_wgt
+                                * ct_e_product.inv()
+                                * ct.cff_evaluations[ct_side][i_cff_pair[ct_side]]
+                                * i_ct.e_surf_residue
+                                * i_ct.adjusted_sampling_jac
+                                * i_ct.h_function_wgt
+                        } else {
+                            T::zero()
+                        };
+                        // Implement complex-conjugation here
+                        if ct_side == RIGHT {
+                            i_ct_weight *= -T::one();
+                        }
+                        cts_sum_for_this_term += Complex::new(ct_weight, i_ct_weight);
                     }
                 }
+
+                // Now implement the cross terms
+                for left_ct in cts[LEFT].iter() {
+                    for right_ct in cts[RIGHT].iter() {
+                        //TODO
+                    }
+                }
+
                 cff_cts_sum += cts_sum_for_this_term;
 
                 if self.settings.general.debug > 2 {
