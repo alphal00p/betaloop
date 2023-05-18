@@ -15,6 +15,7 @@ use utils::{LEFT, MINUS, PLUS, RIGHT};
 pub struct LoopInducedTriBoxTriCTSettings {
     pub variable: CTVariable,
     pub enabled: bool,
+    pub compute_only_im_squared: bool,
     pub include_integrated_ct: bool,
     pub parameterization_center: Vec<[f64; 3]>,
     pub local_ct_h_function: HFunctionSettings,
@@ -246,11 +247,35 @@ impl LoopInducedTriBoxTriIntegrand {
                 }
             })
             .collect::<Vec<_>>();
+        // Should typically be computed from the signatures, but in this simple case doing like below is easier
+        // We still need to know if the contribution from the lmb edge to this e_surf edge is positive or negative
+        let mut loop_index = 0_usize;
+        for lmb_edge in &amplitude.lmb_edges {
+            assert!(self.supergraph.edges[lmb_edge.id]
+                .signature
+                .1
+                .iter()
+                .all(|s| *s == 0));
+            let filered_sig = self.supergraph.edges[lmb_edge.id]
+                .signature
+                .0
+                .iter()
+                .enumerate()
+                .filter(|(i, s)| **s == 1)
+                .collect::<Vec<_>>();
+            assert!(filered_sig.len() == 1);
+            loop_index = filered_sig[0].0;
+        }
         for e_surf in e_surfaces.iter() {
-            // Should typically be computed from the signatures, but in this simple case doing like below is easier
-            let p1 = onshell_edge_momenta[e_surf.edge_ids[0]]
+            let k1_sign = Into::<T>::into(
+                self.supergraph.edges[e_surf.edge_ids[0]].signature.0[loop_index] as f64,
+            );
+            let p1 = onshell_edge_momenta[e_surf.edge_ids[0]] * k1_sign
                 - onshell_edge_momenta[amplitude.lmb_edges[0].id];
-            let p2 = onshell_edge_momenta[e_surf.edge_ids[1]]
+            let k2_sign = Into::<T>::into(
+                self.supergraph.edges[e_surf.edge_ids[1]].signature.0[loop_index] as f64,
+            );
+            let p2 = onshell_edge_momenta[e_surf.edge_ids[1]] * k2_sign
                 - onshell_edge_momenta[amplitude.lmb_edges[0].id];
             let mut shift = T::zero();
             for (i_ext, sig) in e_surf.shift.iter().enumerate() {
@@ -289,7 +314,7 @@ impl LoopInducedTriBoxTriIntegrand {
         side: usize,
         e_surf_id: usize,
         scaled_loop_momenta_in_sampling_basis: &Vec<LorentzVector<T>>,
-        e_surf_cache: Vec<ESurfaceCache<T>>,
+        e_surf_cache: &[Vec<ESurfaceCache<T>>; 2],
         cache: &ComputationCache<T>,
         cut: &Cut,
     ) -> Vec<ESurfaceCT<T>> {
@@ -323,7 +348,7 @@ impl LoopInducedTriBoxTriIntegrand {
         loop_momenta_in_e_surf_basis[loop_index_for_this_ct] -= center_shift;
 
         // The building of the E-surface should be done more generically and efficiently, but here in this simple case we can do it this way
-        let mut subtracted_e_surface = e_surf_cache[e_surf_id].clone();
+        let mut subtracted_e_surface = e_surf_cache[side][e_surf_id].clone();
 
         let center_eval = subtracted_e_surface.eval(&center_shift);
         assert!(center_eval < T::zero());
@@ -440,14 +465,14 @@ impl LoopInducedTriBoxTriIntegrand {
                 cut,
             );
             // Update the evaluation of the E-surface for the solved star loop momentum in the sampling basis (since it is what the shifts are computed for in this cache)
-            let mut e_surface_cache_for_this_ct = e_surf_cache.clone();
+            let mut e_surface_cache_for_this_ct = e_surf_cache[side].clone();
             for e_surf in e_surface_cache_for_this_ct.iter_mut() {
                 e_surf.eval =
                     e_surf.eval(&loop_momenta_star_in_sampling_basis[loop_index_for_this_ct]);
             }
 
             // The factor (t - t_star) will be included at the end because we need the same quantity for the integrated CT
-            let e_surf_derivative = e_surf_cache[e_surf_id]
+            let e_surf_derivative = e_surf_cache[side][e_surf_id]
                 .norm(&loop_momenta_star_in_sampling_basis[loop_index_for_this_ct])
                 .spatial_dot(&loop_momenta_star_in_e_surf_basis[loop_index_for_this_ct])
                 / r_star;
@@ -737,6 +762,19 @@ impl LoopInducedTriBoxTriIntegrand {
                 &rescaled_loop_momenta,
             );
         }
+        if self.settings.general.debug > 3 {
+            for side in [LEFT, RIGHT] {
+                println!(
+                    "All {} e_surf caches side: {}",
+                    if side == LEFT { "left" } else { "right" },
+                    e_surf_caches[side]
+                        .iter()
+                        .map(|es| format!("{:?}", es))
+                        .collect::<Vec<_>>()
+                        .join("\n")
+                );
+            }
+        }
 
         let mut i_term = 0;
         let mut cff_evaluations = [vec![], vec![]];
@@ -777,7 +815,6 @@ impl LoopInducedTriBoxTriIntegrand {
             e_product_right *=
                 Into::<T>::into(2 as f64) * onshell_edge_momenta_for_this_cut[e.id].t.abs();
         }
-
         // Now build the counterterms
         let mut cts = [vec![], vec![]];
         if self.integrand_settings.threshold_ct_settings.enabled {
@@ -797,7 +834,7 @@ impl LoopInducedTriBoxTriIntegrand {
                             side,
                             e_surf_id,
                             &rescaled_loop_momenta,
-                            e_surf_caches[side].clone(),
+                            &e_surf_caches,
                             cache,
                             cut,
                         ))
@@ -817,6 +854,7 @@ impl LoopInducedTriBoxTriIntegrand {
         // Note that we could also consider splitting the numerator into a left and right component, depending on its implementation
         let mut cff_sum = Complex::new(T::zero(), T::zero());
         let mut cff_cts_sum = Complex::new(T::zero(), T::zero());
+        let mut cff_im_squared_cts_sum = T::zero();
         for (left_i_cff, left_cff_term) in
             cut.left_amplitude.cff_expression.terms.iter().enumerate()
         {
@@ -864,7 +902,7 @@ impl LoopInducedTriBoxTriIntegrand {
                             cff_left_wgt * e_product_left.inv()
                         };
 
-                        let ct_weight = -other_side_terms
+                        let re_ct_weight = -other_side_terms
                             * ct_numerator_wgt
                             * ct_e_product.inv()
                             * ct.cff_evaluations[ct_side][i_cff_pair[ct_side]]
@@ -875,35 +913,23 @@ impl LoopInducedTriBoxTriIntegrand {
                         // println!("ct.adjusted_sampling_jac = {:+e}", ct.adjusted_sampling_jac);
                         // println!("ct_numerator_wgt = {:+e}", ct_numerator_wgt);
                         // println!(
-                        //     "ct.cff_evaluations[i_cff_pair[ct_side]] = {:+e}",
-                        //     ct.cff_evaluations[i_cff_pair[ct_side]]
+                        //     "ct.cff_evaluations[ct_side][i_cff_pair[ct_side]] = {:+e}",
+                        //     ct.cff_evaluations[ct_side][i_cff_pair[ct_side]]
                         // );
+                        // println!("ct.cff_evaluations[*][*] = {:?}", ct.cff_evaluations);
                         // println!("ct type = {}", ct.solution_type);
                         // println!("ct_e_product = {:+e}", ct_e_product);
                         // println!("e_product_left = {:+e}", e_product_left);
+                        // println!("e_product_right = {:+e}", e_product_right);
                         // println!("ct.h_function_wgt = {:+e}", ct.h_function_wgt);
                         // println!("ct.e_surf_derivative_wgt = {:+e}", ct.e_surf_expanded);
                         // println!(
                         //     "A = {} vs B = {}, A/B = {}",
                         //     cff_left_wgt,
-                        //     ct.cff_evaluations[i_cff_pair[ct_side]],
-                        //     cff_left_wgt / ct.cff_evaluations[i_cff_pair[ct_side]],
+                        //     ct.cff_evaluations[ct_side][i_cff_pair[ct_side]],
+                        //     cff_left_wgt / ct.cff_evaluations[ct_side][i_cff_pair[ct_side]],
                         // );
-
-                        if self.settings.general.debug > 3 {
-                            println!(
-                                "   > cFF Evaluation #{} : CT for {} E-surface #{} : {:+e}",
-                                format!("{}", i_term).green(),
-                                if ct_side == LEFT {
-                                    format!("{}", "left").purple()
-                                } else {
-                                    format!("{}", "right").purple()
-                                },
-                                ct.e_surf_id,
-                                ct_weight
-                            );
-                        }
-                        let mut i_ct_weight = if let Some(i_ct) = &ct.integrated_ct {
+                        let mut im_ct_weight = if let Some(i_ct) = &ct.integrated_ct {
                             other_side_terms
                                 * ct_numerator_wgt
                                 * ct_e_product.inv()
@@ -914,22 +940,112 @@ impl LoopInducedTriBoxTriIntegrand {
                         } else {
                             T::zero()
                         };
+
                         // Implement complex-conjugation here
                         if ct_side == RIGHT {
-                            i_ct_weight *= -T::one();
+                            im_ct_weight *= -T::one();
                         }
-                        cts_sum_for_this_term += Complex::new(ct_weight, i_ct_weight);
+
+                        if self.settings.general.debug > 3 {
+                            println!(
+                                "   > cFF Evaluation #{} : CT for {} E-surface #{} : {:+e} + i {:+e}",
+                                format!("{}", i_term).green(),
+                                if ct_side == LEFT {
+                                    format!("{}", "left").purple()
+                                } else {
+                                    format!("{}", "right").purple()
+                                },
+                                ct.e_surf_id,
+                                re_ct_weight,
+                                im_ct_weight
+                            );
+                        }
+
+                        cts_sum_for_this_term += Complex::new(re_ct_weight, im_ct_weight);
                     }
                 }
 
                 // Now implement the cross terms
+                let mut ct_im_squared_weight_for_this_term = T::zero();
                 for left_ct in cts[LEFT].iter() {
+                    if left_ct.cff_evaluations[LEFT][i_cff_pair[LEFT]] == T::zero() {
+                        continue;
+                    }
                     for right_ct in cts[RIGHT].iter() {
-                        //TODO
+                        if right_ct.cff_evaluations[RIGHT][i_cff_pair[RIGHT]] == T::zero() {
+                            continue;
+                        }
+                        let mut combined_onshell_edges = left_ct.onshell_edges.clone();
+                        for edge in &amplitudes_pair[RIGHT].edges {
+                            combined_onshell_edges[edge.id] = right_ct.onshell_edges[edge.id];
+                        }
+                        let ct_numerator_wgt = self.evaluate_numerator(
+                            &combined_onshell_edges,
+                            &left_cff_term.orientation,
+                            &right_cff_term.orientation,
+                        );
+                        let mut ct_e_product = T::one();
+                        for e in amplitudes_pair[LEFT].edges.iter() {
+                            ct_e_product *=
+                                Into::<T>::into(2 as f64) * left_ct.onshell_edges[e.id].t.abs();
+                        }
+                        for e in amplitudes_pair[RIGHT].edges.iter() {
+                            ct_e_product *=
+                                Into::<T>::into(2 as f64) * right_ct.onshell_edges[e.id].t.abs();
+                        }
+                        let common_prefactor = ct_numerator_wgt
+                            * ct_e_product.inv()
+                            * left_ct.cff_evaluations[LEFT][i_cff_pair[LEFT]]
+                            * right_ct.cff_evaluations[RIGHT][i_cff_pair[RIGHT]];
+
+                        let left_ct_weight = Complex::new(
+                            -left_ct.e_surf_expanded.inv()
+                                * left_ct.adjusted_sampling_jac
+                                * left_ct.h_function_wgt,
+                            if let Some(left_i_ct) = &left_ct.integrated_ct {
+                                left_i_ct.e_surf_residue
+                                    * left_i_ct.adjusted_sampling_jac
+                                    * left_i_ct.h_function_wgt
+                            } else {
+                                T::zero()
+                            },
+                        );
+                        let right_ct_weight = Complex::new(
+                            -right_ct.e_surf_expanded.inv()
+                                * right_ct.adjusted_sampling_jac
+                                * right_ct.h_function_wgt,
+                            // Implement the complex conjugation here with a minus sign
+                            if let Some(right_i_ct) = &right_ct.integrated_ct {
+                                -right_i_ct.e_surf_residue
+                                    * right_i_ct.adjusted_sampling_jac
+                                    * right_i_ct.h_function_wgt
+                            } else {
+                                T::zero()
+                            },
+                        );
+
+                        let ct_im_squared_weight =
+                            left_ct_weight.im * right_ct_weight.im * common_prefactor;
+                        let ct_weight = left_ct_weight * right_ct_weight * common_prefactor;
+
+                        if self.settings.general.debug > 3 {
+                            println!(
+                                "   > cFF Evaluation #{} : CT for {} E-surfaces #{} x #{} : {:+e} + i {:+e}",
+                                format!("{}", i_term).green(),
+                                format!("{}", "left x right").purple(),
+                                left_ct.e_surf_id,
+                                right_ct.e_surf_id,
+                                ct_weight.re, ct_weight.im
+                            );
+                        }
+
+                        cts_sum_for_this_term += ct_weight;
+                        ct_im_squared_weight_for_this_term += ct_im_squared_weight;
                     }
                 }
 
                 cff_cts_sum += cts_sum_for_this_term;
+                cff_im_squared_cts_sum += ct_im_squared_weight_for_this_term;
 
                 if self.settings.general.debug > 2 {
                     println!(
@@ -991,6 +1107,18 @@ impl LoopInducedTriBoxTriIntegrand {
             );
         }
         // Collect terms
+        if self
+            .integrand_settings
+            .threshold_ct_settings
+            .compute_only_im_squared
+        {
+            if self.settings.general.debug > 0 {
+                println!("{}",format!("{}","   > Option 'compute_only_im_squared' enabled. Now turning off all other contributions.").red());
+            }
+            cff_sum = Complex::new(T::zero(), T::zero());
+            cff_cts_sum = Complex::new(cff_im_squared_cts_sum, T::zero());
+        }
+
         cut_res = cff_sum + cff_cts_sum;
 
         // Collect all factors that are common for the original integrand and the threshold counterterms
