@@ -18,6 +18,9 @@ pub const RIGHT: usize = 1;
 pub const PLUS: usize = 0;
 pub const MINUS: usize = 1;
 
+pub const AMPLITUDE_LEVEL_CT: usize = 0;
+pub const SUPERGRAPH_LEVEL_CT: usize = 1;
+
 pub trait FloatConvertFrom<U> {
     fn convert_from(x: &U) -> Self;
 }

@@ -7,16 +7,19 @@ use colored::Colorize;
 use havana::{ContinuousGrid, Grid, Sample};
 use lorentz_vector::LorentzVector;
 use num::Complex;
-use num_traits::{FloatConst, ToPrimitive};
+use num_traits::FloatConst;
+use num_traits::ToPrimitive;
 use serde::Deserialize;
-use utils::{LEFT, MINUS, PLUS, RIGHT};
+use utils::{AMPLITUDE_LEVEL_CT, LEFT, MINUS, PLUS, RIGHT, SUPERGRAPH_LEVEL_CT};
 
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct LoopInducedTriBoxTriCTSettings {
     pub variable: CTVariable,
     pub enabled: bool,
     pub compute_only_im_squared: bool,
+    pub im_squared_through_local_ct_only: bool,
     pub include_integrated_ct: bool,
+    pub include_amplitude_level_cts: bool,
     pub parameterization_center: Vec<[f64; 3]>,
     pub local_ct_h_function: HFunctionSettings,
     pub integrated_ct_h_function: HFunctionSettings,
@@ -68,9 +71,10 @@ pub struct ESurfaceCT<T: FloatLike> {
     pub e_surf_expanded: T,
     pub loop_momenta_star: Vec<LorentzVector<T>>,
     pub onshell_edges: Vec<LorentzVector<T>>,
-    pub e_surface_evals: Vec<ESurfaceCache<T>>,
+    pub e_surface_evals: [Vec<ESurfaceCache<T>>; 2],
     pub cff_evaluations: [Vec<T>; 2],
     pub solution_type: usize,
+    pub ct_level: usize, // either utils::AMPLITUDE_LEVEL_CT or utils::SUPERGRAPH_LEVEL_CT
     pub integrated_ct: Option<ESurfaceIntegratedCT<T>>,
 }
 
@@ -309,7 +313,7 @@ impl LoopInducedTriBoxTriIntegrand {
         e_surf_caches
     }
 
-    fn build_cts_for_e_surf_id_and_amplitude<T: FloatLike>(
+    fn build_cts_for_e_surf_id<T: FloatLike>(
         &self,
         side: usize,
         e_surf_id: usize,
@@ -321,9 +325,9 @@ impl LoopInducedTriBoxTriIntegrand {
         // Quite some gynmastic needs to take place in order to dynamically build the right basis for solving this E-surface CT
         // I hard-code it for now
         let mut ct_basis_signature = if side == LEFT {
-            vec![vec![1, 0, 0]]
+            vec![vec![1, 0, 0], vec![0, 1, 0]]
         } else {
-            vec![vec![0, 1, 0]]
+            vec![vec![0, 1, 0], vec![1, 0, 0]]
         };
         // Same for the center coordinates, the whole convex solver will need to be implemented for this.
         // And of course E-surf multi-channeling on top if there needs to be multiple centers.
@@ -331,26 +335,46 @@ impl LoopInducedTriBoxTriIntegrand {
             .integrand_settings
             .threshold_ct_settings
             .parameterization_center;
-        let center_coordinates = vec![[
-            Into::<T>::into(c[0][0]),
-            Into::<T>::into(c[0][1]),
-            Into::<T>::into(c[0][2]),
-        ]];
-        let center_shift = LorentzVector {
-            t: T::zero(),
-            x: center_coordinates[0][0],
-            y: center_coordinates[0][1],
-            z: center_coordinates[0][2],
-        };
+
         // In general this is more complicated and would involve an actual change of basis, but here we can do it like this
         let loop_index_for_this_ct = if side == LEFT { 0 } else { 1 };
+        let other_side_loop_index_for_this_ct = if side == LEFT { 1 } else { 0 };
+        let other_side = if side == LEFT { RIGHT } else { LEFT };
+        let center_coordinates = vec![
+            [
+                Into::<T>::into(c[loop_index_for_this_ct][0]),
+                Into::<T>::into(c[loop_index_for_this_ct][1]),
+                Into::<T>::into(c[loop_index_for_this_ct][2]),
+            ],
+            [
+                Into::<T>::into(c[other_side_loop_index_for_this_ct][0]),
+                Into::<T>::into(c[other_side_loop_index_for_this_ct][1]),
+                Into::<T>::into(c[other_side_loop_index_for_this_ct][2]),
+            ],
+        ];
+
+        let center_shifts = [
+            LorentzVector {
+                t: T::zero(),
+                x: center_coordinates[0][0],
+                y: center_coordinates[0][1],
+                z: center_coordinates[0][2],
+            },
+            LorentzVector {
+                t: T::zero(),
+                x: center_coordinates[1][0],
+                y: center_coordinates[1][1],
+                z: center_coordinates[1][2],
+            },
+        ];
+
         let mut loop_momenta_in_e_surf_basis = scaled_loop_momenta_in_sampling_basis.clone();
-        loop_momenta_in_e_surf_basis[loop_index_for_this_ct] -= center_shift;
+        loop_momenta_in_e_surf_basis[loop_index_for_this_ct] -= center_shifts[0];
 
         // The building of the E-surface should be done more generically and efficiently, but here in this simple case we can do it this way
         let mut subtracted_e_surface = e_surf_cache[side][e_surf_id].clone();
 
-        let center_eval = subtracted_e_surface.eval(&center_shift);
+        let center_eval = subtracted_e_surface.eval(&center_shifts[0]);
         assert!(center_eval < T::zero());
 
         // Change the parametric equation of the subtracted E-surface to the CT basis
@@ -369,11 +393,8 @@ impl LoopInducedTriBoxTriIntegrand {
         assert!(subtracted_e_surface.t_scaling[MINUS] < T::zero());
         assert!(subtracted_e_surface.t_scaling[PLUS] > T::zero());
 
-        let radius_in_sampling_basis = loop_momenta_in_e_surf_basis[loop_index_for_this_ct]
-            .spatial_squared()
-            .sqrt();
-
         let mut all_new_cts = vec![];
+
         let local_ct_sliver_width = self
             .integrand_settings
             .threshold_ct_settings
@@ -398,193 +419,258 @@ impl LoopInducedTriBoxTriIntegrand {
             }
             CTVariable::LogRadius => vec![PLUS],
         };
-        for solution_type in solutions_to_consider {
-            // println!(
-            //     "t considered = {:+e}=",
-            //     subtracted_e_surface.t_scaling[solution_type]
-            // );
-            let mut loop_momenta_star_in_e_surf_basis = loop_momenta_in_e_surf_basis.clone();
-            loop_momenta_star_in_e_surf_basis[loop_index_for_this_ct] *=
-                subtracted_e_surface.t_scaling[solution_type];
-            // println!(
-            //     "loop_momenta_star_in_e_surf_basis={:?}",
-            //     loop_momenta_star_in_e_surf_basis
-            // );
-            let mut loop_momenta_star_in_sampling_basis = loop_momenta_star_in_e_surf_basis.clone();
-            loop_momenta_star_in_sampling_basis[loop_index_for_this_ct] += center_shift;
-            // println!(
-            //     "loop_momenta_star_in_sampling_basis={:?}",
-            //     loop_momenta_star_in_sampling_basis
-            // );
 
-            let r_star = loop_momenta_star_in_e_surf_basis[loop_index_for_this_ct]
-                .spatial_squared()
-                .abs()
-                .sqrt();
-            let r = r_star / subtracted_e_surface.t_scaling[solution_type];
-            // println!("r = {}", r);
-            // println!("r_star = {}", r_star);
+        let ct_levels_to_consider = if self
+            .integrand_settings
+            .threshold_ct_settings
+            .im_squared_through_local_ct_only
+        {
+            if self
+                .integrand_settings
+                .threshold_ct_settings
+                .include_amplitude_level_cts
+            {
+                vec![AMPLITUDE_LEVEL_CT, SUPERGRAPH_LEVEL_CT]
+            } else {
+                vec![SUPERGRAPH_LEVEL_CT]
+            }
+        } else {
+            vec![AMPLITUDE_LEVEL_CT]
+        };
 
-            let (mut t, mut t_star) = match self.integrand_settings.threshold_ct_settings.variable {
-                CTVariable::Radius => (r, r_star),
-                CTVariable::LogRadius => (r.ln(), r_star.ln()),
-            };
-
-            let mut include_local_ct = true;
-            if let Some(sliver) = local_ct_sliver_width {
-                if ((t - t_star) / t_star) * ((t - t_star) / t_star) > sliver * sliver {
-                    include_local_ct = false;
+        for ct_level in ct_levels_to_consider {
+            loop_momenta_in_e_surf_basis = scaled_loop_momenta_in_sampling_basis.clone();
+            loop_momenta_in_e_surf_basis[loop_index_for_this_ct] -= center_shifts[0];
+            if ct_level == SUPERGRAPH_LEVEL_CT {
+                loop_momenta_in_e_surf_basis[other_side_loop_index_for_this_ct] -= center_shifts[1];
+            }
+            for solution_type in solutions_to_consider.clone() {
+                // println!(
+                //     "t considered = {:+e}=",
+                //     subtracted_e_surface.t_scaling[solution_type]
+                // );
+                let mut loop_momenta_star_in_e_surf_basis = loop_momenta_in_e_surf_basis.clone();
+                loop_momenta_star_in_e_surf_basis[loop_index_for_this_ct] *=
+                    subtracted_e_surface.t_scaling[solution_type];
+                if ct_level == SUPERGRAPH_LEVEL_CT {
+                    loop_momenta_star_in_e_surf_basis[other_side_loop_index_for_this_ct] *=
+                        subtracted_e_surface.t_scaling[solution_type];
                 }
-            };
-            let mut include_integrated_ct = solution_type == PLUS
-                && self
-                    .integrand_settings
-                    .threshold_ct_settings
-                    .include_integrated_ct;
-            if include_integrated_ct {
-                if let Some(sliver) = integrated_ct_sliver_width {
-                    if sliver > T::one() {
-                        panic!("{}", format!("{}","It is typically unsafe to set the integrated CT sliver width to be larger \
+                // println!(
+                //     "loop_momenta_star_in_e_surf_basis={:?}",
+                //     loop_momenta_star_in_e_surf_basis
+                // );
+                let mut loop_momenta_star_in_sampling_basis =
+                    loop_momenta_star_in_e_surf_basis.clone();
+                loop_momenta_star_in_sampling_basis[loop_index_for_this_ct] += center_shifts[0];
+                if ct_level == SUPERGRAPH_LEVEL_CT {
+                    loop_momenta_star_in_sampling_basis[other_side_loop_index_for_this_ct] +=
+                        center_shifts[1];
+                }
+                // println!(
+                //     "loop_momenta_star_in_sampling_basis={:?}",
+                //     loop_momenta_star_in_sampling_basis
+                // );
+
+                let mut r_star = loop_momenta_star_in_e_surf_basis[loop_index_for_this_ct]
+                    .spatial_squared()
+                    .abs();
+                if ct_level == SUPERGRAPH_LEVEL_CT {
+                    r_star += loop_momenta_star_in_e_surf_basis[other_side_loop_index_for_this_ct]
+                        .spatial_squared()
+                        .abs();
+                }
+                r_star = r_star.sqrt();
+
+                let r = r_star / subtracted_e_surface.t_scaling[solution_type];
+                // println!("r = {}", r);
+                // println!("r_star = {}", r_star);
+
+                let (mut t, mut t_star) =
+                    match self.integrand_settings.threshold_ct_settings.variable {
+                        CTVariable::Radius => (r, r_star),
+                        CTVariable::LogRadius => (r.ln(), r_star.ln()),
+                    };
+
+                let mut include_local_ct = true;
+                if let Some(sliver) = local_ct_sliver_width {
+                    if ((t - t_star) / t_star) * ((t - t_star) / t_star) > sliver * sliver {
+                        include_local_ct = false;
+                    }
+                };
+                if ct_level == SUPERGRAPH_LEVEL_CT && !include_local_ct {
+                    continue;
+                }
+                let mut include_integrated_ct = ct_level == AMPLITUDE_LEVEL_CT
+                    && solution_type == PLUS
+                    && self
+                        .integrand_settings
+                        .threshold_ct_settings
+                        .include_integrated_ct;
+                if include_integrated_ct {
+                    if let Some(sliver) = integrated_ct_sliver_width {
+                        if sliver > T::one() {
+                            panic!("{}", format!("{}","It is typically unsafe to set the integrated CT sliver width to be larger \
                         than around one.
                         This is because this region above will typically be undersampled.
                         The result will be inacurate with a bias not represented in the MC accuracy.
                         Comment this check in the code if you really want to proceed.").red());
-                    }
-                    if ((t - t_star) / t_star) * ((t - t_star) / t_star) > sliver * sliver {
-                        include_integrated_ct = false;
-                    }
-                }
-            }
-            if !include_local_ct && !include_integrated_ct {
-                continue;
-            }
-
-            let onshell_edge_momenta_for_this_ct = self.evaluate_onshell_edge_momenta(
-                &loop_momenta_star_in_sampling_basis,
-                &cache.external_momenta,
-                cut,
-            );
-            // Update the evaluation of the E-surface for the solved star loop momentum in the sampling basis (since it is what the shifts are computed for in this cache)
-            let mut e_surface_cache_for_this_ct = e_surf_cache[side].clone();
-            for e_surf in e_surface_cache_for_this_ct.iter_mut() {
-                e_surf.eval =
-                    e_surf.eval(&loop_momenta_star_in_sampling_basis[loop_index_for_this_ct]);
-            }
-
-            // The factor (t - t_star) will be included at the end because we need the same quantity for the integrated CT
-            let e_surf_derivative = e_surf_cache[side][e_surf_id]
-                .norm(&loop_momenta_star_in_sampling_basis[loop_index_for_this_ct])
-                .spatial_dot(&loop_momenta_star_in_e_surf_basis[loop_index_for_this_ct])
-                / r_star;
-            let e_surf_expanded = match self.integrand_settings.threshold_ct_settings.variable {
-                CTVariable::Radius => e_surf_derivative * (t - t_star),
-                CTVariable::LogRadius => e_surf_derivative * r_star * (t - t_star),
-            };
-
-            let h_function_wgt = utils::h(
-                t,
-                Some(t_star),
-                None,
-                &self
-                    .integrand_settings
-                    .threshold_ct_settings
-                    .local_ct_h_function,
-            );
-            let mut adjusted_sampling_jac = T::one();
-            // Now account for the radius impact on the jacobian.
-            adjusted_sampling_jac *= (r_star / r).powi(3 - 1);
-
-            // Disable the local CT by setting the weight of the adjusted_sampling_jac to zero.
-            // We cannot skip any computation here because they are needed for the computation of the integrated CT which is
-            // not disabled if this point in the code is reached.
-            if !include_local_ct {
-                adjusted_sampling_jac = T::zero();
-            }
-            match self.integrand_settings.threshold_ct_settings.variable {
-                CTVariable::Radius => {}
-                CTVariable::LogRadius => {
-                    adjusted_sampling_jac *= r_star / r;
-                }
-            }
-
-            let amplitude = if side == LEFT {
-                &cut.left_amplitude
-            } else {
-                &cut.right_amplitude
-            };
-            let mut cff_evaluations = [vec![], vec![]];
-            for (i_cff, cff_term) in amplitude.cff_expression.terms.iter().enumerate() {
-                if !cff_term.contains_e_surf_id(e_surf_id) {
-                    cff_evaluations[side].push(T::zero());
-                } else {
-                    cff_evaluations[side].push(
-                        cff_term
-                            .evaluate(&e_surface_cache_for_this_ct, Some((e_surf_id, T::one()))),
-                    );
-                }
-            }
-
-            let integrated_ct = if include_integrated_ct {
-                // let radius_in_sampling_basis = scaled_loop_momenta_in_sampling_basis
-                //     [loop_index_for_this_ct]
-                //     .spatial_distance();
-                // let radius_star_in_sampling_basis =
-                //     loop_momenta_star_in_sampling_basis[loop_index_for_this_ct].spatial_distance();
-
-                // Keep in mind that the suface element d S_r keeps an r^2 fact, but that of the solved radius, so we
-                // still need this correction factor.
-                // So it happens to be the same correction factor as for the local CT but it's not immediatlly obvious so I keep them separate
-                let ict_adjusted_sampling_jac = (r_star / r).powi(3 - 1);
-
-                // Notice that for the arguments of the h function of the iCT, once can put pretty much anything that goes from 0 to infty.
-                // It would all work, but it's likely best to have an argument of one when the integrator samples directly the e-surface.
-                let ict_h_function = if let Some(sliver) = integrated_ct_sliver_width {
-                    match self.integrand_settings.threshold_ct_settings.variable {
-                        CTVariable::Radius => (Into::<T>::into(2 as f64) * sliver * r_star).inv(),
-                        CTVariable::LogRadius => {
-                            (r_star.powf(T::one() + sliver) - r_star.powf(T::one() - sliver)).inv()
+                        }
+                        if ((t - t_star) / t_star) * ((t - t_star) / t_star) > sliver * sliver {
+                            include_integrated_ct = false;
                         }
                     }
-                } else {
-                    r_star.inv()
-                        * utils::h(
-                            r / r_star,
-                            None,
-                            None, // Some(radius_star_in_sampling_basis*radius_star_in_sampling_basis)
-                            &self
-                                .integrand_settings
-                                .threshold_ct_settings
-                                .integrated_ct_h_function,
-                        )
+                }
+                if !include_local_ct && !include_integrated_ct {
+                    continue;
+                }
+
+                let onshell_edge_momenta_for_this_ct = self.evaluate_onshell_edge_momenta(
+                    &loop_momenta_star_in_sampling_basis,
+                    &cache.external_momenta,
+                    cut,
+                );
+                // Update the evaluation of the E-surface for the solved star loop momentum in the sampling basis (since it is what the shifts are computed for in this cache)
+                let mut e_surface_caches_for_this_ct = e_surf_cache.clone();
+                for e_surf in e_surface_caches_for_this_ct[side].iter_mut() {
+                    e_surf.eval =
+                        e_surf.eval(&loop_momenta_star_in_sampling_basis[loop_index_for_this_ct]);
+                }
+                if ct_level == SUPERGRAPH_LEVEL_CT {
+                    for e_surf in e_surface_caches_for_this_ct[other_side].iter_mut() {
+                        e_surf.eval = e_surf.eval(
+                            &loop_momenta_star_in_sampling_basis[other_side_loop_index_for_this_ct],
+                        );
+                    }
+                }
+
+                // The factor (t - t_star) will be included at the end because we need the same quantity for the integrated CT
+                let e_surf_derivative = e_surf_cache[side][e_surf_id]
+                    .norm(&loop_momenta_star_in_sampling_basis[loop_index_for_this_ct])
+                    .spatial_dot(&loop_momenta_star_in_e_surf_basis[loop_index_for_this_ct])
+                    / r_star;
+                // Identifying the residue in t, with r=e^t means that we must drop the r_star normalisation in the expansion.
+                let e_surf_expanded = match self.integrand_settings.threshold_ct_settings.variable {
+                    CTVariable::Radius => e_surf_derivative * (t - t_star),
+                    CTVariable::LogRadius => e_surf_derivative * r_star * (t - t_star),
                 };
 
-                // TODO investigate factor 1/2, why is it needed?
-                let e_surf_residue = e_surf_derivative.inv()
-                    * (Into::<T>::into(2 as f64) * <T as FloatConst>::PI())
-                    / Into::<T>::into(2 as f64);
-                Some(ESurfaceIntegratedCT {
-                    adjusted_sampling_jac: ict_adjusted_sampling_jac,
-                    h_function_wgt: ict_h_function,
-                    e_surf_residue: e_surf_residue,
-                })
-            } else {
-                None
-            };
+                let h_function_wgt = utils::h(
+                    t,
+                    Some(t_star),
+                    None,
+                    &self
+                        .integrand_settings
+                        .threshold_ct_settings
+                        .local_ct_h_function,
+                );
+                let mut adjusted_sampling_jac = T::one();
+                // Now account for the radius impact on the jacobian.
+                adjusted_sampling_jac *= (r_star / r).powi(3 - 1);
+                if ct_level == SUPERGRAPH_LEVEL_CT {
+                    adjusted_sampling_jac *= (r_star / r).powi(3 - 1);
+                }
+                // Disable the local CT by setting the weight of the adjusted_sampling_jac to zero.
+                // We cannot skip any computation here because they are needed for the computation of the integrated CT which is
+                // not disabled if this point in the code is reached.
+                if !include_local_ct {
+                    adjusted_sampling_jac = T::zero();
+                }
+                // The measure when building the local CT for the variable t, with r=e^t, means that we must adjust for one more power,
+                // because dr = r dt.
+                match self.integrand_settings.threshold_ct_settings.variable {
+                    CTVariable::Radius => {}
+                    CTVariable::LogRadius => {
+                        adjusted_sampling_jac *= r_star / r;
+                    }
+                }
 
-            all_new_cts.push(ESurfaceCT {
-                e_surf_id,
-                ct_basis_signature: ct_basis_signature.clone(),
-                center_coordinates: center_coordinates.clone(),
-                adjusted_sampling_jac,
-                h_function_wgt,
-                e_surf_expanded: e_surf_expanded,
-                loop_momenta_star: loop_momenta_star_in_sampling_basis,
-                onshell_edges: onshell_edge_momenta_for_this_ct,
-                e_surface_evals: e_surface_cache_for_this_ct,
-                solution_type,
-                cff_evaluations,
-                integrated_ct,
-            });
+                let amplitude_pair = [&cut.left_amplitude, &cut.right_amplitude];
+                let mut cff_evaluations = [vec![], vec![]];
+                for (i_cff, cff_term) in
+                    amplitude_pair[side].cff_expression.terms.iter().enumerate()
+                {
+                    if !cff_term.contains_e_surf_id(e_surf_id) {
+                        cff_evaluations[side].push(T::zero());
+                    } else {
+                        cff_evaluations[side].push(cff_term.evaluate(
+                            &e_surface_caches_for_this_ct[side],
+                            Some((e_surf_id, T::one())),
+                        ));
+                    }
+                }
+                if ct_level == SUPERGRAPH_LEVEL_CT {
+                    for (i_cff, cff_term) in amplitude_pair[other_side]
+                        .cff_expression
+                        .terms
+                        .iter()
+                        .enumerate()
+                    {
+                        cff_evaluations[other_side].push(
+                            cff_term.evaluate(&e_surface_caches_for_this_ct[other_side], None),
+                        );
+                    }
+                }
+
+                let integrated_ct = if include_integrated_ct {
+                    // Keep in mind that the suface element d S_r keeps an r^2 fact, but that of the solved radius, so we
+                    // still need this correction factor.
+                    // So it happens to be the same correction factor as for the local CT but it's not immediatlly obvious so I keep them separate
+                    let ict_adjusted_sampling_jac = (r_star / r).powi(3 - 1);
+
+                    // Notice that for the arguments of the h function of the iCT, once can put pretty much anything that goes from 0 to infty.
+                    // It would all work, but it's likely best to have an argument of one when the integrator samples directly the e-surface.
+                    let ict_h_function = if let Some(sliver) = integrated_ct_sliver_width {
+                        match self.integrand_settings.threshold_ct_settings.variable {
+                            CTVariable::Radius => {
+                                (Into::<T>::into(2 as f64) * sliver * r_star).inv()
+                            }
+                            CTVariable::LogRadius => (r_star.powf(T::one() + sliver)
+                                - r_star.powf(T::one() - sliver))
+                            .inv(),
+                        }
+                    } else {
+                        r_star.inv()
+                            * utils::h(
+                                r / r_star,
+                                None,
+                                None, // Some(radius_star_in_sampling_basis*radius_star_in_sampling_basis)
+                                &self
+                                    .integrand_settings
+                                    .threshold_ct_settings
+                                    .integrated_ct_h_function,
+                            )
+                    };
+
+                    // TODO investigate factor 1/2, why is it needed?
+                    let e_surf_residue = e_surf_derivative.inv()
+                        * (Into::<T>::into(2 as f64) * <T as FloatConst>::PI())
+                        / Into::<T>::into(2 as f64);
+                    Some(ESurfaceIntegratedCT {
+                        adjusted_sampling_jac: ict_adjusted_sampling_jac,
+                        h_function_wgt: ict_h_function,
+                        e_surf_residue: e_surf_residue,
+                    })
+                } else {
+                    None
+                };
+
+                all_new_cts.push(ESurfaceCT {
+                    e_surf_id,
+                    ct_basis_signature: ct_basis_signature.clone(), // Not used at the moment, could be dropped
+                    center_coordinates: center_coordinates.clone(), // Not used at the moment, could be dropped
+                    adjusted_sampling_jac,
+                    h_function_wgt,
+                    e_surf_expanded: e_surf_expanded,
+                    loop_momenta_star: loop_momenta_star_in_sampling_basis, // Not used at the moment, could be dropped
+                    onshell_edges: onshell_edge_momenta_for_this_ct,
+                    e_surface_evals: e_surface_caches_for_this_ct, // Not used at the moment, could be dropped
+                    solution_type,                                 // Only for monitoring purposes
+                    cff_evaluations,
+                    integrated_ct,
+                    ct_level,
+                });
+            }
         }
 
         all_new_cts
@@ -830,7 +916,7 @@ impl LoopInducedTriBoxTriIntegrand {
                     amplitude.cff_expression.e_surfaces.iter().enumerate()
                 {
                     if e_surf_caches[side][e_surf_id].exists {
-                        cts[side].extend(self.build_cts_for_e_surf_id_and_amplitude(
+                        cts[side].extend(self.build_cts_for_e_surf_id(
                             side,
                             e_surf_id,
                             &rescaled_loop_momenta,
@@ -850,6 +936,29 @@ impl LoopInducedTriBoxTriIntegrand {
                 format!("{}", cts[RIGHT].len()).blue(),
             );
         }
+
+        // We can obtain the imaginary squared contribution using local CTs only as follows:
+
+        // This is the result when using supergraph-level CTs only:
+        // A) I - SG_CT = RealPart[ (LAMP.re + i RAMP.im) * (RAMP.re + i RAMP.im) ] = LAMP.re * RAMP.re - RAMP.im * RAMP.im
+        // So no complex conjugation sadly.
+
+        // However when using amplitude level local CTs, we have:
+        // B) I - AMP_CT = RealPart[ LAMP.re + i RAMP.im ] * RealPart[ RAMP.re + i RAMP.im ] = LAMP.re * LAMP.re
+
+        // And the real part of the quantity we want, with complex conjugation, is:
+        // LAMP.re * RAMP.re + RAMP.im * RAMP.im
+        // We can therefore obtain the above using: B + (B - A) = 2 B - A
+        // Which is what we will be implementing below, i.e.:
+        // I - 2 AMP_CT + SG_CT
+        let use_imaginary_squared_trick = self
+            .integrand_settings
+            .threshold_ct_settings
+            .im_squared_through_local_ct_only
+            && self
+                .integrand_settings
+                .threshold_ct_settings
+                .include_amplitude_level_cts;
 
         // Note that we could also consider splitting the numerator into a left and right component, depending on its implementation
         let mut cff_sum = Complex::new(T::zero(), T::zero());
@@ -871,17 +980,28 @@ impl LoopInducedTriBoxTriIntegrand {
                 let cff_left_wgt = cff_evaluations[0][left_i_cff];
                 let cff_right_wgt = cff_evaluations[1][right_i_cff];
 
-                cff_sum += numerator_wgt
+                let mut this_cff_term_contribution = numerator_wgt
                     * cff_left_wgt
                     * e_product_left.inv()
                     * cff_right_wgt
                     * e_product_right.inv();
+
+                if use_imaginary_squared_trick
+                    && self
+                        .integrand_settings
+                        .threshold_ct_settings
+                        .compute_only_im_squared
+                {
+                    this_cff_term_contribution = T::zero();
+                }
+                cff_sum += this_cff_term_contribution;
 
                 // Now include counterterms
                 let amplitudes_pair = [&cut.left_amplitude, &cut.right_amplitude];
                 let i_cff_pair = [left_i_cff, right_i_cff];
                 let mut cts_sum_for_this_term = Complex::new(T::zero(), T::zero());
                 for ct_side in [LEFT, RIGHT] {
+                    let other_side = if ct_side == LEFT { RIGHT } else { LEFT };
                     for ct in cts[ct_side].iter() {
                         if ct.cff_evaluations[ct_side][i_cff_pair[ct_side]] == T::zero() {
                             continue;
@@ -891,18 +1011,31 @@ impl LoopInducedTriBoxTriIntegrand {
                             &left_cff_term.orientation,
                             &right_cff_term.orientation,
                         );
+
                         let mut ct_e_product = T::one();
                         for e in amplitudes_pair[ct_side].edges.iter() {
                             ct_e_product *=
                                 Into::<T>::into(2 as f64) * ct.onshell_edges[e.id].t.abs();
                         }
-                        let other_side_terms = if ct_side == LEFT {
-                            cff_right_wgt * e_product_right.inv()
+
+                        let other_side_terms = if ct.ct_level == AMPLITUDE_LEVEL_CT {
+                            if ct_side == LEFT {
+                                cff_right_wgt * e_product_right.inv()
+                            } else {
+                                cff_left_wgt * e_product_left.inv()
+                            }
                         } else {
-                            cff_left_wgt * e_product_left.inv()
+                            let mut e_product = T::one();
+                            if ct.ct_level == SUPERGRAPH_LEVEL_CT {
+                                for e in amplitudes_pair[other_side].edges.iter() {
+                                    e_product *=
+                                        Into::<T>::into(2 as f64) * ct.onshell_edges[e.id].t.abs();
+                                }
+                            }
+                            ct.cff_evaluations[other_side][i_cff_pair[other_side]] * e_product.inv()
                         };
 
-                        let re_ct_weight = -other_side_terms
+                        let mut re_ct_weight = -other_side_terms
                             * ct_numerator_wgt
                             * ct_e_product.inv()
                             * ct.cff_evaluations[ct_side][i_cff_pair[ct_side]]
@@ -946,15 +1079,35 @@ impl LoopInducedTriBoxTriIntegrand {
                             im_ct_weight *= -T::one();
                         }
 
+                        // Now depending on user specification, get the imaginary squared part using: I - 2 AMP_CT + SG_CT
+                        if use_imaginary_squared_trick {
+                            if self
+                                .integrand_settings
+                                .threshold_ct_settings
+                                .compute_only_im_squared
+                            {
+                                // In that case we only try to integrate B-A which yields the squared imaginary part
+                                if ct.ct_level == SUPERGRAPH_LEVEL_CT {
+                                    re_ct_weight *= -T::one();
+                                }
+                            } else {
+                                if ct.ct_level == SUPERGRAPH_LEVEL_CT {
+                                    re_ct_weight *= -T::one();
+                                } else {
+                                    re_ct_weight *= Into::<T>::into(2 as f64);
+                                }
+                            }
+                        }
+
                         if self.settings.general.debug > 3 {
                             println!(
                                 "   > cFF Evaluation #{} : CT for {} E-surface #{} : {:+e} + i {:+e}",
                                 format!("{}", i_term).green(),
-                                if ct_side == LEFT {
-                                    format!("{}", "left").purple()
-                                } else {
-                                    format!("{}", "right").purple()
-                                },
+                                format!("{}|{}|{}",
+                                if ct_side == LEFT {"L"} else {"R"},
+                                if ct.ct_level == AMPLITUDE_LEVEL_CT {"AMP"} else {"SG"},
+                                if ct.solution_type == PLUS {"+"} else {"-"}
+                                ).purple(),
                                 ct.e_surf_id,
                                 re_ct_weight,
                                 im_ct_weight
@@ -968,11 +1121,15 @@ impl LoopInducedTriBoxTriIntegrand {
                 // Now implement the cross terms
                 let mut ct_im_squared_weight_for_this_term = T::zero();
                 for left_ct in cts[LEFT].iter() {
-                    if left_ct.cff_evaluations[LEFT][i_cff_pair[LEFT]] == T::zero() {
+                    if left_ct.ct_level == SUPERGRAPH_LEVEL_CT
+                        || left_ct.cff_evaluations[LEFT][i_cff_pair[LEFT]] == T::zero()
+                    {
                         continue;
                     }
                     for right_ct in cts[RIGHT].iter() {
-                        if right_ct.cff_evaluations[RIGHT][i_cff_pair[RIGHT]] == T::zero() {
+                        if right_ct.ct_level == SUPERGRAPH_LEVEL_CT
+                            || right_ct.cff_evaluations[RIGHT][i_cff_pair[RIGHT]] == T::zero()
+                        {
                             continue;
                         }
                         let mut combined_onshell_edges = left_ct.onshell_edges.clone();
@@ -1025,14 +1182,36 @@ impl LoopInducedTriBoxTriIntegrand {
                         );
 
                         let ct_im_squared_weight =
-                            left_ct_weight.im * right_ct_weight.im * common_prefactor;
-                        let ct_weight = left_ct_weight * right_ct_weight * common_prefactor;
+                            -left_ct_weight.im * right_ct_weight.im * common_prefactor;
+                        let mut ct_weight = left_ct_weight * right_ct_weight * common_prefactor;
+
+                        // Check if we already obtained the imaginary squared part using the trick of I - 2 AMP_CT + SG_CT,
+                        // in which case we should not count it again
+                        if use_imaginary_squared_trick {
+                            ct_weight -= ct_im_squared_weight;
+                        }
+
+                        if use_imaginary_squared_trick
+                            && !self
+                                .integrand_settings
+                                .threshold_ct_settings
+                                .compute_only_im_squared
+                        {
+                            // In that case we subtracted twice the amplitude counterterms
+                            ct_weight = Complex::new(
+                                Into::<T>::into(2 as f64) * ct_weight.re,
+                                ct_weight.im,
+                            );
+                        }
 
                         if self.settings.general.debug > 3 {
                             println!(
                                 "   > cFF Evaluation #{} : CT for {} E-surfaces #{} x #{} : {:+e} + i {:+e}",
                                 format!("{}", i_term).green(),
-                                format!("{}", "left x right").purple(),
+                                format!("L|AMP|{} x R|AMP|{}", 
+                                    if left_ct.solution_type == PLUS {"+"} else {"-"},
+                                    if right_ct.solution_type == PLUS {"+"} else {"-"},
+                                ).purple(),
                                 left_ct.e_surf_id,
                                 right_ct.e_surf_id,
                                 ct_weight.re, ct_weight.im
@@ -1073,16 +1252,9 @@ impl LoopInducedTriBoxTriIntegrand {
                     println!("     num   : {:+e}", numerator_wgt);
                     println!(
                         "{}",
-                        format!(
-                            "     tot   : {:+e}",
-                            numerator_wgt
-                                * cff_left_wgt
-                                * e_product_left.inv()
-                                * cff_right_wgt
-                                * e_product_right.inv()
-                        )
-                        .green()
-                        .bold()
+                        format!("     tot   : {:+e}", this_cff_term_contribution)
+                            .green()
+                            .bold()
                     );
                     println!(
                         "{}",
@@ -1106,6 +1278,7 @@ impl LoopInducedTriBoxTriIntegrand {
                 e_product_left * e_product_cut * e_product_right
             );
         }
+
         // Collect terms
         if self
             .integrand_settings
@@ -1116,7 +1289,13 @@ impl LoopInducedTriBoxTriIntegrand {
                 println!("{}",format!("{}","   > Option 'compute_only_im_squared' enabled. Now turning off all other contributions.").red());
             }
             cff_sum = Complex::new(T::zero(), T::zero());
-            cff_cts_sum = Complex::new(cff_im_squared_cts_sum, T::zero());
+            // We only need to do that when trying to compute the imaginary squared part using the squaring of the integrated threshold CT.
+            // if not, then we will have already done the necessary modification before.
+            if !use_imaginary_squared_trick {
+                cff_cts_sum = Complex::new(cff_im_squared_cts_sum, T::zero());
+            } else {
+                cff_cts_sum = Complex::new(cff_cts_sum.re, T::zero());
+            }
         }
 
         cut_res = cff_sum + cff_cts_sum;

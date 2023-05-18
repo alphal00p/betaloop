@@ -12,10 +12,12 @@ HardCodedIntegrand:
     enabled: true
     include_integrated_ct: true
     compute_only_im_squared: false
+    im_squared_through_local_ct_only: false
+    include_amplitude_level_cts: true
     variable: R # for the local CT: options in this case are R and logR
     local_ct_sliver_width: null # Specify an f64 for a finite sliver width, otherwise leave Option to null
     integrated_ct_sliver_width: null # Specify an f64 for a finite sliver width, otherwise leave Option to null
-    parameterization_center: [[0.0, 0.0, 0.0]]
+    parameterization_center: [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]]
     local_ct_h_function:
       function: exponential_ct # Options in this case is just exponential_ct
       sigma: 15.
