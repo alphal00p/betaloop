@@ -446,7 +446,7 @@ impl LoopInducedTriBoxTriIntegrand {
             }
             for solution_type in solutions_to_consider.clone() {
                 // println!(
-                //     "t considered = {:+e}=",
+                //     "t considered = {:+.e}=",
                 //     subtracted_e_surface.t_scaling[solution_type]
                 // );
                 let mut loop_momenta_star_in_e_surf_basis = loop_momenta_in_e_surf_basis.clone();
@@ -792,15 +792,15 @@ impl LoopInducedTriBoxTriIntegrand {
 
         if self.settings.general.debug > 1 {
             println!(
-                "    Rescaling for this cut: {:+e}",
+                "    Rescaling for this cut: {:+.e}",
                 e_surface_cc_cut.t_scaling[0]
             );
             println!(
-                "    Normalised hyperradius for this cut: {:+e}",
+                "    Normalised hyperradius for this cut: {:+.e}",
                 normalised_hyperradius
             );
             println!(
-                "    t-scaling jacobian and h-function for this cut: {:+e}",
+                "    t-scaling jacobian and h-function for this cut: {:+.e}",
                 t_scaling_jacobian * cut_h_function
             );
         }
@@ -822,12 +822,12 @@ impl LoopInducedTriBoxTriIntegrand {
             println!("    Edge on-shell momenta for this cut:");
             for (i, l) in onshell_edge_momenta_for_this_cut.iter().enumerate() {
                 println!(
-                    "      q{} = ( {:-40}, {:-40}, {:-40}, {:-40} )",
-                    i,
-                    format!("{:+e}", l.t),
-                    format!("{:+e}", l.x),
-                    format!("{:+e}", l.y),
-                    format!("{:+e}", l.z)
+                    "      {} = ( {:-40}, {:-40}, {:-40}, {:-40} )",
+                    format!("q{}", i).bold().green(),
+                    format!("{:+.e}", l.t),
+                    format!("{:+.e}", l.x),
+                    format!("{:+.e}", l.y),
+                    format!("{:+.e}", l.z)
                 );
             }
         }
@@ -851,13 +851,18 @@ impl LoopInducedTriBoxTriIntegrand {
         if self.settings.general.debug > 3 {
             for side in [LEFT, RIGHT] {
                 println!(
-                    "All {} e_surf caches side: {}",
-                    if side == LEFT { "left" } else { "right" },
+                    "    All {} e_surf caches side:\n      {}",
+                    format!("{}", if side == LEFT { "left" } else { "right" }).purple(),
                     e_surf_caches[side]
                         .iter()
-                        .map(|es| format!("{:?}", es))
+                        .enumerate()
+                        .map(|(i_esurf, es)| format!(
+                            "{} : {:?}",
+                            format!("#{}", i_esurf).bold().green(),
+                            es
+                        ))
                         .collect::<Vec<_>>()
-                        .join("\n")
+                        .join("\n      ")
                 );
             }
         }
@@ -875,7 +880,7 @@ impl LoopInducedTriBoxTriIntegrand {
                 if self.settings.general.debug > 2 {
                     println!(
                         "   > {} cFF evaluation for orientation #{}({}): {}",
-                        if side == LEFT { "Left" } else { "Right" },
+                        if side == LEFT { "Left " } else { "Right" },
                         format!("{}", i_cff).green(),
                         cff_term
                             .orientation
@@ -884,7 +889,7 @@ impl LoopInducedTriBoxTriIntegrand {
                             .collect::<Vec<_>>()
                             .join("")
                             .blue(),
-                        format!("{:+e}", cff_eval).blue()
+                        format!("{:+.e}", cff_eval).blue()
                     );
                 }
                 cff_evaluations[side].push(cff_eval);
@@ -1042,20 +1047,20 @@ impl LoopInducedTriBoxTriIntegrand {
                             * ct.e_surf_expanded.inv()
                             * ct.adjusted_sampling_jac
                             * ct.h_function_wgt;
-                        // println!("other_side_terms = {:+e}", other_side_terms);
-                        // println!("ct.adjusted_sampling_jac = {:+e}", ct.adjusted_sampling_jac);
-                        // println!("ct_numerator_wgt = {:+e}", ct_numerator_wgt);
+                        // println!("other_side_terms = {:+.e}", other_side_terms);
+                        // println!("ct.adjusted_sampling_jac = {:+.e}", ct.adjusted_sampling_jac);
+                        // println!("ct_numerator_wgt = {:+.e}", ct_numerator_wgt);
                         // println!(
-                        //     "ct.cff_evaluations[ct_side][i_cff_pair[ct_side]] = {:+e}",
+                        //     "ct.cff_evaluations[ct_side][i_cff_pair[ct_side]] = {:+.e}",
                         //     ct.cff_evaluations[ct_side][i_cff_pair[ct_side]]
                         // );
                         // println!("ct.cff_evaluations[*][*] = {:?}", ct.cff_evaluations);
                         // println!("ct type = {}", ct.solution_type);
-                        // println!("ct_e_product = {:+e}", ct_e_product);
-                        // println!("e_product_left = {:+e}", e_product_left);
-                        // println!("e_product_right = {:+e}", e_product_right);
-                        // println!("ct.h_function_wgt = {:+e}", ct.h_function_wgt);
-                        // println!("ct.e_surf_derivative_wgt = {:+e}", ct.e_surf_expanded);
+                        // println!("ct_e_product = {:+.e}", ct_e_product);
+                        // println!("e_product_left = {:+.e}", e_product_left);
+                        // println!("e_product_right = {:+.e}", e_product_right);
+                        // println!("ct.h_function_wgt = {:+.e}", ct.h_function_wgt);
+                        // println!("ct.e_surf_derivative_wgt = {:+.e}", ct.e_surf_expanded);
                         // println!(
                         //     "A = {} vs B = {}, A/B = {}",
                         //     cff_left_wgt,
@@ -1101,11 +1106,11 @@ impl LoopInducedTriBoxTriIntegrand {
 
                         if self.settings.general.debug > 3 {
                             println!(
-                                "   > cFF Evaluation #{} : CT for {} E-surface #{} : {:+e} + i {:+e}",
+                                "   > cFF Evaluation #{} : CT for {} E-surface #{} : {:+.e} + i {:+.e}",
                                 format!("{}", i_term).green(),
                                 format!("{}|{}|{}",
                                 if ct_side == LEFT {"L"} else {"R"},
-                                if ct.ct_level == AMPLITUDE_LEVEL_CT {"AMP"} else {"SG"},
+                                if ct.ct_level == AMPLITUDE_LEVEL_CT {"AMP"} else {"SG "},
                                 if ct.solution_type == PLUS {"+"} else {"-"}
                                 ).purple(),
                                 ct.e_surf_id,
@@ -1206,7 +1211,7 @@ impl LoopInducedTriBoxTriIntegrand {
 
                         if self.settings.general.debug > 3 {
                             println!(
-                                "   > cFF Evaluation #{} : CT for {} E-surfaces #{} x #{} : {:+e} + i {:+e}",
+                                "   > cFF Evaluation #{} : CT for {} E-surfaces #{} x #{} : {:+.e} + i {:+.e}",
                                 format!("{}", i_term).green(),
                                 format!("L|AMP|{} x R|AMP|{}", 
                                     if left_ct.solution_type == PLUS {"+"} else {"-"},
@@ -1247,12 +1252,12 @@ impl LoopInducedTriBoxTriIntegrand {
                             .join("")
                             .blue(),
                     );
-                    println!("     left  : {:+e}", cff_left_wgt * e_product_left.inv());
-                    println!("     right : {:+e}", cff_right_wgt * e_product_right.inv());
-                    println!("     num   : {:+e}", numerator_wgt);
+                    println!("     left  : {:+.e}", cff_left_wgt * e_product_left.inv());
+                    println!("     right : {:+.e}", cff_right_wgt * e_product_right.inv());
+                    println!("     num   : {:+.e}", numerator_wgt);
                     println!(
                         "{}",
-                        format!("     tot   : {:+e}", this_cff_term_contribution)
+                        format!("     tot   : {:+.e}", this_cff_term_contribution)
                             .green()
                             .bold()
                     );
@@ -1271,7 +1276,7 @@ impl LoopInducedTriBoxTriIntegrand {
         }
         if self.settings.general.debug > 1 {
             println!(
-                "  > On-shell energy product: {:+e} x {:+e} x {:+e} = {:+e}",
+                "  > On-shell energy product: {:+.e} x {:+.e} x {:+.e} = {:+.e}",
                 e_product_left,
                 e_product_cut,
                 e_product_right,
@@ -1312,7 +1317,7 @@ impl LoopInducedTriBoxTriIntegrand {
             println!(
             "{}",
             format!(
-            "  > Result for cut #{} ( n_loop_left={} | cut_cardinality={} | n_loop_right={} ): {:+e} ( ∑ CTs = {:+e} )",
+            "  > Result for cut #{} ( n_loop_left={} | cut_cardinality={} | n_loop_right={} ): {:+.e} ( ∑ CTs = {:+.e} )",
             i_cut,
             cut.left_amplitude.n_loop,
             cut.cut_edge_ids_and_flip.len(),
@@ -1343,10 +1348,10 @@ impl LoopInducedTriBoxTriIntegrand {
                 println!(
                     "k{} = ( {:-40}, {:-40}, {:-40}, {:-40} )",
                     i,
-                    format!("{:+e}", l.t),
-                    format!("{:+e}", l.x),
-                    format!("{:+e}", l.y),
-                    format!("{:+e}", l.z)
+                    format!("{:+.e}", l.t),
+                    format!("{:+.e}", l.x),
+                    format!("{:+.e}", l.y),
+                    format!("{:+.e}", l.z)
                 );
             }
         }
@@ -1378,19 +1383,19 @@ impl LoopInducedTriBoxTriIntegrand {
         if self.settings.general.debug > 0 {
             println!(
                 "{}",
-                format!("total cuts weight : {:+e}", final_wgt)
+                format!("total cuts weight : {:+.e}", final_wgt)
                     .green()
                     .bold()
             );
             println!(
                 "{}",
-                format!("Sampling jacobian : {:+e}", overall_sampling_jac)
+                format!("Sampling jacobian : {:+.e}", overall_sampling_jac)
                     .green()
                     .bold()
             );
             println!(
                 "{}",
-                format!("Final contribution: {:+e}", final_wgt)
+                format!("Final contribution: {:+.e}", final_wgt)
                     .green()
                     .bold()
             );
@@ -1451,7 +1456,7 @@ impl HasIntegrand for LoopInducedTriBoxTriIntegrand {
                     "f128 Upcasted x-space sample : ( {} )",
                     sample_xs_f128
                         .iter()
-                        .map(|&x| format!("{:+e}", x))
+                        .map(|&x| format!("{:+.e}", x))
                         .collect::<Vec<_>>()
                         .join(", ")
                 );
