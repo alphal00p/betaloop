@@ -568,7 +568,7 @@ impl LoopInducedTriBoxTriIntegrand {
                 // Now account for the radius impact on the jacobian.
                 adjusted_sampling_jac *= (r_star / r).powi(3 - 1);
                 if ct_level == SUPERGRAPH_LEVEL_CT {
-                    adjusted_sampling_jac *= (r_star / r).powi(3 - 1);
+                    adjusted_sampling_jac *= (r_star / r).powi(3);
                 }
                 // Disable the local CT by setting the weight of the adjusted_sampling_jac to zero.
                 // We cannot skip any computation here because they are needed for the computation of the integrated CT which is

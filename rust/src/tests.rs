@@ -7,7 +7,7 @@ use crate::{
 
 const CENTRAL_VALUE_TOLERANCE: f64 = 2.0e-2;
 const INSPECT_TOLERANCE: f64 = 1.0e-15;
-const ERROR_TO_DIFF_TARGET_MUST_BE_LESS_THAN: f64 = 3.;
+const DIFF_TARGET_TO_ERROR_MUST_BE_LESS_THAN: f64 = 3.;
 const BASE_N_START_SAMPLE: usize = 100_000;
 
 const N_CORES_FOR_INTEGRATION_IN_TESTS: usize = 16;
@@ -20,11 +20,12 @@ fn approx_eq(res: f64, target: f64, tolerance: f64) -> bool {
     if target == 0.0 {
         return res.abs() < tolerance;
     } else {
-        // println!(
-        //     "A {:.16e} vs {:.16e}",
-        //     ((res - target) / target).abs(),
-        //     tolerance
-        // );
+        println!("A1 {:.16e} vs {:.16e}", res, target);
+        println!(
+            "A2 {:.16e} vs {:.16e}",
+            ((res - target) / target).abs(),
+            tolerance
+        );
         ((res - target) / target).abs() < tolerance
     }
 }
@@ -33,12 +34,13 @@ fn validate_error(error: f64, target_diff: f64) -> bool {
     if target_diff == 0.0 {
         return true;
     } else {
-        // println!(
-        //     "B {:.16e} vs {:.16e}",
-        //     (error / target_diff).abs(),
-        //     ERROR_TO_DIFF_TARGET_MUST_BE_LESS_THAN
-        // );
-        (error / target_diff).abs() < ERROR_TO_DIFF_TARGET_MUST_BE_LESS_THAN
+        println!("B1 {:.16e} vs {:.16e}", error, target_diff);
+        println!(
+            "B2 {:.16e} vs {:.16e}",
+            (target_diff / error).abs(),
+            DIFF_TARGET_TO_ERROR_MUST_BE_LESS_THAN
+        );
+        (error / target_diff).abs() < DIFF_TARGET_TO_ERROR_MUST_BE_LESS_THAN
     }
 }
 
@@ -347,6 +349,11 @@ mod tests_integral {
         settings.integrator.n_increase = 0;
         settings.kinematics.e_cm = 60.;
 
+        itg.threshold_ct_settings.include_integrated_ct = true;
+        itg.threshold_ct_settings.compute_only_im_squared = false;
+        itg.threshold_ct_settings.im_squared_through_local_ct_only = false;
+        itg.threshold_ct_settings.include_amplitude_level_cts = true;
+
         // cargo run --release -- --n_start 100000 --n_increase 0 --n_max 1000000 --config ../betaloop_config.yaml -d 0 -c 16 --target 6.4630e-14, 4.2985e-14
         settings.hard_coded_integrand =
             HardCodedIntegrandSettings::LoopInducedTriBoxTri(itg.clone());
@@ -354,6 +361,34 @@ mod tests_integral {
             &mut settings,
             IntegratedPhase::Both,
             Complex::new(6.4630e-14, 4.2985e-14)
+        ));
+    }
+
+    #[test]
+    fn loop_induced_triboxtri_physical_im_squared_trick() {
+        let mut settings = load_default_settings();
+        let mut itg = get_loop_induced_triboxtri_integrand();
+        itg.supergraph_yaml_file = "./data/loop_induced_TriBoxTri.yaml".to_string();
+        itg.q = [60.0, 0.0, 0.0, 0.0];
+
+        itg.threshold_ct_settings.include_integrated_ct = false;
+        itg.threshold_ct_settings.compute_only_im_squared = false;
+        itg.threshold_ct_settings.im_squared_through_local_ct_only = true;
+        itg.threshold_ct_settings.include_amplitude_level_cts = true;
+
+        settings.integrator.n_start = BASE_N_START_SAMPLE;
+        settings.integrator.n_max = 10 * BASE_N_START_SAMPLE;
+        settings.integrator.n_increase = 0;
+        settings.integrator.n_increase = 0;
+        settings.kinematics.e_cm = 60.;
+
+        // cargo run --release -- --n_start 100000 --n_increase 0 --n_max 1000000 --config ../betaloop_config.yaml -d 0 -c 16 --target 6.4630e-14, 0.0
+        settings.hard_coded_integrand =
+            HardCodedIntegrandSettings::LoopInducedTriBoxTri(itg.clone());
+        assert!(compare_integration(
+            &mut settings,
+            IntegratedPhase::Real,
+            Complex::new(6.4630e-14, 0.0)
         ));
     }
 }
@@ -391,7 +426,7 @@ mod tests_inspect {
             &mut settings,
             vec![0., 0., 4.7140452079, 0., 0., 3.7267799624, 0., 3., 4.],
             true,
-            Complex::new(1.4677535009672637e-11, 7.6830999412124933e-14)
+            Complex::new(1.5743284974316047e-11, 7.683099941212493e-14)
         ));
 
         itg.threshold_ct_settings.parameterization_center =
@@ -402,7 +437,7 @@ mod tests_inspect {
             &mut settings,
             vec![0., 0., 4.7140452079, 0., 0., 3.7267799624, 0., 3., 4.],
             true,
-            Complex::new(1.2058559179416976e-11, 1.2720710886848654e-13)
+            Complex::new(7.350891519922086e-12, 1.2720710886848654e-13)
         ));
     }
 }
