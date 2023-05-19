@@ -29,7 +29,7 @@ pub struct LoopInducedTriBoxTriCTSettings {
 
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct LoopInducedTriBoxTriSettings {
-    pub supegraph_yaml_file: String,
+    pub supergraph_yaml_file: String,
     pub q: [f64; 4],
     pub h_function: HFunctionSettings,
     #[serde(rename = "threshold_CT_settings")]
@@ -184,7 +184,7 @@ impl LoopInducedTriBoxTriIntegrand {
         assert!(integrand_settings.q[2] == 0.);
         assert!(integrand_settings.q[3] == 0.);
 
-        let sg = SuperGraph::from_file(integrand_settings.supegraph_yaml_file.as_str()).unwrap();
+        let sg = SuperGraph::from_file(integrand_settings.supergraph_yaml_file.as_str()).unwrap();
         let n_dim = utils::get_n_dim_for_n_loop_momenta(&settings, sg.n_loop, false);
         LoopInducedTriBoxTriIntegrand {
             settings,

@@ -2,6 +2,7 @@ mod box_subtraction;
 mod h_function_test;
 mod integrands;
 mod loop_induced_triboxtri;
+mod tests;
 mod triangle_subtraction;
 mod utils;
 
@@ -53,6 +54,12 @@ const fn _default_false() -> bool {
 }
 const fn _default_usize_null() -> Option<usize> {
     None
+}
+fn _default_input_rescaling() -> Vec<Vec<(f64, f64)>> {
+    vec![vec![(0.0, 1.0); 3]; 15]
+}
+fn _default_shifts() -> Vec<(f64, f64, f64, f64)> {
+    vec![(1.0, 0.0, 0.0, 0.0); 15]
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -138,7 +145,9 @@ pub struct ParameterizationSettings {
     pub mode: ParameterizationMode,
     pub mapping: ParameterizationMapping,
     pub b: f64,
+    #[serde(default = "_default_input_rescaling")]
     pub input_rescaling: Vec<Vec<(f64, f64)>>,
+    #[serde(default = "_default_shifts")]
     pub shifts: Vec<(f64, f64, f64, f64)>,
 }
 
@@ -205,7 +214,7 @@ struct IntegralResult {
     pdf: String,
 }
 
-fn havana_integrate<F>(
+pub fn havana_integrate<F>(
     settings: &Settings,
     user_data_generator: F,
     target: Option<Complex<f64>>,
@@ -252,7 +261,7 @@ where
     );
     println!();
     while num_points < settings.integrator.n_max {
-        let cur_points = settings.integrator.n_start + settings.integrator.n_increase * (iter - 1);
+        let cur_points = settings.integrator.n_start + settings.integrator.n_increase * iter;
         samples.resize(cur_points, Sample::new());
         f_evals.resize(cur_points, vec![0.; N_INTEGRAND_ACCUMULATORS]);
 
@@ -566,13 +575,84 @@ where
     IntegrationResult {
         neval: integral.processed_samples as i64,
         fail: integral.num_zero_evals as i32,
-        result: vec![integral.avg],
-        error: vec![integral.err],
-        prob: vec![integral.chi_sq],
+        result: all_integrals.iter().map(|res| res.avg).collect::<Vec<_>>(),
+        error: all_integrals.iter().map(|res| res.err).collect::<Vec<_>>(),
+        prob: all_integrals
+            .iter()
+            .map(|res| res.chi_sq)
+            .collect::<Vec<_>>(),
     }
 }
 
-struct UserData {
+pub fn inspect(
+    settings: &Settings,
+    integrand: &Integrand,
+    mut pt: Vec<f64>,
+    mut force_radius: bool,
+    is_momentum_space: bool,
+    use_f128: bool,
+) -> Complex<f64> {
+    if integrand.get_n_dim() == pt.len() - 1 {
+        force_radius = true;
+    }
+
+    let xs_f128 = if is_momentum_space {
+        let (xs, inv_jac) = utils::global_inv_parameterize::<f128::f128>(
+            &pt.chunks_exact_mut(3)
+                .map(|x| LorentzVector::from_args(0., x[0], x[1], x[2]).cast())
+                .collect::<Vec<LorentzVector<f128::f128>>>(),
+            (settings.kinematics.e_cm * settings.kinematics.e_cm).into(),
+            settings,
+            force_radius,
+        );
+        if settings.general.debug > 1 {
+            println!(
+                "f128 sampling jacobian for this point = {:+.32e}",
+                f128::f128::ONE / inv_jac
+            );
+        };
+        xs
+    } else {
+        pt.iter().map(|x| f128::f128::from(*x)).collect::<Vec<_>>()
+    };
+    let xs_f64 = xs_f128
+        .iter()
+        .map(|x| f128::f128::to_f64(x).unwrap())
+        .collect::<Vec<_>>();
+
+    let eval = integrand.evaluate_sample(
+        &Sample::ContinuousGrid(
+            1.,
+            if force_radius {
+                xs_f64.clone()[1..].iter().map(|x| *x).collect::<Vec<_>>()
+            } else {
+                xs_f64.clone()
+            },
+        ),
+        1.,
+        1,
+        use_f128,
+    );
+    println!();
+    println!(
+        "For input point xs: \n\n{}\n\nThe evaluation of integrand '{}' is:\n\n{}",
+        format!(
+            "( {} )",
+            xs_f64
+                .iter()
+                .map(|&x| format!("{:.16}", x))
+                .collect::<Vec<_>>()
+                .join(", ")
+        )
+        .blue(),
+        format!("{}", settings.hard_coded_integrand).green(),
+        format!("( {:+.16e}, {:+.16e} i)", eval.re, eval.im).blue(),
+    );
+    println!();
+
+    eval
+}
+pub struct UserData {
     integrand: Vec<Integrand>,
 }
 
@@ -640,6 +720,18 @@ fn main() -> Result<(), Report> {
                 .value_name("N_START")
                 .help("Number of starting samples for the integrator"),
         )
+        .arg(
+            Arg::with_name("n_max")
+                .long("n_max")
+                .value_name("N_MAX")
+                .help("Max number of starting samples to consider for integration"),
+        )
+        .arg(
+            Arg::with_name("n_increase")
+                .long("n_increase")
+                .value_name("N_INCREASE")
+                .help("Increase of number of sample points for each successive iteration"),
+        )
         .subcommand(
             SubCommand::with_name("inspect")
                 .about("Inspect a single input point")
@@ -690,7 +782,7 @@ fn main() -> Result<(), Report> {
         )
         .get_matches();
 
-    let mut settings = Settings::from_file(matches.value_of("config").unwrap())?;
+    let mut settings: Settings = Settings::from_file(matches.value_of("config").unwrap())?;
 
     print_banner();
     if settings.general.debug > 0 {
@@ -706,6 +798,12 @@ fn main() -> Result<(), Report> {
     }
     if let Some(x) = matches.value_of("n_start") {
         settings.integrator.n_start = usize::from_str(x).unwrap();
+    }
+    if let Some(x) = matches.value_of("n_max") {
+        settings.integrator.n_max = usize::from_str(x).unwrap();
+    }
+    if let Some(x) = matches.value_of("n_increase") {
+        settings.integrator.n_increase = usize::from_str(x).unwrap();
     }
 
     let mut cores = 1;
@@ -737,69 +835,21 @@ fn main() -> Result<(), Report> {
 
         let integrand = integrand_factory(&settings);
 
-        let mut pt: Vec<_> = matches
+        let pt = matches
             .values_of("point")
             .unwrap()
             .map(|x| f64::from_str(x.trim_end_matches(',')).unwrap())
-            .collect();
-        let mut force_radius = matches.is_present("force_radius");
-        if integrand.get_n_dim() == pt.len() - 1 {
-            force_radius = true;
-        }
-        let xs_f128 = if matches.is_present("momentum_space") {
-            let (xs, inv_jac) = utils::global_inv_parameterize::<f128::f128>(
-                &pt.chunks_exact_mut(3)
-                    .map(|x| LorentzVector::from_args(0., x[0], x[1], x[2]).cast())
-                    .collect::<Vec<LorentzVector<f128::f128>>>(),
-                (settings.kinematics.e_cm * settings.kinematics.e_cm).into(),
-                &settings,
-                force_radius,
-            );
-            if settings.general.debug > 1 {
-                println!(
-                    "f128 sampling jacobian for this point = {:+.32e}",
-                    f128::f128::ONE / inv_jac
-                );
-            };
-            xs
-        } else {
-            pt.iter().map(|x| f128::f128::from(*x)).collect::<Vec<_>>()
-        };
-        let xs_f64 = xs_f128
-            .iter()
-            .map(|x| f128::f128::to_f64(x).unwrap())
             .collect::<Vec<_>>();
-        let use_f128 = matches.is_present("use_f128");
+        let force_radius = matches.is_present("force_radius");
 
-        let eval = integrand.evaluate_sample(
-            &Sample::ContinuousGrid(
-                1.,
-                if force_radius {
-                    xs_f64.clone()[1..].iter().map(|x| *x).collect::<Vec<_>>()
-                } else {
-                    xs_f64.clone()
-                },
-            ),
-            1.,
-            1,
-            use_f128,
+        let _result = inspect(
+            &settings,
+            &integrand,
+            pt.clone(),
+            force_radius,
+            matches.is_present("momentum_space"),
+            matches.is_present("use_f128"),
         );
-        println!();
-        println!(
-            "For input point xs: \n\n{}\n\nThe evaluation of integrand '{}' is:\n\n{}",
-            format!(
-                "( {} )",
-                xs_f64
-                    .iter()
-                    .map(|&x| format!("{:.16}", x))
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            )
-            .blue(),
-            format!("{}", settings.hard_coded_integrand).green(),
-            format!("( {:+.16e}, {:+.16e} i)", eval.re, eval.im).blue(),
-        );
-        println!();
     } else if let Some(matches) = matches.subcommand_matches("bench") {
         let n_samples: usize = matches.value_of("samples").unwrap().parse().unwrap();
         println!();
@@ -838,7 +888,21 @@ fn main() -> Result<(), Report> {
                 .map(|_i| integrand_factory(settings))
                 .collect(),
         };
-        havana_integrate(&settings, user_data_generator, target);
+        let result = havana_integrate(&settings, user_data_generator, target);
+
+        println!("");
+        println!(
+            "{}",
+            format!(
+                "Havana integration completed after {} sample evaluations.",
+                format!("{:.2}M", (result.neval as f64) / (1000000. as f64))
+                    .bold()
+                    .blue()
+            )
+            .bold()
+            .green()
+        );
+        println!("");
     }
     Ok(())
 }
