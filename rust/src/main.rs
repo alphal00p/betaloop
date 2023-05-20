@@ -4,6 +4,7 @@ mod integrands;
 mod loop_induced_triboxtri;
 mod tests;
 mod triangle_subtraction;
+mod triboxtri;
 mod utils;
 
 use clap::{App, Arg, SubCommand};

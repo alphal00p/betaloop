@@ -587,6 +587,33 @@ pub fn compute_momentum<T: FloatLike>(
     res
 }
 
+pub fn two_loop_matrix_dot<T: FloatLike>(matrix: [[T; 2]; 2], moms: [[T; 3]; 2]) -> [[T; 3]; 2] {
+    let mut new_moms = [[T::zero(); 3]; 2];
+    for i in 0..=1 {
+        for j in 0..=1 {
+            for k in 0..=2 {
+                new_moms[i][k] += matrix[i][j] * moms[i][k];
+            }
+        }
+    }
+    new_moms
+}
+
+#[allow(unused)]
+pub fn two_loop_basis_change<T: FloatLike>(
+    basis_change_matrix: [[T; 2]; 2],
+    basis_shift: [[T; 3]; 2],
+    moms: [[T; 3]; 2],
+) -> [[T; 3]; 2] {
+    let mut res = two_loop_matrix_dot(basis_change_matrix, moms);
+    for i in 0..=1 {
+        for j in 0..=2 {
+            res[i][j] += basis_shift[i][j];
+        }
+    }
+    res
+}
+
 // Bilinear form for E-surface defined as sqrt[(k+p1)^2+m1sq] + sqrt[(k+p2)^2+m2sq] + e_shift
 // The Bilinear system then reads 4 k.a.k + 4 k.n + C = 0
 pub fn one_loop_e_surface_bilinear_form<T: FloatLike>(
@@ -1217,6 +1244,7 @@ pub fn format_wdhms(seconds: usize) -> String {
     compound_duration.join(" ")
 }
 
+#[allow(unused)]
 pub fn inverse_gamma_lr(a: f64, p: f64, n_iter: usize) -> f64 {
     // this algorithm is taken from https://dl.acm.org/doi/pdf/10.1145/22721.23109
 

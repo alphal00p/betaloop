@@ -2,6 +2,7 @@ use crate::box_subtraction::{BoxSubtractionIntegrand, BoxSubtractionSettings};
 use crate::h_function_test::{HFunctionTestIntegrand, HFunctionTestSettings};
 use crate::loop_induced_triboxtri::{LoopInducedTriBoxTriIntegrand, LoopInducedTriBoxTriSettings};
 use crate::triangle_subtraction::{TriangleSubtractionIntegrand, TriangleSubtractionSettings};
+use crate::triboxtri::{TriBoxTriIntegrand, TriBoxTriSettings};
 use crate::utils::FloatLike;
 use crate::{utils, Settings};
 use color_eyre::{Help, Report};
@@ -41,6 +42,8 @@ pub enum HardCodedIntegrandSettings {
     UnitVolume(UnitVolumeSettings),
     #[serde(rename = "loop_induced_TriBoxTri")]
     LoopInducedTriBoxTri(LoopInducedTriBoxTriSettings),
+    #[serde(rename = "TriBoxTri")]
+    TriBoxTri(TriBoxTriSettings),
     #[serde(rename = "triangle_subtraction")]
     TriangleSubtraction(TriangleSubtractionSettings),
     #[serde(rename = "box_subtraction")]
@@ -56,6 +59,9 @@ impl Display for HardCodedIntegrandSettings {
             HardCodedIntegrandSettings::UnitVolume(_) => write!(f, "unit_volume"),
             HardCodedIntegrandSettings::LoopInducedTriBoxTri(_) => {
                 write!(f, "loop_induced_TriBoxTri")
+            }
+            HardCodedIntegrandSettings::TriBoxTri(_) => {
+                write!(f, "TriBoxTri")
             }
             HardCodedIntegrandSettings::TriangleSubtraction(_) => {
                 write!(f, "triangle_subtraction")
@@ -113,7 +119,7 @@ pub struct ESurfaceIntegratedCT<T: FloatLike> {
 }
 
 #[derive(Debug)]
-pub struct ESurfaceCT<T: FloatLike> {
+pub struct ESurfaceCT<T: FloatLike, ESC: ESurfaceCacheTrait<T>> {
     pub e_surf_id: usize,
     pub ct_basis_signature: Vec<Vec<isize>>,
     pub center_coordinates: Vec<[T; 3]>,
@@ -122,16 +128,24 @@ pub struct ESurfaceCT<T: FloatLike> {
     pub e_surf_expanded: T,
     pub loop_momenta_star: Vec<LorentzVector<T>>,
     pub onshell_edges: Vec<LorentzVector<T>>,
-    pub e_surface_evals: [Vec<ESurfaceCache<T>>; 2],
+    pub e_surface_evals: [Vec<ESC>; 2],
     pub cff_evaluations: [Vec<T>; 2],
     pub solution_type: usize,
     pub ct_level: usize, // either utils::AMPLITUDE_LEVEL_CT or utils::SUPERGRAPH_LEVEL_CT
     pub integrated_ct: Option<ESurfaceIntegratedCT<T>>,
 }
 
+pub trait ESurfaceCacheTrait<T: FloatLike> {
+    fn does_exist(&self) -> bool;
+    fn eval(&self, k: &Vec<LorentzVector<T>>) -> T;
+    fn cached_eval(&self) -> T;
+    fn norm(&self, k: &Vec<LorentzVector<T>>) -> LorentzVector<T>;
+    fn compute_t_scaling(&self, k: &Vec<LorentzVector<T>>) -> [T; 2];
+}
+
 #[derive(Debug, Clone)]
-pub struct ESurfaceCache<T: FloatLike> {
-    pub sigs: Vec<Vec<isize>>,
+pub struct GenericESurfaceCache<T: FloatLike> {
+    pub sigs: Vec<Vec<T>>,
     pub ps: Vec<[T; 3]>,
     pub ms: Vec<T>,
     pub e_shift: T,
@@ -140,13 +154,74 @@ pub struct ESurfaceCache<T: FloatLike> {
     pub t_scaling: [T; 2],
 }
 
+#[derive(Debug, Clone)]
+pub struct OneLoopESurfaceCache<T: FloatLike> {
+    pub p1: [T; 3],
+    pub p2: [T; 3],
+    pub m1_sq: T,
+    pub m2_sq: T,
+    pub e_shift: T,
+    pub exists: bool,
+    pub eval: T,
+    pub t_scaling: [T; 2],
+}
+
+impl<T: FloatLike> ESurfaceCacheTrait<T> for OneLoopESurfaceCache<T> {
+    fn does_exist(&self) -> bool {
+        utils::one_loop_e_surface_exists(&self.p1, &self.p2, self.m1_sq, self.m2_sq, self.e_shift)
+    }
+
+    fn eval(&self, k: &Vec<LorentzVector<T>>) -> T {
+        let k_array = &[k[0].x, k[0].y, k[0].z];
+        utils::one_loop_eval_e_surf(
+            k_array,
+            &self.p1,
+            &self.p2,
+            self.m1_sq,
+            self.m2_sq,
+            self.e_shift,
+        )
+    }
+
+    #[inline]
+    fn cached_eval(&self) -> T {
+        self.eval
+    }
+
+    fn norm(&self, k: &Vec<LorentzVector<T>>) -> LorentzVector<T> {
+        let k_array = &[k[0].x, k[0].y, k[0].z];
+        let res = utils::one_loop_eval_e_surf_k_derivative(
+            k_array, &self.p1, &self.p2, self.m1_sq, self.m2_sq,
+        );
+        LorentzVector {
+            t: T::zero(),
+            x: res[0],
+            y: res[1],
+            z: res[2],
+        }
+    }
+
+    fn compute_t_scaling(&self, k: &Vec<LorentzVector<T>>) -> [T; 2] {
+        let k_array = &[k[0].x, k[0].y, k[0].z];
+        utils::one_loop_get_e_surf_t_scaling(
+            k_array,
+            &self.p1,
+            &self.p2,
+            self.m1_sq,
+            self.m2_sq,
+            self.e_shift,
+        )
+    }
+}
+
 #[allow(unused)]
-impl<T: FloatLike> ESurfaceCache<T> {
-    pub fn default() -> ESurfaceCache<T> {
-        ESurfaceCache {
-            sigs: vec![],
-            ps: vec![],
-            ms: vec![],
+impl<T: FloatLike> OneLoopESurfaceCache<T> {
+    pub fn default() -> OneLoopESurfaceCache<T> {
+        OneLoopESurfaceCache {
+            p1: [T::zero(), T::zero(), T::zero()],
+            p2: [T::zero(), T::zero(), T::zero()],
+            m1_sq: T::zero(),
+            m2_sq: T::zero(),
             e_shift: T::zero(),
             exists: true,
             eval: T::zero(),
@@ -155,18 +230,17 @@ impl<T: FloatLike> ESurfaceCache<T> {
     }
 
     pub fn new_from_inputs(
-        sigs: Vec<Vec<isize>>,
-        ps: Vec<[T; 3]>,
-        ms: Vec<T>,
+        p1: [T; 3],
+        p2: [T; 3],
+        m1_sq: T,
+        m2_sq: T,
         e_shift: T,
-    ) -> ESurfaceCache<T> {
-        if ps.len() == 2 {
-            assert!(sigs == vec![vec![1]]);
-        }
-        ESurfaceCache {
-            sigs: sigs,
-            ps: ps,
-            ms: ms,
+    ) -> OneLoopESurfaceCache<T> {
+        OneLoopESurfaceCache {
+            p1: p1,
+            p2: p2,
+            m1_sq: m1_sq,
+            m2_sq: m2_sq,
             e_shift: e_shift,
             exists: true,
             eval: T::zero(),
@@ -175,18 +249,17 @@ impl<T: FloatLike> ESurfaceCache<T> {
     }
 
     pub fn new(
-        sigs: Vec<Vec<isize>>,
+        sigs: Vec<Vec<T>>,
         ps: Vec<[T; 3]>,
         ms: Vec<T>,
         e_shift: T,
         exists: bool,
         eval: T,
         t_scaling: [T; 2],
-    ) -> ESurfaceCache<T> {
-        if ps.len() == 2 {
-            assert!(sigs == vec![vec![1]]);
-        }
-        ESurfaceCache {
+    ) -> GenericESurfaceCache<T> {
+        // At one loop we require the momenta under both square roots to be normalised as k+p, so positive sig.
+        assert!(sigs == vec![vec![T::one()], vec![T::one()]]);
+        GenericESurfaceCache {
             sigs: sigs,
             ps: ps,
             ms: ms,
@@ -197,7 +270,19 @@ impl<T: FloatLike> ESurfaceCache<T> {
         }
     }
 
-    pub fn does_exist(&self) -> bool {
+    pub fn bilinear_form(&self) -> ([[T; 3]; 3], [T; 3], T) {
+        utils::one_loop_e_surface_bilinear_form(
+            &self.p1,
+            &self.p2,
+            self.m1_sq,
+            self.m2_sq,
+            self.e_shift,
+        )
+    }
+}
+
+impl<T: FloatLike> ESurfaceCacheTrait<T> for GenericESurfaceCache<T> {
+    fn does_exist(&self) -> bool {
         if self.ps.len() == 2 {
             utils::one_loop_e_surface_exists(
                 &self.ps[0],
@@ -206,26 +291,61 @@ impl<T: FloatLike> ESurfaceCache<T> {
                 self.ms[1],
                 self.e_shift,
             )
+        } else if self.ps.len() == 3 {
+            if self.e_shift > T::zero() {
+                return false;
+            }
+            // We need to implement the basis change going from the following expression of the first two square roots:
+            //  sqrt( (sig00 * k + sig01 * l + p0)^2 + m0^2) + sqrt( (sig10 * k + sig11 * l  + p1)^2 + m1^2 )
+            // To:
+            //  sqrt( k'^2 + m0^2 ) + sqrt( l'^2 + m1^2 )
+            // Which we can achieve by the following basis change:
+            //   k -> Inv[sig].k + (-Inv[sig].p)
+            // With sig the matrix sig<ij> and k and p are two-vectors where each element are a 3-vector, i.e. k = {k,l}, p = {p0, p1}.
+            //
+            // We can then apply this basis transform to the third square root as well and read off the resulting
+            // shift which we can use for the existence condition.
+            //
+            let s = self.sigs[0][0] * self.sigs[1][1] - self.sigs[0][1] * self.sigs[1][0];
+            // Inverse signature matrix of the first two square roots
+            let basis_change_matrix = [
+                [s * self.sigs[1][1], s * self.sigs[0][1]],
+                [s * self.sigs[1][0], s * self.sigs[0][0]],
+            ];
+            let basis_change_shifts = utils::two_loop_matrix_dot(
+                basis_change_matrix,
+                [
+                    [-self.ps[0][0], -self.ps[0][1], -self.ps[0][2]],
+                    [-self.ps[1][0], -self.ps[1][1], -self.ps[1][2]],
+                ],
+            );
+            let defining_shift = [
+                self.sigs[2][0] * basis_change_shifts[0][0]
+                    + self.sigs[2][1] * basis_change_shifts[1][0]
+                    + self.ps[2][0],
+                self.sigs[2][0] * basis_change_shifts[0][1]
+                    + self.sigs[2][1] * basis_change_shifts[1][1]
+                    + self.ps[2][1],
+                self.sigs[2][0] * basis_change_shifts[0][2]
+                    + self.sigs[2][1] * basis_change_shifts[1][2]
+                    + self.ps[2][2],
+            ];
+            let p_norm_sq = defining_shift[0] * defining_shift[0]
+                + defining_shift[1] * defining_shift[1]
+                + defining_shift[2] * defining_shift[2];
+            let masses_sum = self.ms.iter().map(|m| m.sqrt()).sum::<T>();
+            self.e_shift * self.e_shift - p_norm_sq > masses_sum * masses_sum
         } else {
             unimplemented!();
         }
     }
 
-    pub fn bilinear_form(&self) -> ([[T; 3]; 3], [T; 3], T) {
-        if self.ps.len() == 2 {
-            utils::one_loop_e_surface_bilinear_form(
-                &self.ps[0],
-                &self.ps[1],
-                self.ms[0],
-                self.ms[1],
-                self.e_shift,
-            )
-        } else {
-            unimplemented!();
-        }
+    #[inline]
+    fn cached_eval(&self) -> T {
+        self.eval
     }
 
-    pub fn eval(&self, k: &Vec<LorentzVector<T>>) -> T {
+    fn eval(&self, k: &Vec<LorentzVector<T>>) -> T {
         if self.ps.len() == 2 {
             let k_array = &[k[0].x, k[0].y, k[0].z];
             utils::one_loop_eval_e_surf(
@@ -237,11 +357,17 @@ impl<T: FloatLike> ESurfaceCache<T> {
                 self.e_shift,
             )
         } else {
-            unimplemented!();
+            let qs = self.compute_qs(k);
+            self.ms
+                .iter()
+                .enumerate()
+                .map(|(i, m_sq)| (qs[i].spatial_squared() + m_sq).sqrt())
+                .sum::<T>()
+                + self.e_shift
         }
     }
 
-    pub fn norm(&self, k: &Vec<LorentzVector<T>>) -> LorentzVector<T> {
+    fn norm(&self, k: &Vec<LorentzVector<T>>) -> LorentzVector<T> {
         if self.ps.len() == 2 {
             let k_array = &[k[0].x, k[0].y, k[0].z];
             let res = utils::one_loop_eval_e_surf_k_derivative(
@@ -258,15 +384,142 @@ impl<T: FloatLike> ESurfaceCache<T> {
                 z: res[2],
             }
         } else {
-            unimplemented!();
+            let mut norm = LorentzVector {
+                t: T::zero(),
+                x: T::zero(),
+                y: T::zero(),
+                z: T::zero(),
+            };
+            let qs = self.compute_qs(k);
+            for (i_q, q) in qs.iter().enumerate() {
+                norm += q / (q.spatial_squared() + self.ms[i_q]).sqrt();
+            }
+            norm
         }
     }
 
-    pub fn compute_t_scaling(&self, k: &Vec<LorentzVector<T>>) -> [T; 2] {
+    fn compute_t_scaling(&self, k: &Vec<LorentzVector<T>>) -> [T; 2] {
         if self.ps.len() == 2 {
             let k_array = &[k[0].x, k[0].y, k[0].z];
             utils::one_loop_get_e_surf_t_scaling(
                 k_array,
+                &self.ps[0],
+                &self.ps[1],
+                self.ms[0],
+                self.ms[1],
+                self.e_shift,
+            )
+        } else {
+            if self.ps.iter().all(|p| p.iter().all(|pi| *pi == T::zero())) {
+                let qs = self.compute_qs(k);
+                let t_sar = self.e_shift / qs.iter().map(|q| q.spatial_distance()).sum::<T>();
+                [t_sar, -t_sar]
+            } else {
+                unimplemented!();
+            }
+        }
+    }
+}
+
+#[allow(unused)]
+impl<T: FloatLike> GenericESurfaceCache<T> {
+    pub fn default() -> GenericESurfaceCache<T> {
+        GenericESurfaceCache {
+            sigs: vec![],
+            ps: vec![],
+            ms: vec![],
+            e_shift: T::zero(),
+            exists: true,
+            eval: T::zero(),
+            t_scaling: [T::zero(), T::zero()],
+        }
+    }
+
+    pub fn new_from_inputs(
+        sigs: Vec<Vec<T>>,
+        ps: Vec<[T; 3]>,
+        ms: Vec<T>,
+        e_shift: T,
+    ) -> GenericESurfaceCache<T> {
+        // At one loop we require the momenta under both square roots to be normalised as k+p, so positive sig.
+        if ps.len() == 2 {
+            assert!(sigs == vec![vec![T::one()], vec![T::one()]]);
+        }
+        GenericESurfaceCache {
+            sigs: sigs,
+            ps: ps,
+            ms: ms,
+            e_shift: e_shift,
+            exists: true,
+            eval: T::zero(),
+            t_scaling: [T::zero(), T::zero()],
+        }
+    }
+
+    pub fn new(
+        sigs: Vec<Vec<T>>,
+        ps: Vec<[T; 3]>,
+        ms: Vec<T>,
+        e_shift: T,
+        exists: bool,
+        eval: T,
+        t_scaling: [T; 2],
+    ) -> GenericESurfaceCache<T> {
+        if ps.len() == 2 {
+            // At one loop we require the momenta under both square roots to be normalised as k+p, so positive sig.
+            assert!(sigs == vec![vec![T::one()], vec![T::one()]]);
+        }
+        GenericESurfaceCache {
+            sigs: sigs,
+            ps: ps,
+            ms: ms,
+            e_shift: e_shift,
+            exists: exists,
+            eval: eval,
+            t_scaling: t_scaling,
+        }
+    }
+
+    pub fn adjust_loop_momenta_shifts(&mut self, loop_momenta_shift_adjustments: &Vec<[T; 3]>) {
+        if loop_momenta_shift_adjustments.len() == 1 {
+            self.ps[0][0] += loop_momenta_shift_adjustments[0][0];
+            self.ps[0][1] += loop_momenta_shift_adjustments[0][1];
+            self.ps[0][2] += loop_momenta_shift_adjustments[0][2];
+
+            self.ps[1][0] += loop_momenta_shift_adjustments[0][0];
+            self.ps[1][1] += loop_momenta_shift_adjustments[0][1];
+            self.ps[1][2] += loop_momenta_shift_adjustments[0][2];
+        } else {
+            for (i, p) in self.ps.iter_mut().enumerate() {
+                for (j, shift) in loop_momenta_shift_adjustments.iter().enumerate() {
+                    p[0] += self.sigs[i][j] * shift[0];
+                    p[1] += self.sigs[i][j] * shift[1];
+                    p[2] += self.sigs[i][j] * shift[2];
+                }
+            }
+        }
+    }
+
+    pub fn compute_qs(&self, k: &Vec<LorentzVector<T>>) -> Vec<LorentzVector<T>> {
+        let mut qs = vec![];
+        for ss in self.sigs.iter() {
+            let mut new_vec = LorentzVector {
+                t: T::zero(),
+                x: T::zero(),
+                y: T::zero(),
+                z: T::zero(),
+            };
+            for (i_s, s) in ss.iter().enumerate() {
+                new_vec += k[i_s] * (*s);
+            }
+            qs.push(new_vec);
+        }
+        qs
+    }
+
+    pub fn bilinear_form(&self) -> ([[T; 3]; 3], [T; 3], T) {
+        if self.ps.len() == 2 {
+            utils::one_loop_e_surface_bilinear_form(
                 &self.ps[0],
                 &self.ps[1],
                 self.ms[0],
@@ -294,9 +547,9 @@ impl CFFFactor {
         }
     }
 
-    pub fn evaluate<T: FloatLike>(
+    pub fn evaluate<T: FloatLike, ESC: ESurfaceCacheTrait<T>>(
         &self,
-        e_surface_caches: &Vec<ESurfaceCache<T>>,
+        e_surface_caches: &Vec<ESC>,
         expand_e_surf: Option<(usize, T)>,
         has_found_expanded_e_surf: bool,
     ) -> T {
@@ -305,7 +558,7 @@ impl CFFFactor {
         for e_surf_id in self.denominator.iter() {
             if let Some((expanded_e_surf_id, expanded_e_surf)) = expand_e_surf {
                 if expanded_e_surf_id != *e_surf_id {
-                    coef *= e_surface_caches[*e_surf_id].eval;
+                    coef *= e_surface_caches[*e_surf_id].cached_eval();
                 } else {
                     if has_found_expanded_e_surf {
                         panic!("Current implementation only supports E-surfaces that appear as single-pole only.");
@@ -314,7 +567,7 @@ impl CFFFactor {
                     coef *= expanded_e_surf;
                 }
             } else {
-                coef *= e_surface_caches[*e_surf_id].eval;
+                coef *= e_surface_caches[*e_surf_id].cached_eval();
             }
         }
         if self.factors.len() > 0 {
@@ -364,9 +617,9 @@ impl CFFTerm {
         }
     }
 
-    pub fn evaluate<T: FloatLike>(
+    pub fn evaluate<T: FloatLike, ESC: ESurfaceCacheTrait<T>>(
         &self,
-        e_surface_caches: &Vec<ESurfaceCache<T>>,
+        e_surface_caches: &Vec<ESC>,
         expand_e_surf: Option<(usize, T)>,
     ) -> T {
         let mut result = T::zero();
@@ -517,6 +770,7 @@ pub enum Integrand {
     UnitVolume(UnitVolumeIntegrand),
     HFunctionTest(HFunctionTestIntegrand),
     LoopInducedTriBoxTri(LoopInducedTriBoxTriIntegrand),
+    TriBoxTri(TriBoxTriIntegrand),
     TriangleSubtraction(TriangleSubtractionIntegrand),
     BoxSubtraction(BoxSubtractionIntegrand),
 }
@@ -538,6 +792,9 @@ pub fn integrand_factory(settings: &Settings) -> Integrand {
                 integrand_settings,
             ))
         }
+        HardCodedIntegrandSettings::TriBoxTri(integrand_settings) => Integrand::TriBoxTri(
+            TriBoxTriIntegrand::new(settings.clone(), integrand_settings),
+        ),
         HardCodedIntegrandSettings::TriangleSubtraction(integrand_settings) => {
             Integrand::TriangleSubtraction(TriangleSubtractionIntegrand::new(integrand_settings))
         }

@@ -13,7 +13,7 @@ use serde::Deserialize;
 use utils::{AMPLITUDE_LEVEL_CT, LEFT, MINUS, PLUS, RIGHT, SUPERGRAPH_LEVEL_CT};
 
 #[derive(Debug, Clone, Default, Deserialize)]
-pub struct LoopInducedTriBoxTriCTSettings {
+pub struct TriBoxTriCTSettings {
     pub variable: CTVariable,
     pub enabled: bool,
     pub compute_only_im_squared: bool,
@@ -28,27 +28,24 @@ pub struct LoopInducedTriBoxTriCTSettings {
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
-pub struct LoopInducedTriBoxTriSettings {
+pub struct TriBoxTriSettings {
     pub supergraph_yaml_file: String,
     pub q: [f64; 4],
     pub h_function: HFunctionSettings,
     #[serde(rename = "threshold_CT_settings")]
-    pub threshold_ct_settings: LoopInducedTriBoxTriCTSettings,
+    pub threshold_ct_settings: TriBoxTriCTSettings,
 }
 
-pub struct LoopInducedTriBoxTriIntegrand {
+pub struct TriBoxTriIntegrand {
     pub settings: Settings,
     pub supergraph: SuperGraph,
     pub n_dim: usize,
-    pub integrand_settings: LoopInducedTriBoxTriSettings,
+    pub integrand_settings: TriBoxTriSettings,
 }
 
 #[allow(unused)]
-impl LoopInducedTriBoxTriIntegrand {
-    pub fn new(
-        settings: Settings,
-        integrand_settings: LoopInducedTriBoxTriSettings,
-    ) -> LoopInducedTriBoxTriIntegrand {
+impl TriBoxTriIntegrand {
+    pub fn new(settings: Settings, integrand_settings: TriBoxTriSettings) -> TriBoxTriIntegrand {
         /*
                output_LU_scalar betaLoop_triangleBoxTriangleBenchmark_scalar \
         --topology=[\
@@ -72,7 +69,7 @@ impl LoopInducedTriBoxTriIntegrand {
 
         let sg = SuperGraph::from_file(integrand_settings.supergraph_yaml_file.as_str()).unwrap();
         let n_dim = utils::get_n_dim_for_n_loop_momenta(&settings, sg.n_loop, false);
-        LoopInducedTriBoxTriIntegrand {
+        TriBoxTriIntegrand {
             settings,
             supergraph: sg,
             n_dim: n_dim,
@@ -122,8 +119,8 @@ impl LoopInducedTriBoxTriIntegrand {
         amplitude: &Amplitude,
         e_surfaces: &Vec<Esurface>,
         loop_momenta: &Vec<LorentzVector<T>>,
-    ) -> Vec<OneLoopESurfaceCache<T>> {
-        let mut e_surf_caches: Vec<OneLoopESurfaceCache<T>> = vec![];
+    ) -> Vec<GenericESurfaceCache<T>> {
+        let mut e_surf_caches: Vec<GenericESurfaceCache<T>> = vec![];
 
         // Negative edge ids indicate here momenta external to the whole supergraph
         let amplitude_externals = amplitude
@@ -171,17 +168,19 @@ impl LoopInducedTriBoxTriIntegrand {
             for (i_ext, sig) in e_surf.shift.iter().enumerate() {
                 shift += amplitude_externals[i_ext].t * Into::<T>::into(*sig as f64);
             }
-            let mut e_surf_cache = OneLoopESurfaceCache::new_from_inputs(
-                [p1.x, p1.y, p1.z],
-                [p2.x, p2.y, p2.z],
-                Into::<T>::into(
-                    self.supergraph.edges[e_surf.edge_ids[0]].mass
-                        * self.supergraph.edges[e_surf.edge_ids[0]].mass,
-                ),
-                Into::<T>::into(
-                    self.supergraph.edges[e_surf.edge_ids[1]].mass
-                        * self.supergraph.edges[e_surf.edge_ids[1]].mass,
-                ),
+            let mut e_surf_cache = GenericESurfaceCache::new_from_inputs(
+                vec![vec![T::one()], vec![T::one()]],
+                vec![[p1.x, p1.y, p1.z], [p2.x, p2.y, p2.z]],
+                vec![
+                    Into::<T>::into(
+                        self.supergraph.edges[e_surf.edge_ids[0]].mass
+                            * self.supergraph.edges[e_surf.edge_ids[0]].mass,
+                    ),
+                    Into::<T>::into(
+                        self.supergraph.edges[e_surf.edge_ids[1]].mass
+                            * self.supergraph.edges[e_surf.edge_ids[1]].mass,
+                    ),
+                ],
                 shift,
             );
             e_surf_cache.exists = e_surf_cache.does_exist();
@@ -201,10 +200,10 @@ impl LoopInducedTriBoxTriIntegrand {
         side: usize,
         e_surf_id: usize,
         scaled_loop_momenta_in_sampling_basis: &Vec<LorentzVector<T>>,
-        e_surf_cache: &[Vec<OneLoopESurfaceCache<T>>; 2],
+        e_surf_cache: &[Vec<GenericESurfaceCache<T>>; 2],
         cache: &ComputationCache<T>,
         cut: &Cut,
-    ) -> Vec<ESurfaceCT<T, OneLoopESurfaceCache<T>>> {
+    ) -> Vec<ESurfaceCT<T, GenericESurfaceCache<T>>> {
         // Quite some gynmastic needs to take place in order to dynamically build the right basis for solving this E-surface CT
         // I hard-code it for now
         let mut ct_basis_signature = if side == LEFT {
@@ -261,16 +260,8 @@ impl LoopInducedTriBoxTriIntegrand {
         assert!(center_eval < T::zero());
 
         // Change the parametric equation of the subtracted E-surface to the CT basis
-        subtracted_e_surface.p1 = [
-            subtracted_e_surface.p1[0] + center_coordinates[0][0],
-            subtracted_e_surface.p1[1] + center_coordinates[0][1],
-            subtracted_e_surface.p1[2] + center_coordinates[0][2],
-        ];
-        subtracted_e_surface.p2 = [
-            subtracted_e_surface.p2[0] + center_coordinates[0][0],
-            subtracted_e_surface.p2[1] + center_coordinates[0][1],
-            subtracted_e_surface.p2[2] + center_coordinates[0][2],
-        ];
+        subtracted_e_surface.adjust_loop_momenta_shifts(&vec![center_coordinates[0]]);
+
         subtracted_e_surface.t_scaling = subtracted_e_surface
             .compute_t_scaling(&vec![loop_momenta_in_e_surf_basis[loop_index_for_this_ct]]);
         assert!(subtracted_e_surface.t_scaling[MINUS] < T::zero());
@@ -635,13 +626,15 @@ impl LoopInducedTriBoxTriIntegrand {
             onshell_edge_momenta_for_this_cut[cut.cut_edge_ids_and_flip[0].0] - loop_momenta[2];
         let p2 =
             onshell_edge_momenta_for_this_cut[cut.cut_edge_ids_and_flip[1].0] - loop_momenta[2];
-        let mut e_surface_cc_cut = OneLoopESurfaceCache::new_from_inputs(
-            [p1.x, p1.y, p1.z],
-            [p2.x, p2.y, p2.z],
-            Into::<T>::into(self.supergraph.edges[cut.cut_edge_ids_and_flip[0].0].mass)
-                * Into::<T>::into(self.supergraph.edges[cut.cut_edge_ids_and_flip[0].0].mass),
-            Into::<T>::into(self.supergraph.edges[cut.cut_edge_ids_and_flip[1].0].mass)
-                * Into::<T>::into(self.supergraph.edges[cut.cut_edge_ids_and_flip[1].0].mass),
+        let mut e_surface_cc_cut = GenericESurfaceCache::new_from_inputs(
+            vec![vec![T::one()], vec![T::one()]],
+            vec![[p1.x, p1.y, p1.z], [p2.x, p2.y, p2.z]],
+            vec![
+                Into::<T>::into(self.supergraph.edges[cut.cut_edge_ids_and_flip[0].0].mass)
+                    * Into::<T>::into(self.supergraph.edges[cut.cut_edge_ids_and_flip[0].0].mass),
+                Into::<T>::into(self.supergraph.edges[cut.cut_edge_ids_and_flip[1].0].mass)
+                    * Into::<T>::into(self.supergraph.edges[cut.cut_edge_ids_and_flip[1].0].mass),
+            ],
             -Into::<T>::into(self.integrand_settings.q[0]),
         );
         //println!("e_surface_cc_cut={:?}", e_surface_cc_cut);
@@ -716,7 +709,7 @@ impl LoopInducedTriBoxTriIntegrand {
         }
 
         // Evaluate E-surfaces
-        let mut e_surf_caches: [Vec<OneLoopESurfaceCache<T>>; 2] = [vec![], vec![]];
+        let mut e_surf_caches: [Vec<GenericESurfaceCache<T>>; 2] = [vec![], vec![]];
         for side in [LEFT, RIGHT] {
             let amplitude = if side == LEFT {
                 &cut.left_amplitude
@@ -1287,8 +1280,7 @@ impl LoopInducedTriBoxTriIntegrand {
     }
 }
 
-#[allow(unused)]
-impl HasIntegrand for LoopInducedTriBoxTriIntegrand {
+impl HasIntegrand for TriBoxTriIntegrand {
     fn create_grid(&self) -> Grid {
         Grid::ContinuousGrid(ContinuousGrid::new(
             self.n_dim,
@@ -1305,7 +1297,7 @@ impl HasIntegrand for LoopInducedTriBoxTriIntegrand {
         &self,
         sample: &Sample,
         wgt: f64,
-        iter: usize,
+        #[allow(unused)] iter: usize,
         use_f128: bool,
     ) -> Complex<f64> {
         let xs = match sample {
