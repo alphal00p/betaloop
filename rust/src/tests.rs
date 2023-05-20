@@ -20,12 +20,12 @@ fn approx_eq(res: f64, target: f64, tolerance: f64) -> bool {
     if target == 0.0 {
         return res.abs() < tolerance;
     } else {
-        println!("A1 {:.16e} vs {:.16e}", res, target);
-        println!(
-            "A2 {:.16e} vs {:.16e}",
-            ((res - target) / target).abs(),
-            tolerance
-        );
+        // println!("A1 {:.16e} vs {:.16e}", res, target);
+        // println!(
+        //     "A2 {:.16e} vs {:.16e}",
+        //     ((res - target) / target).abs(),
+        //     tolerance
+        // );
         ((res - target) / target).abs() < tolerance
     }
 }
@@ -34,12 +34,12 @@ fn validate_error(error: f64, target_diff: f64) -> bool {
     if target_diff == 0.0 {
         return true;
     } else {
-        println!("B1 {:.16e} vs {:.16e}", error, target_diff);
-        println!(
-            "B2 {:.16e} vs {:.16e}",
-            (target_diff / error).abs(),
-            DIFF_TARGET_TO_ERROR_MUST_BE_LESS_THAN
-        );
+        // println!("B1 {:.16e} vs {:.16e}", error, target_diff);
+        // println!(
+        //     "B2 {:.16e} vs {:.16e}",
+        //     (target_diff / error).abs(),
+        //     DIFF_TARGET_TO_ERROR_MUST_BE_LESS_THAN
+        // );
         (error / target_diff).abs() < DIFF_TARGET_TO_ERROR_MUST_BE_LESS_THAN
     }
 }

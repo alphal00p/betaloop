@@ -1,8 +1,6 @@
 use crate::box_subtraction::{BoxSubtractionIntegrand, BoxSubtractionSettings};
 use crate::h_function_test::{HFunctionTestIntegrand, HFunctionTestSettings};
-use crate::loop_induced_triboxtri::{
-    ESurfaceCache, LoopInducedTriBoxTriIntegrand, LoopInducedTriBoxTriSettings,
-};
+use crate::loop_induced_triboxtri::{LoopInducedTriBoxTriIntegrand, LoopInducedTriBoxTriSettings};
 use crate::triangle_subtraction::{TriangleSubtractionIntegrand, TriangleSubtractionSettings};
 use crate::utils::FloatLike;
 use crate::{utils, Settings};
@@ -78,6 +76,18 @@ impl Default for HardCodedIntegrandSettings {
     }
 }
 
+pub struct ComputationCache<T: FloatLike> {
+    pub external_momenta: Vec<LorentzVector<T>>,
+}
+
+impl<T: FloatLike> ComputationCache<T> {
+    pub fn default() -> ComputationCache<T> {
+        ComputationCache {
+            external_momenta: vec![],
+        }
+    }
+}
+
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct Esurface {
     pub edge_ids: Vec<usize>,
@@ -91,6 +101,180 @@ impl Esurface {
             edge_ids,
             shift,
             id,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct ESurfaceIntegratedCT<T: FloatLike> {
+    pub adjusted_sampling_jac: T,
+    pub h_function_wgt: T,
+    pub e_surf_residue: T,
+}
+
+#[derive(Debug)]
+pub struct ESurfaceCT<T: FloatLike> {
+    pub e_surf_id: usize,
+    pub ct_basis_signature: Vec<Vec<isize>>,
+    pub center_coordinates: Vec<[T; 3]>,
+    pub adjusted_sampling_jac: T,
+    pub h_function_wgt: T,
+    pub e_surf_expanded: T,
+    pub loop_momenta_star: Vec<LorentzVector<T>>,
+    pub onshell_edges: Vec<LorentzVector<T>>,
+    pub e_surface_evals: [Vec<ESurfaceCache<T>>; 2],
+    pub cff_evaluations: [Vec<T>; 2],
+    pub solution_type: usize,
+    pub ct_level: usize, // either utils::AMPLITUDE_LEVEL_CT or utils::SUPERGRAPH_LEVEL_CT
+    pub integrated_ct: Option<ESurfaceIntegratedCT<T>>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ESurfaceCache<T: FloatLike> {
+    pub sigs: Vec<Vec<isize>>,
+    pub ps: Vec<[T; 3]>,
+    pub ms: Vec<T>,
+    pub e_shift: T,
+    pub exists: bool,
+    pub eval: T,
+    pub t_scaling: [T; 2],
+}
+
+#[allow(unused)]
+impl<T: FloatLike> ESurfaceCache<T> {
+    pub fn default() -> ESurfaceCache<T> {
+        ESurfaceCache {
+            sigs: vec![],
+            ps: vec![],
+            ms: vec![],
+            e_shift: T::zero(),
+            exists: true,
+            eval: T::zero(),
+            t_scaling: [T::zero(), T::zero()],
+        }
+    }
+
+    pub fn new_from_inputs(
+        sigs: Vec<Vec<isize>>,
+        ps: Vec<[T; 3]>,
+        ms: Vec<T>,
+        e_shift: T,
+    ) -> ESurfaceCache<T> {
+        if ps.len() == 2 {
+            assert!(sigs == vec![vec![1]]);
+        }
+        ESurfaceCache {
+            sigs: sigs,
+            ps: ps,
+            ms: ms,
+            e_shift: e_shift,
+            exists: true,
+            eval: T::zero(),
+            t_scaling: [T::zero(), T::zero()],
+        }
+    }
+
+    pub fn new(
+        sigs: Vec<Vec<isize>>,
+        ps: Vec<[T; 3]>,
+        ms: Vec<T>,
+        e_shift: T,
+        exists: bool,
+        eval: T,
+        t_scaling: [T; 2],
+    ) -> ESurfaceCache<T> {
+        if ps.len() == 2 {
+            assert!(sigs == vec![vec![1]]);
+        }
+        ESurfaceCache {
+            sigs: sigs,
+            ps: ps,
+            ms: ms,
+            e_shift: e_shift,
+            exists: exists,
+            eval: eval,
+            t_scaling: t_scaling,
+        }
+    }
+
+    pub fn does_exist(&self) -> bool {
+        if self.ps.len() == 2 {
+            utils::one_loop_e_surface_exists(
+                &self.ps[0],
+                &self.ps[1],
+                self.ms[0],
+                self.ms[1],
+                self.e_shift,
+            )
+        } else {
+            unimplemented!();
+        }
+    }
+
+    pub fn bilinear_form(&self) -> ([[T; 3]; 3], [T; 3], T) {
+        if self.ps.len() == 2 {
+            utils::one_loop_e_surface_bilinear_form(
+                &self.ps[0],
+                &self.ps[1],
+                self.ms[0],
+                self.ms[1],
+                self.e_shift,
+            )
+        } else {
+            unimplemented!();
+        }
+    }
+
+    pub fn eval(&self, k: &Vec<LorentzVector<T>>) -> T {
+        if self.ps.len() == 2 {
+            let k_array = &[k[0].x, k[0].y, k[0].z];
+            utils::one_loop_eval_e_surf(
+                k_array,
+                &self.ps[0],
+                &self.ps[1],
+                self.ms[0],
+                self.ms[1],
+                self.e_shift,
+            )
+        } else {
+            unimplemented!();
+        }
+    }
+
+    pub fn norm(&self, k: &Vec<LorentzVector<T>>) -> LorentzVector<T> {
+        if self.ps.len() == 2 {
+            let k_array = &[k[0].x, k[0].y, k[0].z];
+            let res = utils::one_loop_eval_e_surf_k_derivative(
+                k_array,
+                &self.ps[0],
+                &self.ps[1],
+                self.ms[0],
+                self.ms[1],
+            );
+            LorentzVector {
+                t: T::zero(),
+                x: res[0],
+                y: res[1],
+                z: res[2],
+            }
+        } else {
+            unimplemented!();
+        }
+    }
+
+    pub fn compute_t_scaling(&self, k: &Vec<LorentzVector<T>>) -> [T; 2] {
+        if self.ps.len() == 2 {
+            let k_array = &[k[0].x, k[0].y, k[0].z];
+            utils::one_loop_get_e_surf_t_scaling(
+                k_array,
+                &self.ps[0],
+                &self.ps[1],
+                self.ms[0],
+                self.ms[1],
+                self.e_shift,
+            )
+        } else {
+            unimplemented!();
         }
     }
 }

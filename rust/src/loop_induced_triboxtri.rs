@@ -42,120 +42,6 @@ pub struct LoopInducedTriBoxTriIntegrand {
     pub n_dim: usize,
     pub integrand_settings: LoopInducedTriBoxTriSettings,
 }
-pub struct ComputationCache<T: FloatLike> {
-    pub external_momenta: Vec<LorentzVector<T>>,
-}
-
-impl<T: FloatLike> ComputationCache<T> {
-    pub fn default() -> ComputationCache<T> {
-        ComputationCache {
-            external_momenta: vec![],
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct ESurfaceIntegratedCT<T: FloatLike> {
-    pub adjusted_sampling_jac: T,
-    pub h_function_wgt: T,
-    pub e_surf_residue: T,
-}
-
-#[derive(Debug)]
-pub struct ESurfaceCT<T: FloatLike> {
-    pub e_surf_id: usize,
-    pub ct_basis_signature: Vec<Vec<isize>>,
-    pub center_coordinates: Vec<[T; 3]>,
-    pub adjusted_sampling_jac: T,
-    pub h_function_wgt: T,
-    pub e_surf_expanded: T,
-    pub loop_momenta_star: Vec<LorentzVector<T>>,
-    pub onshell_edges: Vec<LorentzVector<T>>,
-    pub e_surface_evals: [Vec<ESurfaceCache<T>>; 2],
-    pub cff_evaluations: [Vec<T>; 2],
-    pub solution_type: usize,
-    pub ct_level: usize, // either utils::AMPLITUDE_LEVEL_CT or utils::SUPERGRAPH_LEVEL_CT
-    pub integrated_ct: Option<ESurfaceIntegratedCT<T>>,
-}
-
-#[derive(Debug, Clone)]
-pub struct ESurfaceCache<T: FloatLike> {
-    pub p1: [T; 3],
-    pub p2: [T; 3],
-    pub m1sq: T,
-    pub m2sq: T,
-    pub e_shift: T,
-    pub exists: bool,
-    pub eval: T,
-    pub t_scaling: [T; 2],
-}
-
-#[allow(unused)]
-impl<T: FloatLike> ESurfaceCache<T> {
-    pub fn default() -> ESurfaceCache<T> {
-        ESurfaceCache {
-            p1: [T::zero(); 3],
-            p2: [T::zero(); 3],
-            m1sq: T::zero(),
-            m2sq: T::zero(),
-            e_shift: T::zero(),
-            exists: true,
-            eval: T::zero(),
-            t_scaling: [T::zero(), T::zero()],
-        }
-    }
-
-    pub fn does_exist(&self) -> bool {
-        utils::one_loop_e_surface_exists(&self.p1, &self.p2, self.m1sq, self.m2sq, self.e_shift)
-    }
-
-    pub fn bilinear_form(&self) -> ([[T; 3]; 3], [T; 3], T) {
-        utils::one_loop_e_surface_bilinear_form(
-            &self.p1,
-            &self.p2,
-            self.m1sq,
-            self.m2sq,
-            self.e_shift,
-        )
-    }
-
-    pub fn eval(&self, k: &LorentzVector<T>) -> T {
-        let k_array = &[k.x, k.y, k.z];
-        utils::one_loop_eval_e_surf(
-            k_array,
-            &self.p1,
-            &self.p2,
-            self.m1sq,
-            self.m2sq,
-            self.e_shift,
-        )
-    }
-
-    pub fn norm(&self, k: &LorentzVector<T>) -> LorentzVector<T> {
-        let k_array = &[k.x, k.y, k.z];
-        let res = utils::one_loop_eval_e_surf_k_derivative(
-            k_array, &self.p1, &self.p2, self.m1sq, self.m2sq,
-        );
-        LorentzVector {
-            t: T::zero(),
-            x: res[0],
-            y: res[1],
-            z: res[2],
-        }
-    }
-
-    pub fn compute_t_scaling(&self, k: &LorentzVector<T>) -> [T; 2] {
-        let k_array = &[k.x, k.y, k.z];
-        utils::one_loop_get_e_surf_t_scaling(
-            k_array,
-            &self.p1,
-            &self.p2,
-            self.m1sq,
-            self.m2sq,
-            self.e_shift,
-        )
-    }
-}
 
 #[allow(unused)]
 impl LoopInducedTriBoxTriIntegrand {
@@ -285,27 +171,26 @@ impl LoopInducedTriBoxTriIntegrand {
             for (i_ext, sig) in e_surf.shift.iter().enumerate() {
                 shift += amplitude_externals[i_ext].t * Into::<T>::into(*sig as f64);
             }
-            let mut e_surf_cache = ESurfaceCache {
-                p1: [p1.x, p1.y, p1.z],
-                p2: [p2.x, p2.y, p2.z],
-                m1sq: Into::<T>::into(
-                    self.supergraph.edges[e_surf.edge_ids[0]].mass
-                        * self.supergraph.edges[e_surf.edge_ids[0]].mass,
-                ),
-                m2sq: Into::<T>::into(
-                    self.supergraph.edges[e_surf.edge_ids[1]].mass
-                        * self.supergraph.edges[e_surf.edge_ids[1]].mass,
-                ),
-                e_shift: shift,
-                exists: true,                      // Will be adjusted later
-                eval: T::zero(),                   // Will be adjusted later
-                t_scaling: [T::zero(), T::zero()], // Will be adjusted later
-            };
+            let mut e_surf_cache = ESurfaceCache::new_from_inputs(
+                vec![vec![1]],
+                vec![[p1.x, p1.y, p1.z], [p2.x, p2.y, p2.z]],
+                vec![
+                    Into::<T>::into(
+                        self.supergraph.edges[e_surf.edge_ids[0]].mass
+                            * self.supergraph.edges[e_surf.edge_ids[0]].mass,
+                    ),
+                    Into::<T>::into(
+                        self.supergraph.edges[e_surf.edge_ids[1]].mass
+                            * self.supergraph.edges[e_surf.edge_ids[1]].mass,
+                    ),
+                ],
+                shift,
+            );
             e_surf_cache.exists = e_surf_cache.does_exist();
             let k = onshell_edge_momenta[amplitude.lmb_edges[0].id];
-            e_surf_cache.eval = e_surf_cache.eval(&k);
+            e_surf_cache.eval = e_surf_cache.eval(&vec![k]);
             if e_surf_cache.exists {
-                e_surf_cache.t_scaling = e_surf_cache.compute_t_scaling(&k);
+                e_surf_cache.t_scaling = e_surf_cache.compute_t_scaling(&vec![k]);
             }
             e_surf_caches.push(e_surf_cache);
         }
@@ -374,22 +259,22 @@ impl LoopInducedTriBoxTriIntegrand {
         // The building of the E-surface should be done more generically and efficiently, but here in this simple case we can do it this way
         let mut subtracted_e_surface = e_surf_cache[side][e_surf_id].clone();
 
-        let center_eval = subtracted_e_surface.eval(&center_shifts[0]);
+        let center_eval = subtracted_e_surface.eval(&vec![center_shifts[0]]);
         assert!(center_eval < T::zero());
 
         // Change the parametric equation of the subtracted E-surface to the CT basis
-        subtracted_e_surface.p1 = [
-            subtracted_e_surface.p1[0] + center_coordinates[0][0],
-            subtracted_e_surface.p1[1] + center_coordinates[0][1],
-            subtracted_e_surface.p1[2] + center_coordinates[0][2],
+        subtracted_e_surface.ps[0] = [
+            subtracted_e_surface.ps[0][0] + center_coordinates[0][0],
+            subtracted_e_surface.ps[0][1] + center_coordinates[0][1],
+            subtracted_e_surface.ps[0][2] + center_coordinates[0][2],
         ];
-        subtracted_e_surface.p2 = [
-            subtracted_e_surface.p2[0] + center_coordinates[0][0],
-            subtracted_e_surface.p2[1] + center_coordinates[0][1],
-            subtracted_e_surface.p2[2] + center_coordinates[0][2],
+        subtracted_e_surface.ps[1] = [
+            subtracted_e_surface.ps[1][0] + center_coordinates[0][0],
+            subtracted_e_surface.ps[1][1] + center_coordinates[0][1],
+            subtracted_e_surface.ps[1][2] + center_coordinates[0][2],
         ];
         subtracted_e_surface.t_scaling = subtracted_e_surface
-            .compute_t_scaling(&loop_momenta_in_e_surf_basis[loop_index_for_this_ct]);
+            .compute_t_scaling(&vec![loop_momenta_in_e_surf_basis[loop_index_for_this_ct]]);
         assert!(subtracted_e_surface.t_scaling[MINUS] < T::zero());
         assert!(subtracted_e_surface.t_scaling[PLUS] > T::zero());
 
@@ -533,20 +418,23 @@ impl LoopInducedTriBoxTriIntegrand {
                 // Update the evaluation of the E-surface for the solved star loop momentum in the sampling basis (since it is what the shifts are computed for in this cache)
                 let mut e_surface_caches_for_this_ct = e_surf_cache.clone();
                 for e_surf in e_surface_caches_for_this_ct[side].iter_mut() {
-                    e_surf.eval =
-                        e_surf.eval(&loop_momenta_star_in_sampling_basis[loop_index_for_this_ct]);
+                    e_surf.eval = e_surf.eval(&vec![
+                        loop_momenta_star_in_sampling_basis[loop_index_for_this_ct],
+                    ]);
                 }
                 if ct_level == SUPERGRAPH_LEVEL_CT {
                     for e_surf in e_surface_caches_for_this_ct[other_side].iter_mut() {
-                        e_surf.eval = e_surf.eval(
-                            &loop_momenta_star_in_sampling_basis[other_side_loop_index_for_this_ct],
-                        );
+                        e_surf.eval = e_surf.eval(&vec![
+                            loop_momenta_star_in_sampling_basis[other_side_loop_index_for_this_ct],
+                        ]);
                     }
                 }
 
                 // The factor (t - t_star) will be included at the end because we need the same quantity for the integrated CT
                 let e_surf_derivative = e_surf_cache[side][e_surf_id]
-                    .norm(&loop_momenta_star_in_sampling_basis[loop_index_for_this_ct])
+                    .norm(&vec![
+                        loop_momenta_star_in_sampling_basis[loop_index_for_this_ct],
+                    ])
                     .spatial_dot(&loop_momenta_star_in_e_surf_basis[loop_index_for_this_ct])
                     / r_star;
                 // Identifying the residue in t, with r=e^t means that we must drop the r_star normalisation in the expansion.
@@ -749,20 +637,19 @@ impl LoopInducedTriBoxTriIntegrand {
             onshell_edge_momenta_for_this_cut[cut.cut_edge_ids_and_flip[0].0] - loop_momenta[2];
         let p2 =
             onshell_edge_momenta_for_this_cut[cut.cut_edge_ids_and_flip[1].0] - loop_momenta[2];
-        let mut e_surface_cc_cut = ESurfaceCache {
-            p1: [p1.x, p1.y, p1.z],
-            p2: [p2.x, p2.y, p2.z],
-            m1sq: Into::<T>::into(self.supergraph.edges[cut.cut_edge_ids_and_flip[0].0].mass)
-                * Into::<T>::into(self.supergraph.edges[cut.cut_edge_ids_and_flip[0].0].mass),
-            m2sq: Into::<T>::into(self.supergraph.edges[cut.cut_edge_ids_and_flip[1].0].mass)
-                * Into::<T>::into(self.supergraph.edges[cut.cut_edge_ids_and_flip[1].0].mass),
-            e_shift: -Into::<T>::into(self.integrand_settings.q[0]),
-            eval: T::zero(),
-            exists: true,
-            t_scaling: [T::zero(), T::zero()],
-        };
+        let mut e_surface_cc_cut = ESurfaceCache::new_from_inputs(
+            vec![vec![1]],
+            vec![[p1.x, p1.y, p1.z], [p2.x, p2.y, p2.z]],
+            vec![
+                Into::<T>::into(self.supergraph.edges[cut.cut_edge_ids_and_flip[0].0].mass)
+                    * Into::<T>::into(self.supergraph.edges[cut.cut_edge_ids_and_flip[0].0].mass),
+                Into::<T>::into(self.supergraph.edges[cut.cut_edge_ids_and_flip[1].0].mass)
+                    * Into::<T>::into(self.supergraph.edges[cut.cut_edge_ids_and_flip[1].0].mass),
+            ],
+            -Into::<T>::into(self.integrand_settings.q[0]),
+        );
         //println!("e_surface_cc_cut={:?}", e_surface_cc_cut);
-        e_surface_cc_cut.t_scaling = e_surface_cc_cut.compute_t_scaling(&loop_momenta[2]);
+        e_surface_cc_cut.t_scaling = e_surface_cc_cut.compute_t_scaling(&vec![loop_momenta[2]]);
 
         let rescaled_loop_momenta = vec![
             loop_momenta[0] * e_surface_cc_cut.t_scaling[0],
@@ -808,7 +695,7 @@ impl LoopInducedTriBoxTriIntegrand {
         // Include the t-derivative of the E-surface as well
         let cut_e_surface_derivative = e_surface_cc_cut.t_scaling[0]
             / e_surface_cc_cut
-                .norm(&rescaled_loop_momenta[2])
+                .norm(&vec![rescaled_loop_momenta[2]])
                 .spatial_dot(&rescaled_loop_momenta[2]);
 
         // Now re-evaluate the kinematics with the correct hyperradius
