@@ -126,17 +126,24 @@ impl LoopInducedTriBoxTriIntegrand {
         let mut e_surf_caches: Vec<OneLoopESurfaceCache<T>> = vec![];
 
         // Negative edge ids indicate here momenta external to the whole supergraph
-        let amplitude_externals = amplitude
-            .external_edge_id_and_flip
-            .iter()
-            .map(|(e_id, flip)| {
-                if *e_id < 0 {
+        let mut amplitude_externals = vec![];
+        for externals_components in amplitude.external_edge_id_and_flip.iter() {
+            let mut new_external = LorentzVector {
+                t: T::zero(),
+                x: T::zero(),
+                y: T::zero(),
+                z: T::zero(),
+            };
+            for (e_id, flip) in externals_components {
+                new_external += if *e_id < 0 {
                     cache.external_momenta[(-*e_id - 1) as usize] * Into::<T>::into(*flip as f64)
                 } else {
                     onshell_edge_momenta[*e_id as usize] * Into::<T>::into(*flip as f64)
-                }
-            })
-            .collect::<Vec<_>>();
+                };
+            }
+            amplitude_externals.push(new_external);
+        }
+
         // Should typically be computed from the signatures, but in this simple case doing like below is easier
         // We still need to know if the contribution from the lmb edge to this e_surf edge is positive or negative
         let mut loop_index = 0_usize;
@@ -184,7 +191,7 @@ impl LoopInducedTriBoxTriIntegrand {
                 ),
                 shift,
             );
-            e_surf_cache.exists = e_surf_cache.does_exist();
+            (e_surf_cache.exists, e_surf_cache.pinched) = e_surf_cache.does_exist();
             let k = onshell_edge_momenta[amplitude.lmb_edges[0].id];
             e_surf_cache.eval = e_surf_cache.eval(&vec![k]);
             if e_surf_cache.exists {
@@ -261,16 +268,17 @@ impl LoopInducedTriBoxTriIntegrand {
         assert!(center_eval < T::zero());
 
         // Change the parametric equation of the subtracted E-surface to the CT basis
-        subtracted_e_surface.p1 = [
-            subtracted_e_surface.p1[0] + center_coordinates[0][0],
-            subtracted_e_surface.p1[1] + center_coordinates[0][1],
-            subtracted_e_surface.p1[2] + center_coordinates[0][2],
-        ];
-        subtracted_e_surface.p2 = [
-            subtracted_e_surface.p2[0] + center_coordinates[0][0],
-            subtracted_e_surface.p2[1] + center_coordinates[0][1],
-            subtracted_e_surface.p2[2] + center_coordinates[0][2],
-        ];
+        subtracted_e_surface.adjust_loop_momenta_shifts(&center_coordinates);
+        // subtracted_e_surface.p1 = [
+        //     subtracted_e_surface.p1[0] + center_coordinates[0][0],
+        //     subtracted_e_surface.p1[1] + center_coordinates[0][1],
+        //     subtracted_e_surface.p1[2] + center_coordinates[0][2],
+        // ];
+        // subtracted_e_surface.p2 = [
+        //     subtracted_e_surface.p2[0] + center_coordinates[0][0],
+        //     subtracted_e_surface.p2[1] + center_coordinates[0][1],
+        //     subtracted_e_surface.p2[2] + center_coordinates[0][2],
+        // ];
         subtracted_e_surface.t_scaling = subtracted_e_surface
             .compute_t_scaling(&vec![loop_momenta_in_e_surf_basis[loop_index_for_this_ct]]);
         assert!(subtracted_e_surface.t_scaling[MINUS] < T::zero());
@@ -733,20 +741,27 @@ impl LoopInducedTriBoxTriIntegrand {
         }
         if self.settings.general.debug > 3 {
             for side in [LEFT, RIGHT] {
-                println!(
-                    "    All {} e_surf caches side:\n      {}",
-                    format!("{}", if side == LEFT { "left" } else { "right" }).purple(),
-                    e_surf_caches[side]
-                        .iter()
-                        .enumerate()
-                        .map(|(i_esurf, es)| format!(
-                            "{} : {:?}",
-                            format!("#{}", i_esurf).bold().green(),
-                            es
-                        ))
-                        .collect::<Vec<_>>()
-                        .join("\n      ")
-                );
+                if e_surf_caches[side].len() == 0 {
+                    println!(
+                        "    All {} e_surf caches side:      None",
+                        format!("{}", if side == LEFT { "left" } else { "right" }).purple()
+                    );
+                } else {
+                    println!(
+                        "    All {} e_surf caches side:\n      {}",
+                        format!("{}", if side == LEFT { "left" } else { "right" }).purple(),
+                        e_surf_caches[side]
+                            .iter()
+                            .enumerate()
+                            .map(|(i_esurf, es)| format!(
+                                "{} : {:?}",
+                                format!("#{}", i_esurf).bold().green(),
+                                es
+                            ))
+                            .collect::<Vec<_>>()
+                            .join("\n      ")
+                    );
+                }
             }
         }
 
@@ -790,7 +805,7 @@ impl LoopInducedTriBoxTriIntegrand {
                 Into::<T>::into(2 as f64) * onshell_edge_momenta_for_this_cut[e.id].t.abs();
         }
         // Now build the counterterms
-        let mut cts = [vec![], vec![]];
+        let mut cts: [Vec<ESurfaceCT<T, OneLoopESurfaceCache<T>>>; 2] = [vec![], vec![]];
         if self.integrand_settings.threshold_ct_settings.enabled {
             // There are smarter ways to do this, but this is the most straightforward and clear for this exploration
             for side in [LEFT, RIGHT] {

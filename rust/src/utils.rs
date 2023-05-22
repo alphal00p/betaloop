@@ -22,6 +22,8 @@ pub const MINUS: usize = 1;
 pub const AMPLITUDE_LEVEL_CT: usize = 0;
 pub const SUPERGRAPH_LEVEL_CT: usize = 1;
 
+pub const PINCH_TEST_THRESHOLD: f64 = 1e-10;
+
 pub trait FloatConvertFrom<U> {
     fn convert_from(x: &U) -> Self;
 }
@@ -656,13 +658,28 @@ pub fn one_loop_e_surface_exists<T: FloatLike>(
     m1_sq: T,
     m2_sq: T,
     e_shift: T,
-) -> bool {
+) -> (bool, bool) {
     let p_norm_sq = (p1[0] - p2[0]) * (p1[0] - p2[0])
         + (p1[1] - p2[1]) * (p1[1] - p2[1])
         + (p1[2] - p2[2]) * (p1[2] - p2[2]);
-    e_shift < T::zero()
-        && e_shift * e_shift - p_norm_sq
-            > (m1_sq.sqrt() + m2_sq.sqrt()) * (m1_sq.sqrt() + m2_sq.sqrt())
+
+    // /!\ In alphaLoop this should be done without numerical check but purely symbolically, or at least
+    // one must make sure there is no weird transition from non-pinched to pinched for the 2->2 massless E-surface sandwich,
+    // i.e. such cases should be *both* existing and pinched!
+    if e_shift > Into::<T>::into(PINCH_TEST_THRESHOLD) {
+        return (false, false);
+    }
+    let test = (e_shift * e_shift - p_norm_sq)
+        - (m1_sq.sqrt() + m2_sq.sqrt()) * (m1_sq.sqrt() + m2_sq.sqrt());
+    if test.abs() < Into::<T>::into(PINCH_TEST_THRESHOLD) {
+        return (false, true);
+    } else {
+        if test < T::zero() {
+            return (false, false);
+        } else {
+            return (true, false);
+        }
+    }
 }
 
 pub fn one_loop_eval_e_surf<T: FloatLike>(

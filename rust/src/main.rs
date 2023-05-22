@@ -751,7 +751,6 @@ fn main() -> Result<(), Report> {
                 )
                 .arg(
                     Arg::with_name("force_radius")
-                        .short("fr")
                         .long("force_radius")
                         .help("force radius in parameterisation"),
                 )

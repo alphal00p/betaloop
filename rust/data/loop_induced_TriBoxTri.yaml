@@ -154,12 +154,12 @@ cuts:
         - 1
         - 0
     external_edge_id_and_flip:
-    - - -1
-      - 1
-    - - 6
-      - -1
-    - - 5
-      - 1
+    - - - -1
+        - 1
+    - - - 6
+        - -1
+    - - - 5
+        - 1
     lmb_edges:
     - id: 1
       mass: 10.0
@@ -170,6 +170,7 @@ cuts:
         - 0
         - 0
     n_loop: 1
+    non_loop_propagators: []
   right_amplitude:
     cff_expression:
       e_surfaces:
@@ -320,12 +321,12 @@ cuts:
         - 0
         - 0
     external_edge_id_and_flip:
-    - - 6
-      - 1
-    - - 5
-      - -1
-    - - -2
-      - 1
+    - - - 6
+        - 1
+    - - - 5
+        - -1
+    - - - -2
+        - -1
     lmb_edges:
     - id: 3
       mass: 20.0
@@ -336,6 +337,7 @@ cuts:
         - 0
         - 0
     n_loop: 1
+    non_loop_propagators: []
 edges:
 - id: 0
   mass: 10.0
