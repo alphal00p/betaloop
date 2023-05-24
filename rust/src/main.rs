@@ -102,6 +102,17 @@ pub enum CTVariable {
     LogRadius,
 }
 
+#[derive(Debug, Default, Clone, Deserialize, PartialEq)]
+pub enum NumeratorType {
+    #[default]
+    #[serde(rename = "one")]
+    One,
+    #[serde(rename = "spatial_exponential_dummy")]
+    SpatialExponentialDummy,
+    #[serde(rename = "physical")]
+    Physical,
+}
+
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct GeneralSettings {
     pub debug: usize,

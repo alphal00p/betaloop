@@ -2763,6 +2763,707 @@ cuts:
       - - 0
         - -1
 - cut_edge_ids_and_flip:
+  - - 1
+    - 1
+  - - 4
+    - -1
+  - - 5
+    - -1
+  left_amplitude:
+    cff_expression:
+      e_surfaces: []
+      terms:
+      - factors:
+        - denominator: []
+          factors: []
+        orientation: []
+    edges: []
+    external_edge_id_and_flip: []
+    lmb_edges: []
+    n_loop: 0
+    non_loop_propagators:
+    - - - 4
+        - -1
+      - - 5
+        - -1
+  right_amplitude:
+    cff_expression:
+      e_surfaces:
+      - edge_ids:
+        - 2
+        - 7
+        id: 0
+        shift:
+        - 0
+        - 0
+        - -1
+      - edge_ids:
+        - 3
+        - 7
+        id: 1
+        shift:
+        - -1
+        - 0
+        - -1
+      - edge_ids:
+        - 2
+        - 3
+        id: 2
+        shift:
+        - -1
+        - 0
+        - 0
+      - edge_ids:
+        - 2
+        - 7
+        id: 3
+        shift:
+        - 0
+        - 0
+        - 1
+      - edge_ids:
+        - 2
+        - 3
+        id: 4
+        shift:
+        - 1
+        - 0
+        - 0
+      - edge_ids:
+        - 3
+        - 7
+        id: 5
+        shift:
+        - 1
+        - 0
+        - 1
+      terms:
+      - factors:
+        - denominator:
+          - 0
+          - 1
+          factors: []
+        orientation:
+        - - 3
+          - -1
+        - - 7
+          - -1
+        - - 2
+          - -1
+      - factors:
+        - denominator:
+          - 2
+          - 1
+          factors: []
+        orientation:
+        - - 3
+          - -1
+        - - 7
+          - -1
+        - - 2
+          - 1
+      - factors:
+        - denominator:
+          - 2
+          - 3
+          factors: []
+        orientation:
+        - - 3
+          - -1
+        - - 7
+          - 1
+        - - 2
+          - 1
+      - factors:
+        - denominator:
+          - 4
+          - 0
+          factors: []
+        orientation:
+        - - 3
+          - 1
+        - - 7
+          - -1
+        - - 2
+          - -1
+      - factors:
+        - denominator:
+          - 4
+          - 5
+          factors: []
+        orientation:
+        - - 3
+          - 1
+        - - 7
+          - 1
+        - - 2
+          - -1
+      - factors:
+        - denominator:
+          - 3
+          - 5
+          factors: []
+        orientation:
+        - - 3
+          - 1
+        - - 7
+          - 1
+        - - 2
+          - 1
+    edges:
+    - id: 2
+      mass: 0
+      power: 1
+      signature:
+      - - 1
+      - - 1
+        - 0
+        - 0
+    - id: 3
+      mass: 0
+      power: 1
+      signature:
+      - - 1
+      - - 0
+        - 0
+        - 0
+    - id: 7
+      mass: 0
+      power: 1
+      signature:
+      - - -1
+      - - -1
+        - 0
+        - -1
+    external_edge_id_and_flip:
+    - - - -2
+        - -1
+    - - - 1
+        - 1
+      - - 4
+        - -1
+    - - - 5
+        - -1
+    lmb_edges:
+    - id: 3
+      mass: 0
+      power: 1
+      signature:
+      - - 1
+      - - 0
+        - 0
+        - 0
+    n_loop: 1
+    non_loop_propagators:
+    - - - 1
+        - -1
+      - - 4
+        - 1
+- cut_edge_ids_and_flip:
+  - - 6
+    - 1
+  - - 7
+    - -1
+  - - 2
+    - -1
+  left_amplitude:
+    cff_expression:
+      e_surfaces:
+      - edge_ids:
+        - 0
+        - 1
+        id: 0
+        shift:
+        - 1
+        - 0
+        - 0
+      - edge_ids:
+        - 0
+        - 4
+        id: 1
+        shift:
+        - 0
+        - 0
+        - -1
+      - edge_ids:
+        - 0
+        - 4
+        id: 2
+        shift:
+        - 0
+        - 0
+        - 1
+      - edge_ids:
+        - 1
+        - 4
+        id: 3
+        shift:
+        - 1
+        - 0
+        - 1
+      - edge_ids:
+        - 0
+        - 1
+        id: 4
+        shift:
+        - -1
+        - 0
+        - 0
+      - edge_ids:
+        - 1
+        - 4
+        id: 5
+        shift:
+        - -1
+        - 0
+        - -1
+      terms:
+      - factors:
+        - denominator:
+          - 0
+          - 1
+          factors: []
+        orientation:
+        - - 1
+          - -1
+        - - 4
+          - -1
+        - - 0
+          - 1
+      - factors:
+        - denominator:
+          - 2
+          - 3
+          factors: []
+        orientation:
+        - - 1
+          - -1
+        - - 4
+          - 1
+        - - 0
+          - -1
+      - factors:
+        - denominator:
+          - 0
+          - 3
+          factors: []
+        orientation:
+        - - 1
+          - -1
+        - - 4
+          - 1
+        - - 0
+          - 1
+      - factors:
+        - denominator:
+          - 4
+          - 5
+          factors: []
+        orientation:
+        - - 1
+          - 1
+        - - 4
+          - -1
+        - - 0
+          - -1
+      - factors:
+        - denominator:
+          - 1
+          - 5
+          factors: []
+        orientation:
+        - - 1
+          - 1
+        - - 4
+          - -1
+        - - 0
+          - 1
+      - factors:
+        - denominator:
+          - 4
+          - 2
+          factors: []
+        orientation:
+        - - 1
+          - 1
+        - - 4
+          - 1
+        - - 0
+          - -1
+    edges:
+    - id: 0
+      mass: 0
+      power: 1
+      signature:
+      - - 1
+      - - -1
+        - 0
+        - 0
+    - id: 1
+      mass: 0
+      power: 1
+      signature:
+      - - 1
+      - - 0
+        - 0
+        - 0
+    - id: 4
+      mass: 0
+      power: 1
+      signature:
+      - - 1
+      - - -1
+        - 0
+        - -1
+    external_edge_id_and_flip:
+    - - - -1
+        - 1
+    - - - 6
+        - -1
+    - - - 7
+        - 1
+      - - 2
+        - 1
+    lmb_edges:
+    - id: 1
+      mass: 0
+      power: 1
+      signature:
+      - - 1
+      - - 0
+        - 0
+        - 0
+    n_loop: 1
+    non_loop_propagators:
+    - - - 7
+        - -1
+      - - 2
+        - -1
+  right_amplitude:
+    cff_expression:
+      e_surfaces: []
+      terms:
+      - factors:
+        - denominator: []
+          factors: []
+        orientation: []
+    edges: []
+    external_edge_id_and_flip: []
+    lmb_edges: []
+    n_loop: 0
+    non_loop_propagators:
+    - - - 6
+        - 1
+      - - 7
+        - -1
+- cut_edge_ids_and_flip:
+  - - 3
+    - 1
+  - - 7
+    - 1
+  - - 5
+    - -1
+  left_amplitude:
+    cff_expression:
+      e_surfaces:
+      - edge_ids:
+        - 0
+        - 1
+        id: 0
+        shift:
+        - 1
+        - 0
+        - 0
+      - edge_ids:
+        - 0
+        - 4
+        id: 1
+        shift:
+        - 0
+        - 0
+        - -1
+      - edge_ids:
+        - 0
+        - 4
+        id: 2
+        shift:
+        - 0
+        - 0
+        - 1
+      - edge_ids:
+        - 1
+        - 4
+        id: 3
+        shift:
+        - 1
+        - 0
+        - 1
+      - edge_ids:
+        - 0
+        - 1
+        id: 4
+        shift:
+        - -1
+        - 0
+        - 0
+      - edge_ids:
+        - 1
+        - 4
+        id: 5
+        shift:
+        - -1
+        - 0
+        - -1
+      terms:
+      - factors:
+        - denominator:
+          - 0
+          - 1
+          factors: []
+        orientation:
+        - - 1
+          - -1
+        - - 4
+          - -1
+        - - 0
+          - 1
+      - factors:
+        - denominator:
+          - 2
+          - 3
+          factors: []
+        orientation:
+        - - 1
+          - -1
+        - - 4
+          - 1
+        - - 0
+          - -1
+      - factors:
+        - denominator:
+          - 0
+          - 3
+          factors: []
+        orientation:
+        - - 1
+          - -1
+        - - 4
+          - 1
+        - - 0
+          - 1
+      - factors:
+        - denominator:
+          - 4
+          - 5
+          factors: []
+        orientation:
+        - - 1
+          - 1
+        - - 4
+          - -1
+        - - 0
+          - -1
+      - factors:
+        - denominator:
+          - 1
+          - 5
+          factors: []
+        orientation:
+        - - 1
+          - 1
+        - - 4
+          - -1
+        - - 0
+          - 1
+      - factors:
+        - denominator:
+          - 4
+          - 2
+          factors: []
+        orientation:
+        - - 1
+          - 1
+        - - 4
+          - 1
+        - - 0
+          - -1
+    edges:
+    - id: 0
+      mass: 0
+      power: 1
+      signature:
+      - - 1
+      - - -1
+        - 0
+        - 0
+    - id: 1
+      mass: 0
+      power: 1
+      signature:
+      - - 1
+      - - 0
+        - 0
+        - 0
+    - id: 4
+      mass: 0
+      power: 1
+      signature:
+      - - 1
+      - - -1
+        - 0
+        - -1
+    external_edge_id_and_flip:
+    - - - -1
+        - 1
+    - - - 3
+        - -1
+      - - 7
+        - -1
+    - - - 5
+        - 1
+    lmb_edges:
+    - id: 1
+      mass: 0
+      power: 1
+      signature:
+      - - 1
+      - - 0
+        - 0
+        - 0
+    n_loop: 1
+    non_loop_propagators:
+    - - - 3
+        - 1
+      - - 7
+        - 1
+  right_amplitude:
+    cff_expression:
+      e_surfaces: []
+      terms:
+      - factors:
+        - denominator: []
+          factors: []
+        orientation: []
+    edges: []
+    external_edge_id_and_flip: []
+    lmb_edges: []
+    n_loop: 0
+    non_loop_propagators:
+    - - - 7
+        - -1
+      - - 5
+        - 1
+- cut_edge_ids_and_flip:
+  - - 0
+    - -1
+  - - 4
+    - 1
+  - - 7
+    - 1
+  - - 3
+    - 1
+  left_amplitude:
+    cff_expression:
+      e_surfaces: []
+      terms:
+      - factors:
+        - denominator: []
+          factors: []
+        orientation: []
+    edges: []
+    external_edge_id_and_flip: []
+    lmb_edges: []
+    n_loop: 0
+    non_loop_propagators:
+    - - - 3
+        - 1
+      - - 7
+        - 1
+    - - - 4
+        - 1
+      - - 3
+        - 1
+      - - 7
+        - 1
+  right_amplitude:
+    cff_expression:
+      e_surfaces: []
+      terms:
+      - factors:
+        - denominator: []
+          factors: []
+        orientation: []
+    edges: []
+    external_edge_id_and_flip: []
+    lmb_edges: []
+    n_loop: 0
+    non_loop_propagators:
+    - - - 0
+        - 1
+      - - 4
+        - -1
+    - - - 0
+        - 1
+      - - 4
+        - -1
+      - - 7
+        - -1
+- cut_edge_ids_and_flip:
+  - - 1
+    - 1
+  - - 4
+    - -1
+  - - 7
+    - -1
+  - - 2
+    - -1
+  left_amplitude:
+    cff_expression:
+      e_surfaces: []
+      terms:
+      - factors:
+        - denominator: []
+          factors: []
+        orientation: []
+    edges: []
+    external_edge_id_and_flip: []
+    lmb_edges: []
+    n_loop: 0
+    non_loop_propagators:
+    - - - 7
+        - -1
+      - - 2
+        - -1
+    - - - 4
+        - -1
+      - - 7
+        - -1
+      - - 2
+        - -1
+  right_amplitude:
+    cff_expression:
+      e_surfaces: []
+      terms:
+      - factors:
+        - denominator: []
+          factors: []
+        orientation: []
+    edges: []
+    external_edge_id_and_flip: []
+    lmb_edges: []
+    n_loop: 0
+    non_loop_propagators:
+    - - - 1
+        - -1
+      - - 4
+        - 1
+    - - - 1
+        - -1
+      - - 4
+        - 1
+      - - 7
+        - 1
+- cut_edge_ids_and_flip:
   - - 5
     - -1
   - - 6

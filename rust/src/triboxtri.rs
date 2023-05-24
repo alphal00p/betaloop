@@ -2,7 +2,7 @@ use crate::integrands::*;
 use crate::utils;
 use crate::utils::FloatLike;
 use crate::Settings;
-use crate::{CTVariable, HFunctionSettings};
+use crate::{CTVariable, HFunctionSettings, NumeratorType};
 use colored::Colorize;
 use havana::{ContinuousGrid, Grid, Sample};
 use lorentz_vector::LorentzVector;
@@ -32,6 +32,7 @@ pub struct TriBoxTriSettings {
     pub supergraph_yaml_file: String,
     pub q: [f64; 4],
     pub h_function: HFunctionSettings,
+    pub numerator: NumeratorType,
     #[serde(rename = "threshold_CT_settings")]
     pub threshold_ct_settings: TriBoxTriCTSettings,
 }
@@ -66,6 +67,40 @@ pub fn e_surf_str(e_surf_id: usize, e_surf: &Esurface) -> String {
                 .join(",")
         )
     )
+}
+
+#[derive(Debug, Clone)]
+struct ClosestESurfaceMonitor<T: FloatLike + std::fmt::Debug> {
+    distance: T,
+    i_cut: usize,
+    side: usize,
+    e_surf_id: usize,
+    e_surf: Esurface,
+    e_surf_cache: GenericESurfaceCache<T>,
+}
+
+impl<T: FloatLike + std::fmt::Debug> ClosestESurfaceMonitor<T> {
+    pub fn str_form(&self, cut: &Cut) -> String {
+        format!(
+            "Normalised distance: {:+e} | E-surface {} of cut #{}{}: {}",
+            self.distance,
+            if self.side == LEFT { "left" } else { "right" },
+            self.i_cut,
+            format!(
+                "({})",
+                cut.cut_edge_ids_and_flip
+                    .iter()
+                    .map(|(id, flip)| if *flip > 0 {
+                        format!("+{}", id)
+                    } else {
+                        format!("-{}", id)
+                    })
+                    .collect::<Vec<_>>()
+                    .join("|")
+            ),
+            e_surf_str(self.e_surf_id, &self.e_surf)
+        )
+    }
 }
 
 #[allow(unused)]
@@ -108,15 +143,28 @@ impl TriBoxTriIntegrand {
         left_orientations: &Vec<(usize, isize)>,
         right_orientations: &Vec<(usize, isize)>,
     ) -> T {
-        let mut onshell_edge_momenta_flipped = onshell_edge_momenta.clone();
-        for (e_id, flip) in left_orientations.iter() {
-            onshell_edge_momenta_flipped[*e_id].t *= Into::<T>::into(*flip as f64);
+        match self.integrand_settings.numerator {
+            NumeratorType::One => {
+                return T::one();
+            }
+            NumeratorType::SpatialExponentialDummy => {
+                let num_arg = (onshell_edge_momenta[1].spatial_squared()
+                    + onshell_edge_momenta[3].spatial_squared()
+                    + onshell_edge_momenta[6].spatial_squared())
+                    / (Into::<T>::into((self.settings.kinematics.e_cm * 1.).powi(2) as f64));
+                return (-num_arg).exp();
+            }
+            NumeratorType::Physical => {
+                let mut onshell_edge_momenta_flipped = onshell_edge_momenta.clone();
+                for (e_id, flip) in left_orientations.iter() {
+                    onshell_edge_momenta_flipped[*e_id].t *= Into::<T>::into(*flip as f64);
+                }
+                for (e_id, flip) in right_orientations.iter() {
+                    onshell_edge_momenta_flipped[*e_id].t *= Into::<T>::into(*flip as f64);
+                }
+                unimplemented!()
+            }
         }
-        for (e_id, flip) in right_orientations.iter() {
-            onshell_edge_momenta_flipped[*e_id].t *= Into::<T>::into(*flip as f64);
-        }
-
-        return T::one();
     }
 
     fn parameterize<T: FloatLike>(&self, xs: &[T]) -> (Vec<[T; 3]>, T) {
@@ -673,9 +721,13 @@ impl TriBoxTriIntegrand {
         loop_momenta: &Vec<LorentzVector<T>>,
         overall_sampling_jac: T,
         cache: &ComputationCache<T>,
-    ) -> Complex<T> {
+    ) -> (
+        Complex<T>,
+        Complex<T>,
+        Option<ClosestESurfaceMonitor<T>>,
+        Option<ClosestESurfaceMonitor<T>>,
+    ) {
         let mut cut_res = Complex::new(T::zero(), T::zero());
-
         if self.settings.general.debug > 1 {
             println!(
                 "{}",
@@ -795,6 +847,40 @@ impl TriBoxTriIntegrand {
                 &amplitude_for_sides[side].cff_expression.e_surfaces,
                 &rescaled_loop_momenta,
             );
+        }
+        let mut closest_existing_e_surf: Option<ClosestESurfaceMonitor<T>> = None;
+        let mut closest_pinched_e_surf: Option<ClosestESurfaceMonitor<T>> = None;
+        if self.settings.general.debug > 0 {
+            for side in [LEFT, RIGHT] {
+                for (i_surf, e_surf_cache) in e_surf_caches[side].iter().enumerate() {
+                    let new_monitor = ClosestESurfaceMonitor {
+                        distance: e_surf_cache.eval
+                            / Into::<T>::into(self.settings.kinematics.e_cm as f64),
+                        e_surf_id: i_surf,
+                        i_cut: i_cut,
+                        side: side,
+                        e_surf: amplitude_for_sides[side].cff_expression.e_surfaces[i_surf].clone(),
+                        e_surf_cache: e_surf_cache.clone(),
+                    };
+                    if e_surf_cache.exists && !e_surf_cache.pinched {
+                        if let Some(closest) = &closest_existing_e_surf {
+                            if new_monitor.distance.abs() < closest.distance.abs() {
+                                closest_existing_e_surf = Some(new_monitor);
+                            }
+                        } else {
+                            closest_existing_e_surf = Some(new_monitor)
+                        }
+                    } else if e_surf_cache.pinched {
+                        if let Some(closest) = &closest_pinched_e_surf {
+                            if new_monitor.distance.abs() < closest.distance.abs() {
+                                closest_pinched_e_surf = Some(new_monitor);
+                            }
+                        } else {
+                            closest_pinched_e_surf = Some(new_monitor)
+                        }
+                    }
+                }
+            }
         }
         if self.settings.general.debug > 3 {
             for side in [LEFT, RIGHT] {
@@ -943,22 +1029,25 @@ impl TriBoxTriIntegrand {
                 for (e_surf_id, _e_surface) in
                     amplitude.cff_expression.e_surfaces.iter().enumerate()
                 {
-                    if self.settings.general.debug > 4 {
-                        println!(
-                            "Now building CTs for the following E-surface {}",
-                            format!(
-                                "{} : {:?}",
-                                e_surf_str(
-                                    e_surf_id,
-                                    &amplitude_for_sides[side].cff_expression.e_surfaces[e_surf_id]
+                    if e_surf_caches[side][e_surf_id].exists
+                        && !e_surf_caches[side][e_surf_id].pinched
+                    {
+                        if self.settings.general.debug > 4 {
+                            println!(
+                                "Now building CTs for the following E-surface {}",
+                                format!(
+                                    "{} : {:?}",
+                                    e_surf_str(
+                                        e_surf_id,
+                                        &amplitude_for_sides[side].cff_expression.e_surfaces
+                                            [e_surf_id]
+                                    )
+                                    .bold()
+                                    .green(),
+                                    e_surf_caches[side][e_surf_id]
                                 )
-                                .bold()
-                                .green(),
-                                e_surf_caches[side][e_surf_id]
-                            )
-                        );
-                    }
-                    if e_surf_caches[side][e_surf_id].exists {
+                            );
+                        }
                         cts[side].extend(self.build_cts_for_e_surf_id(
                             side,
                             e_surf_id,
@@ -1020,8 +1109,8 @@ impl TriBoxTriIntegrand {
                     &right_cff_term.orientation,
                 );
 
-                let cff_left_wgt = cff_evaluations[0][left_i_cff];
-                let cff_right_wgt = cff_evaluations[1][right_i_cff];
+                let cff_left_wgt = cff_evaluations[LEFT][left_i_cff];
+                let cff_right_wgt = cff_evaluations[RIGHT][right_i_cff];
 
                 let mut this_cff_term_contribution = numerator_wgt
                     * cff_left_wgt
@@ -1381,24 +1470,36 @@ impl TriBoxTriIntegrand {
         //     non_loop_propagators_contribution
         // );
 
+        let cff_cts_sum_contribution = cff_cts_sum
+            * constants
+            * overall_sampling_jac
+            * t_scaling_jacobian
+            * cut_h_function
+            * cut_e_surface_derivative
+            * e_product_cut.inv();
         if self.settings.general.debug > 1 {
             println!(
             "{}",
             format!(
-            "  > Result for cut #{}{} ( n_loop_left={} | cut_cardinality={} | n_loop_right={} ): {:+.e} ( ∑ CTs = {:+.e} )",
+            "  > Result for cut #{}{} ( n_loop_left={} | cut_cardinality={} | n_loop_right={} ): {} ( ∑ CTs = {:+.e} )",
             i_cut,
             format!("({})", cut.cut_edge_ids_and_flip.iter().map(|(id, flip)| if *flip > 0 { format!("+{}",id) } else { format!("-{}",id) }).collect::<Vec<_>>().join("|")).green(),
             cut.left_amplitude.n_loop,
             cut.cut_edge_ids_and_flip.len(),
             cut.right_amplitude.n_loop,
-            cut_res,
-            cff_cts_sum * constants * overall_sampling_jac * t_scaling_jacobian * cut_h_function * cut_e_surface_derivative * e_product_cut.inv()
+            format!("{:+.e}",cut_res).bold(),
+            cff_cts_sum_contribution
         )
             .green()
         );
         }
 
-        return cut_res;
+        return (
+            cut_res,
+            cff_cts_sum_contribution,
+            closest_existing_e_surf,
+            closest_pinched_e_surf,
+        );
     }
 
     fn evaluate_sample_generic<T: FloatLike>(&self, xs: &[T]) -> Complex<T> {
@@ -1439,20 +1540,74 @@ impl TriBoxTriIntegrand {
         }
 
         let mut final_wgt = Complex::new(T::zero(), T::zero());
+        let mut final_wgt_cts = Complex::new(T::zero(), T::zero());
+        let mut overall_closest_existing_e_surf: Option<ClosestESurfaceMonitor<T>> = None;
+        let mut overall_closest_pinched_e_surf: Option<ClosestESurfaceMonitor<T>> = None;
         for (i_cut, cut) in self.supergraph.cuts.iter().enumerate() {
-            final_wgt += self.evaluate_cut(
+            let (
+                wgt_agg,
+                wgt_cts_agg,
+                closest_existing_e_surf_for_cut,
+                closest_pinched_e_surf_for_cut,
+            ) = self.evaluate_cut(
                 i_cut,
                 cut,
                 &loop_momenta,
                 overall_sampling_jac,
                 &computational_cache,
             );
+            final_wgt += wgt_agg;
+            final_wgt_cts += wgt_cts_agg;
+            if let Some(closest) = closest_existing_e_surf_for_cut {
+                if let Some(overall_closest) = &overall_closest_existing_e_surf {
+                    if closest.distance.abs() < overall_closest.distance.abs() {
+                        overall_closest_existing_e_surf = Some(closest.clone());
+                    }
+                } else {
+                    overall_closest_existing_e_surf = Some(closest.clone());
+                }
+            }
+            if let Some(closest) = closest_pinched_e_surf_for_cut {
+                if let Some(overall_closest) = &overall_closest_pinched_e_surf {
+                    if closest.distance.abs() < overall_closest.distance.abs() {
+                        overall_closest_pinched_e_surf = Some(closest.clone());
+                    }
+                } else {
+                    overall_closest_pinched_e_surf = Some(closest.clone());
+                }
+            }
         }
 
         if self.settings.general.debug > 0 {
+            if let Some(closest) = overall_closest_existing_e_surf {
+                println!(
+                    "{}\n > {}\n > {:?}",
+                    format!("{}", "Overall closest existing non-pinched E-surface:")
+                        .blue()
+                        .bold(),
+                    closest.str_form(&self.supergraph.cuts[closest.i_cut]),
+                    closest.e_surf_cache
+                );
+            }
+            if let Some(closest) = overall_closest_pinched_e_surf {
+                println!(
+                    "{}\n > {}\n > {:?}",
+                    format!("{}", "Overall closest pinched E-surface:")
+                        .blue()
+                        .bold(),
+                    closest.str_form(&self.supergraph.cuts[closest.i_cut]),
+                    closest.e_surf_cache
+                );
+            }
             println!(
                 "{}",
                 format!("total cuts weight : {:+.e}", final_wgt)
+                    .green()
+                    .bold()
+            );
+            println!(
+                "{}",
+                format!("( ∑ CT weights    : {:+.e} )", final_wgt_cts)
                     .green()
                     .bold()
             );

@@ -348,23 +348,9 @@ impl<T: FloatLike> GenericESurfaceCache<T> {
         ms: Vec<T>,
         e_shift: T,
     ) -> GenericESurfaceCache<T> {
-        // At one loop we require the momenta under both square roots to be normalised as k+p, so positive sig.
-        let adjusted_ps = if ps.len() == 2 {
-            let mut aps = vec![];
-            for (ss, p) in sigs.iter().zip(ps) {
-                aps.push(if ss[0] < T::zero() {
-                    [-p[0], -p[1], -p[2]]
-                } else {
-                    p
-                });
-            }
-            aps
-        } else {
-            ps
-        };
-
         // Not applicable for more than one-loop
         let mut one_loop_basis_index = 99;
+        let mut one_loop_sig_index = 99;
         if ms.len() == 2 {
             let mut found_index = false;
             for sig in sigs.iter() {
@@ -373,6 +359,7 @@ impl<T: FloatLike> GenericESurfaceCache<T> {
                         if found_index && one_loop_basis_index != e_surf_basis_indices[i] {
                             panic!("Found more than one one-loop basis index");
                         }
+                        one_loop_sig_index = i;
                         one_loop_basis_index = e_surf_basis_indices[i];
                         found_index = true
                     }
@@ -381,6 +368,20 @@ impl<T: FloatLike> GenericESurfaceCache<T> {
             if !found_index {
                 panic!("Could not find one-loop basis index");
             }
+        };
+        // At one loop we require the momenta under both square roots to be normalised as k+p, so positive sig.
+        let adjusted_ps = if ps.len() == 2 {
+            let mut aps = vec![];
+            for (ss, p) in sigs.iter().zip(ps) {
+                aps.push(if ss[one_loop_sig_index] < T::zero() {
+                    [-p[0], -p[1], -p[2]]
+                } else {
+                    p
+                });
+            }
+            aps
+        } else {
+            ps
         };
         GenericESurfaceCache {
             e_surf_basis_indices: e_surf_basis_indices,
@@ -409,11 +410,30 @@ impl<T: FloatLike> GenericESurfaceCache<T> {
         eval: T,
         t_scaling: [T; 2],
     ) -> GenericESurfaceCache<T> {
+        // Not applicable for more than one-loop
+        let mut one_loop_basis_index = 99;
+        let mut one_loop_sig_index = 99;
+        if ms.len() == 2 {
+            let mut found_index = false;
+            for (i, s) in sigs.iter().enumerate() {
+                if s[0] != T::zero() {
+                    if found_index {
+                        panic!("Found more than one one-loop basis index");
+                    }
+                    one_loop_sig_index = i;
+                    one_loop_basis_index = e_surf_basis_indices[i];
+                    found_index = true
+                }
+            }
+            if !found_index {
+                panic!("Could not find one-loop basis index");
+            }
+        };
         // At one loop we require the momenta under both square roots to be normalised as k+p, so positive sig.
         let adjusted_ps = if ps.len() == 2 {
             let mut aps = vec![];
             for (ss, p) in sigs.iter().zip(ps) {
-                aps.push(if ss[0] < T::zero() {
+                aps.push(if ss[one_loop_sig_index] < T::zero() {
                     [-p[0], -p[1], -p[2]]
                 } else {
                     p
@@ -422,23 +442,6 @@ impl<T: FloatLike> GenericESurfaceCache<T> {
             aps
         } else {
             ps
-        };
-        // Not applicable for more than one-loop
-        let mut one_loop_basis_index = 99;
-        if ms.len() == 2 {
-            let mut found_index = false;
-            for (i, s) in sigs.iter().enumerate() {
-                if s[0] != T::zero() {
-                    if found_index {
-                        panic!("Found more than one one-loop basis index");
-                    }
-                    one_loop_basis_index = e_surf_basis_indices[i];
-                    found_index = true
-                }
-            }
-            if !found_index {
-                panic!("Could not find one-loop basis index");
-            }
         };
         GenericESurfaceCache {
             e_surf_basis_indices: e_surf_basis_indices,
@@ -679,7 +682,10 @@ impl<T: FloatLike> ESurfaceCacheTrait<T> for GenericESurfaceCache<T> {
             )
         } else {
             if self.ms.iter().all(|m| *m == T::zero())
-                && self.ps.iter().all(|p| p.iter().all(|pi| *pi == T::zero()))
+                && self
+                    .ps
+                    .iter()
+                    .all(|p| p.iter().all(|pi: &T| *pi == T::zero()))
             {
                 let qs = self.compute_qs(k);
                 let t_sar = -self.e_shift / qs.iter().map(|q| q.spatial_distance()).sum::<T>();
