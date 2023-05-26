@@ -11,14 +11,20 @@ HardCodedIntegrand:
     power: 10 # Typically best to set to 3*n_loops+1
   threshold_CT_settings:
     enabled: false
-    include_integrated_ct: true
+    include_integrated_ct: false
     compute_only_im_squared: false
-    im_squared_through_local_ct_only: true
+    im_squared_through_local_ct_only: false
     include_amplitude_level_cts: true
     variable: R # for the local CT: options in this case are R and logR
     local_ct_sliver_width: 0.5 # Specify an f64 for a finite sliver width, otherwise leave Option to null
     integrated_ct_sliver_width: 0.5 # Specify an f64 for a finite sliver width, otherwise leave Option to null
     parameterization_center: [[0., 0., 0.], [0., 0., 0.], [0., 0., 0.]] # [[3., -5., 1.], [2., 7., -3.], [2., -4., -1.]] # [[0., 0., 0.], [0., 0., 0.], [0., 0., 0.]]
+    pinch_dampening:
+      enabled: true
+      global: true # Whether to use a dampening power global to all cFF terms
+      dampen_all_pinch_surfaces: true # Whether to only dampen pinche surfaces with loop momentum dependence overlapping with that of the subtracted E-surface
+      regularization_multiplier: 1.0e6 # multiplier m in eta^a / (eta^a + m * (r/r^\star -1)^b)
+      powers: [2, 2] # Powers `a` and `b` in the above
     local_ct_h_function:
       function: exponential_ct # Options in this case is just exponential_ct
       sigma: 15.

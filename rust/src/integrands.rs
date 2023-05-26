@@ -132,6 +132,7 @@ pub struct ESurfaceCT<T: FloatLike, ESC: ESurfaceCacheTrait<T>> {
     pub onshell_edges: Vec<LorentzVector<T>>,
     pub e_surface_evals: [Vec<ESC>; 2],
     pub cff_evaluations: [Vec<T>; 2],
+    pub cff_pinch_dampenings: [Vec<T>; 2],
     pub solution_type: usize,
     pub ct_level: usize, // either utils::AMPLITUDE_LEVEL_CT or utils::SUPERGRAPH_LEVEL_CT
     pub integrated_ct: Option<ESurfaceIntegratedCT<T>>,
@@ -492,6 +493,28 @@ impl<T: FloatLike> GenericESurfaceCache<T> {
         } else {
             unimplemented!();
         }
+    }
+
+    // This is not fully generic, but enough for this experiment
+    pub fn overlaps_with(&self, other: &GenericESurfaceCache<T>) -> bool {
+        let mut this_loop_indices = vec![];
+        if self.ps.len() == 2 {
+            this_loop_indices.push(self.one_loop_basis_index);
+        } else {
+            this_loop_indices.extend(&self.e_surf_basis_indices);
+        };
+        let mut other_loop_indices = vec![];
+        if other.ps.len() == 2 {
+            other_loop_indices.push(other.one_loop_basis_index);
+        } else {
+            other_loop_indices.extend(&other.e_surf_basis_indices);
+        };
+        for index in &this_loop_indices {
+            if other_loop_indices.contains(index) {
+                return true;
+            }
+        }
+        false
     }
 }
 

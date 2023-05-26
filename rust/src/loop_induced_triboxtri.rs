@@ -481,6 +481,7 @@ impl LoopInducedTriBoxTriIntegrand {
 
                 let amplitude_pair = [&cut.left_amplitude, &cut.right_amplitude];
                 let mut cff_evaluations = [vec![], vec![]];
+                let mut cff_pinch_dampenings = [vec![], vec![]];
                 for (i_cff, cff_term) in
                     amplitude_pair[side].cff_expression.terms.iter().enumerate()
                 {
@@ -491,6 +492,7 @@ impl LoopInducedTriBoxTriIntegrand {
                             &e_surface_caches_for_this_ct[side],
                             Some((e_surf_id, T::one())),
                         ));
+                        cff_pinch_dampenings[side].push(T::one());
                     }
                 }
                 if ct_level == SUPERGRAPH_LEVEL_CT {
@@ -503,6 +505,7 @@ impl LoopInducedTriBoxTriIntegrand {
                         cff_evaluations[other_side].push(
                             cff_term.evaluate(&e_surface_caches_for_this_ct[other_side], None),
                         );
+                        cff_pinch_dampenings[other_side].push(T::one());
                     }
                 }
 
@@ -561,6 +564,7 @@ impl LoopInducedTriBoxTriIntegrand {
                     e_surface_evals: e_surface_caches_for_this_ct, // Not used at the moment, could be dropped
                     solution_type,                                 // Only for monitoring purposes
                     cff_evaluations,
+                    cff_pinch_dampenings,
                     integrated_ct,
                     ct_level,
                 });

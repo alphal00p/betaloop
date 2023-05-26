@@ -365,6 +365,19 @@ pub fn evaluate_signature<T: Field>(
     momentum
 }
 
+#[inline]
+pub fn pinch_dampening_function<T: FloatLike>(
+    dampening_arg: T,
+    delta_t: T,
+    powers: (i32, i32),
+    multiplier: f64,
+) -> T {
+    // Make sure the function is even in t-tstar
+    assert!(powers.1 % 2 == 0);
+    let a = dampening_arg.powi(powers.0);
+    return a / (a + Into::<T>::into(multiplier as f64) * delta_t.powi(powers.1));
+}
+
 pub fn h<T: FloatLike>(
     t: T,
     tstar: Option<T>,

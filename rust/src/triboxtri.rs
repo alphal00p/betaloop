@@ -25,6 +25,16 @@ pub struct TriBoxTriCTSettings {
     pub integrated_ct_h_function: HFunctionSettings,
     pub local_ct_sliver_width: Option<f64>,
     pub integrated_ct_sliver_width: Option<f64>,
+    pub pinch_dampening: PinchDampeningSettings,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct PinchDampeningSettings {
+    pub enabled: bool,
+    pub global: bool,
+    pub dampen_all_pinch_surfaces: bool,
+    pub regularization_multiplier: f64,
+    pub powers: (i32, i32),
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -101,6 +111,27 @@ impl<T: FloatLike + std::fmt::Debug> ClosestESurfaceMonitor<T> {
             e_surf_str(self.e_surf_id, &self.e_surf)
         )
     }
+}
+
+pub fn compute_propagator_momentum<T: FloatLike>(
+    prop_signature: &Vec<(isize, isize)>,
+    onshell_edge_momenta: &Vec<LorentzVector<T>>,
+    cache: &ComputationCache<T>,
+) -> LorentzVector<T> {
+    let mut prop_momentum = LorentzVector {
+        t: T::zero(),
+        x: T::zero(),
+        y: T::zero(),
+        z: T::zero(),
+    };
+    for (e_id, flip) in prop_signature {
+        prop_momentum += if *e_id < 0 {
+            cache.external_momenta[(-*e_id - 1) as usize] * Into::<T>::into(*flip as f64)
+        } else {
+            onshell_edge_momenta[*e_id as usize] * Into::<T>::into(*flip as f64)
+        };
+    }
+    prop_momentum
 }
 
 #[allow(unused)]
@@ -372,6 +403,12 @@ impl TriBoxTriIntegrand {
 
         subtracted_e_surface.t_scaling =
             subtracted_e_surface.compute_t_scaling(&loop_momenta_in_e_surf_basis);
+        if subtracted_e_surface.t_scaling[MINUS] >= T::zero() {
+            panic!(
+                "Unexpected positive t-scaling for negative solution: {:+.e}",
+                subtracted_e_surface.t_scaling[MINUS]
+            );
+        }
         assert!(subtracted_e_surface.t_scaling[MINUS] < T::zero());
         assert!(subtracted_e_surface.t_scaling[PLUS] > T::zero());
 
@@ -597,6 +634,99 @@ impl TriBoxTriIntegrand {
                 }
 
                 let mut cff_evaluations = [vec![], vec![]];
+                let mut cff_pinch_dampenings = [vec![], vec![]];
+                let dampening_normalisation_factor = Into::<T>::into(self.settings.kinematics.e_cm);
+                // let (dampening_t_arg, dampening_t_star_arg) =
+                //     match self.integrand_settings.threshold_ct_settings.variable {
+                //         CTVariable::Radius => (
+                //             t / dampening_normalisation_factor,
+                //             t_star / dampening_normalisation_factor,
+                //         ),
+                //         CTVariable::LogRadius => (t, t_star),
+                //     };
+                let dampening_delta_t_arg =
+                    match self.integrand_settings.threshold_ct_settings.variable {
+                        CTVariable::Radius => (t - t_star) / t_star,
+                        CTVariable::LogRadius => (t - t_star) / t_star,
+                    };
+                let pinch_dampening_settings = &self
+                    .integrand_settings
+                    .threshold_ct_settings
+                    .pinch_dampening;
+                let mut global_pinch_dampening_ct_side = T::one();
+                let mut global_pinch_dampening_other_side = T::one();
+                if pinch_dampening_settings.enabled && pinch_dampening_settings.global {
+                    // Also add pinched E-surface from non-loop propagators if dampen_all_pinch_surfaces if true
+                    // This is a bit ad-hoc and should be done more in general for the actual code
+                    // Of course we also take for granted that everything is massless here.
+                    for prop_signature in &amplitudes_pair[side].non_loop_propagators {
+                        let prop_momentum = compute_propagator_momentum(
+                            prop_signature,
+                            &onshell_edge_momenta_for_this_ct,
+                            &cache,
+                        );
+                        let prop_e_surf_eval =
+                            prop_momentum.t.abs() - prop_momentum.spatial_distance();
+                        global_pinch_dampening_ct_side *= utils::pinch_dampening_function(
+                            prop_e_surf_eval / dampening_normalisation_factor,
+                            dampening_delta_t_arg,
+                            pinch_dampening_settings.powers,
+                            pinch_dampening_settings.regularization_multiplier,
+                        );
+                    }
+                    for e_surf in e_surf_cache[side].iter() {
+                        if e_surf.pinched {
+                            if !pinch_dampening_settings.dampen_all_pinch_surfaces {
+                                if !subtracted_e_surface.overlaps_with(e_surf) {
+                                    continue;
+                                }
+                            }
+                            global_pinch_dampening_ct_side *= utils::pinch_dampening_function(
+                                e_surf.eval / dampening_normalisation_factor,
+                                dampening_delta_t_arg,
+                                pinch_dampening_settings.powers,
+                                pinch_dampening_settings.regularization_multiplier,
+                            )
+                        }
+                    }
+                    if pinch_dampening_settings.dampen_all_pinch_surfaces
+                        && ct_level == SUPERGRAPH_LEVEL_CT
+                    {
+                        for prop_signature in &amplitudes_pair[other_side].non_loop_propagators {
+                            let prop_momentum = compute_propagator_momentum(
+                                prop_signature,
+                                &onshell_edge_momenta_for_this_ct,
+                                &cache,
+                            );
+                            let prop_e_surf_eval =
+                                prop_momentum.t.abs() - prop_momentum.spatial_distance();
+                            global_pinch_dampening_other_side *= utils::pinch_dampening_function(
+                                prop_e_surf_eval / dampening_normalisation_factor,
+                                dampening_delta_t_arg,
+                                pinch_dampening_settings.powers,
+                                pinch_dampening_settings.regularization_multiplier,
+                            );
+                        }
+                        for e_surf in e_surf_cache[other_side].iter() {
+                            if e_surf.pinched {
+                                global_pinch_dampening_other_side *= utils::pinch_dampening_function(
+                                    e_surf.eval / dampening_normalisation_factor,
+                                    dampening_delta_t_arg,
+                                    pinch_dampening_settings.powers,
+                                    pinch_dampening_settings.regularization_multiplier,
+                                )
+                            }
+                        }
+                    }
+                }
+                // println!(
+                //     "global_pinch_dampening_ct_side = {}",
+                //     global_pinch_dampening_ct_side
+                // );
+                // println!(
+                //     "global_pinch_dampening_other_side = {}",
+                //     global_pinch_dampening_other_side
+                // );
                 for (i_cff, cff_term) in amplitudes_pair[side]
                     .cff_expression
                     .terms
@@ -605,11 +735,40 @@ impl TriBoxTriIntegrand {
                 {
                     if !cff_term.contains_e_surf_id(e_surf_id) {
                         cff_evaluations[side].push(T::zero());
+                        cff_pinch_dampenings[side].push(T::one());
                     } else {
                         cff_evaluations[side].push(cff_term.evaluate(
                             &e_surface_caches_for_this_ct[side],
                             Some((e_surf_id, T::one())),
                         ));
+                        if !pinch_dampening_settings.enabled || pinch_dampening_settings.global {
+                            if ct_level == AMPLITUDE_LEVEL_CT {
+                                cff_pinch_dampenings[side].push(
+                                    global_pinch_dampening_ct_side
+                                        * global_pinch_dampening_other_side,
+                                );
+                            } else {
+                                cff_pinch_dampenings[side].push(global_pinch_dampening_ct_side);
+                            }
+                        } else {
+                            let mut dampening = T::one();
+                            for (i_surf, e_surf) in e_surf_cache[side].iter().enumerate() {
+                                if e_surf.pinched && cff_term.contains_e_surf_id(i_surf) {
+                                    if !pinch_dampening_settings.dampen_all_pinch_surfaces {
+                                        if !subtracted_e_surface.overlaps_with(e_surf) {
+                                            continue;
+                                        }
+                                    }
+                                    dampening *= utils::pinch_dampening_function(
+                                        e_surf.eval / dampening_normalisation_factor,
+                                        dampening_delta_t_arg,
+                                        pinch_dampening_settings.powers,
+                                        pinch_dampening_settings.regularization_multiplier,
+                                    )
+                                }
+                            }
+                            cff_pinch_dampenings[side].push(dampening);
+                        }
                     }
                 }
                 if ct_level == SUPERGRAPH_LEVEL_CT {
@@ -622,6 +781,28 @@ impl TriBoxTriIntegrand {
                         cff_evaluations[other_side].push(
                             cff_term.evaluate(&e_surface_caches_for_this_ct[other_side], None),
                         );
+                        if !pinch_dampening_settings.enabled || pinch_dampening_settings.global {
+                            cff_pinch_dampenings[other_side]
+                                .push(global_pinch_dampening_other_side);
+                        } else {
+                            if pinch_dampening_settings.dampen_all_pinch_surfaces {
+                                let mut dampening = T::one();
+                                for (i_surf, e_surf) in e_surf_cache[other_side].iter().enumerate()
+                                {
+                                    if e_surf.pinched && cff_term.contains_e_surf_id(i_surf) {
+                                        dampening *= utils::pinch_dampening_function(
+                                            e_surf.eval / dampening_normalisation_factor,
+                                            dampening_delta_t_arg,
+                                            pinch_dampening_settings.powers,
+                                            pinch_dampening_settings.regularization_multiplier,
+                                        )
+                                    }
+                                }
+                                cff_pinch_dampenings[other_side].push(dampening);
+                            } else {
+                                cff_pinch_dampenings[other_side].push(T::one());
+                            }
+                        }
                     }
                 }
 
@@ -684,6 +865,7 @@ impl TriBoxTriIntegrand {
                     e_surface_evals: e_surface_caches_for_this_ct, // Not used at the moment, could be dropped
                     solution_type,                                 // Only for monitoring purposes
                     cff_evaluations,
+                    cff_pinch_dampenings,
                     integrated_ct,
                     ct_level,
                 });
@@ -826,12 +1008,12 @@ impl TriBoxTriIntegrand {
             println!("    Edge on-shell momenta for this cut:");
             for (i, l) in onshell_edge_momenta_for_this_cut.iter().enumerate() {
                 println!(
-                    "      {} = ( {:-40}, {:-40}, {:-40}, {:-40} )",
+                    "      {} = ( {:-45}, {:-45}, {:-45}, {:-45} )", // sqrt(q{}^2)={:+.e}",
                     format!("q{}", i).bold().green(),
                     format!("{:+.e}", l.t),
                     format!("{:+.e}", l.x),
                     format!("{:+.e}", l.y),
-                    format!("{:+.e}", l.z)
+                    format!("{:+.e}", l.z) // i, l.square().abs().sqrt()
                 );
             }
         }
@@ -991,22 +1173,12 @@ impl TriBoxTriIntegrand {
         // Build the non-loop propagators too
         let mut non_loop_propagators_contributions = [T::one(), T::one()];
         for side in [LEFT, RIGHT] {
-            for non_loop_prop in amplitude_for_sides[side].non_loop_propagators.iter() {
-                let mut prop_momentum = LorentzVector {
-                    t: T::zero(),
-                    x: T::zero(),
-                    y: T::zero(),
-                    z: T::zero(),
-                };
-                for (e_id, flip) in non_loop_prop {
-                    prop_momentum += if *e_id < 0 {
-                        cache.external_momenta[(-*e_id - 1) as usize]
-                            * Into::<T>::into(*flip as f64)
-                    } else {
-                        onshell_edge_momenta_for_this_cut[*e_id as usize]
-                            * Into::<T>::into(*flip as f64)
-                    };
-                }
+            for non_loop_prop_signature in amplitude_for_sides[side].non_loop_propagators.iter() {
+                let prop_momentum = compute_propagator_momentum(
+                    non_loop_prop_signature,
+                    &onshell_edge_momenta_for_this_cut,
+                    &cache,
+                );
                 non_loop_propagators_contributions[side] *= prop_momentum.square();
             }
         }
@@ -1158,19 +1330,20 @@ impl TriBoxTriIntegrand {
                             }
                         } else {
                             let mut e_product = T::one();
-                            if ct.ct_level == SUPERGRAPH_LEVEL_CT {
-                                for e in amplitudes_pair[other_side].edges.iter() {
-                                    e_product *=
-                                        Into::<T>::into(2 as f64) * ct.onshell_edges[e.id].t.abs();
-                                }
+                            for e in amplitudes_pair[other_side].edges.iter() {
+                                e_product *=
+                                    Into::<T>::into(2 as f64) * ct.onshell_edges[e.id].t.abs();
                             }
-                            ct.cff_evaluations[other_side][i_cff_pair[other_side]] * e_product.inv()
+                            ct.cff_evaluations[other_side][i_cff_pair[other_side]]
+                                * ct.cff_pinch_dampenings[other_side][i_cff_pair[other_side]]
+                                * e_product.inv()
                         };
 
                         let mut re_ct_weight = -other_side_terms
                             * ct_numerator_wgt
                             * ct_e_product.inv()
                             * ct.cff_evaluations[ct_side][i_cff_pair[ct_side]]
+                            * ct.cff_pinch_dampenings[ct_side][i_cff_pair[ct_side]]
                             * ct.e_surf_expanded.inv()
                             * ct.adjusted_sampling_jac
                             * ct.h_function_wgt;
@@ -1183,6 +1356,18 @@ impl TriBoxTriIntegrand {
                         // println!(
                         //     "ct.cff_evaluations[ct_side][i_cff_pair[ct_side]] = {:+.e}",
                         //     ct.cff_evaluations[ct_side][i_cff_pair[ct_side]]
+                        // );
+                        // println!(
+                        //     "ct.cff_pinch_dampenings[ct_side][i_cff_pair[ct_side]] = {:+.e}",
+                        //     ct.cff_pinch_dampenings[ct_side][i_cff_pair[ct_side]]
+                        // );
+                        // println!(
+                        //     "ct.cff_evaluations[ct_side][i_cff_pair[ct_side]] = {:+.e}",
+                        //     ct.cff_evaluations[ct_side][i_cff_pair[ct_side]]
+                        // );
+                        // println!(
+                        //     "ct.cff_pinch_dampenings[ct_side][i_cff_pair[ct_side]] = {:+.e}",
+                        //     ct.cff_pinch_dampenings[ct_side][i_cff_pair[ct_side]]
                         // );
                         // println!("ct.cff_evaluations[*][*] = {:?}", ct.cff_evaluations);
                         // println!("ct type = {}", ct.solution_type);
@@ -1295,6 +1480,7 @@ impl TriBoxTriIntegrand {
 
                         let left_ct_weight = Complex::new(
                             -left_ct.e_surf_expanded.inv()
+                                * left_ct.cff_pinch_dampenings[LEFT][i_cff_pair[LEFT]]
                                 * left_ct.adjusted_sampling_jac
                                 * left_ct.h_function_wgt,
                             if let Some(left_i_ct) = &left_ct.integrated_ct {
@@ -1307,6 +1493,7 @@ impl TriBoxTriIntegrand {
                         );
                         let right_ct_weight = Complex::new(
                             -right_ct.e_surf_expanded.inv()
+                                * right_ct.cff_pinch_dampenings[RIGHT][i_cff_pair[RIGHT]]
                                 * right_ct.adjusted_sampling_jac
                                 * right_ct.h_function_wgt,
                             // Implement the complex conjugation here with a minus sign
