@@ -14,7 +14,6 @@ f128 = {git = "https://github.com/benruijl/f128"}
 lorentz_vector = {git = "https://github.com/benruijl/lorentz_vector", branch="hyperdual", features = ["serde_support", "hyperdual_support", "f128_support"]}
 num = "0.3"
 num-traits = "0.2"
-itertools = "0.8"
 hyperdual = {git = "https://gitlab.com/benruijl/hyperdual"}
 rand = "0.8"
 rayon = "1.5"
@@ -25,6 +24,8 @@ colored = "*"
 yaml-rust = "0.4"
 libc = "0.2.0"
 statrs = "0.16.0"
+smallvec = "1.7"
+itertools = "0.8"
 
 [build-dependencies]
 cc = "1.0"

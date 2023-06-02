@@ -51,3 +51,5 @@ Parameterization:
   b: 1.0
   mapping: linear
   mode: spherical # choices are cartesian, spherical, hyperspherical and hyperspherical_flat
+Selectors: []
+Observables: []

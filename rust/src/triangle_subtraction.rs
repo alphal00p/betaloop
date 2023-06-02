@@ -518,7 +518,7 @@ impl HasIntegrand for TriangleSubtractionIntegrand {
     }
 
     fn evaluate_sample(
-        &self,
+        &mut self,
         sample: &Sample,
         wgt: f64,
         iter: usize,

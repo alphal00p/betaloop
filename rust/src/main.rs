@@ -2,6 +2,7 @@ mod box_subtraction;
 mod h_function_test;
 mod integrands;
 mod loop_induced_triboxtri;
+mod observables;
 mod tests;
 mod triangle_subtraction;
 mod triboxtri;
@@ -16,6 +17,8 @@ use integrands::*;
 use lorentz_vector::LorentzVector;
 use num::Complex;
 use num_traits::ToPrimitive;
+use observables::ObservableSettings;
+use observables::PhaseSpaceSelectorSettings;
 use rayon::prelude::*;
 use std::fs::File;
 use std::io::{BufWriter, Write};
@@ -187,6 +190,10 @@ pub struct Settings {
     pub parameterization: ParameterizationSettings,
     #[serde(rename = "Integrator")]
     pub integrator: IntegratorSettings,
+    #[serde(rename = "Observables")]
+    pub observables: Vec<ObservableSettings>,
+    #[serde(rename = "Selectors")]
+    pub selectors: Vec<PhaseSpaceSelectorSettings>,
 }
 
 impl Settings {
@@ -244,7 +251,7 @@ where
 
     let mut rng = rand::thread_rng();
 
-    let user_data = user_data_generator(settings);
+    let mut user_data = user_data_generator(settings);
 
     let mut grid = user_data.integrand[0].create_grid();
 
@@ -541,6 +548,7 @@ where
                         {
                             continue;
                         }
+
                         println!(
                             "|  {:<20} | {:<23} | {}",
                             format!(
@@ -570,7 +578,7 @@ where
                                             .map(|&x| format!("{:.16}", x))
                                             .collect::<Vec<_>>()
                                             .join(", "),
-                                        _ => panic!("Wrong sample type"),
+                                        _ => "N/A".to_string(),
                                     }
                                 } else {
                                     format!("{}", "N/A")
@@ -580,6 +588,16 @@ where
                     }
                 }
             }
+        }
+        // now merge all statistics and observables into the first
+        let (first, others) = user_data.integrand[..cores].split_at_mut(1);
+        for other_itg in others {
+            first[0].merge_results(other_itg, iter);
+        }
+
+        // now write the observables to disk
+        if let Some(itg) = user_data.integrand[..cores].first_mut() {
+            itg.update_results(iter);
         }
         println!("");
     }
@@ -598,7 +616,7 @@ where
 
 pub fn inspect(
     settings: &Settings,
-    integrand: &Integrand,
+    integrand: &mut Integrand,
     mut pt: Vec<f64>,
     mut force_radius: bool,
     is_momentum_space: bool,
@@ -844,7 +862,7 @@ fn main() -> Result<(), Report> {
             settings.general.debug = usize::from_str(x).unwrap();
         }
 
-        let integrand = integrand_factory(&settings);
+        let mut integrand = integrand_factory(&settings);
 
         let pt = matches
             .values_of("point")
@@ -855,7 +873,7 @@ fn main() -> Result<(), Report> {
 
         let _result = inspect(
             &settings,
-            &integrand,
+            &mut integrand,
             pt.clone(),
             force_radius,
             matches.is_present("momentum_space"),
@@ -869,7 +887,7 @@ fn main() -> Result<(), Report> {
             format!("{}", settings.hard_coded_integrand).green(),
             format!("{}", n_samples).blue()
         );
-        let integrand = integrand_factory(&settings);
+        let mut integrand = integrand_factory(&settings);
         let now = Instant::now();
         for _i in 1..n_samples {
             integrand.evaluate_sample(

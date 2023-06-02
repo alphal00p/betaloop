@@ -1,4 +1,6 @@
 use crate::integrands::*;
+#[allow(unused)]
+use crate::observables::{EventManager, Observables};
 use crate::utils;
 use crate::utils::FloatLike;
 use crate::Settings;
@@ -25,6 +27,7 @@ pub struct TriBoxTriCTSettings {
     pub integrated_ct_h_function: HFunctionSettings,
     pub local_ct_sliver_width: Option<f64>,
     pub integrated_ct_sliver_width: Option<f64>,
+    pub apply_anti_observable: bool,
     pub pinch_dampening: PinchDampeningSettings,
 }
 
@@ -43,6 +46,7 @@ pub struct TriBoxTriSettings {
     pub q: [f64; 4],
     pub h_function: HFunctionSettings,
     pub numerator: NumeratorType,
+    pub sampling_basis: Vec<usize>,
     #[serde(rename = "threshold_CT_settings")]
     pub threshold_ct_settings: TriBoxTriCTSettings,
 }
@@ -52,6 +56,8 @@ pub struct TriBoxTriIntegrand {
     pub supergraph: SuperGraph,
     pub n_dim: usize,
     pub integrand_settings: TriBoxTriSettings,
+    pub event_manager: EventManager,
+    pub sampling_rot: Option<[[isize; 3]; 3]>,
 }
 
 pub fn e_surf_str(e_surf_id: usize, e_surf: &Esurface) -> String {
@@ -160,11 +166,14 @@ impl TriBoxTriIntegrand {
 
         let sg = SuperGraph::from_file(integrand_settings.supergraph_yaml_file.as_str()).unwrap();
         let n_dim = utils::get_n_dim_for_n_loop_momenta(&settings, sg.n_loop, false);
+        let event_manager = EventManager::new(true, settings.clone());
         TriBoxTriIntegrand {
             settings,
             supergraph: sg,
             n_dim: n_dim,
             integrand_settings,
+            event_manager,
+            sampling_rot: None,
         }
     }
 
@@ -326,14 +335,15 @@ impl TriBoxTriIntegrand {
     }
 
     fn build_cts_for_e_surf_id<T: FloatLike>(
-        &self,
+        &mut self,
         side: usize,
         e_surf_id: usize,
         scaled_loop_momenta_in_sampling_basis: &Vec<LorentzVector<T>>,
         e_surf_cache: &[Vec<GenericESurfaceCache<T>>; 2],
         cache: &ComputationCache<T>,
-        cut: &Cut,
+        i_cut: usize,
     ) -> Vec<ESurfaceCT<T, GenericESurfaceCache<T>>> {
+        let cut = &self.supergraph.cuts[i_cut];
         // Quite some gynmastic needs to take place in order to dynamically build the right basis for solving this E-surface CT
         // I semi-hard-code it for now
         // In general this is more complicated and would involve an actual change of basis, but here we can do it like this
@@ -403,14 +413,20 @@ impl TriBoxTriIntegrand {
 
         subtracted_e_surface.t_scaling =
             subtracted_e_surface.compute_t_scaling(&loop_momenta_in_e_surf_basis);
-        if subtracted_e_surface.t_scaling[MINUS] >= T::zero() {
+        if subtracted_e_surface.t_scaling[MINUS] > T::zero() {
             panic!(
                 "Unexpected positive t-scaling for negative solution: {:+.e}",
                 subtracted_e_surface.t_scaling[MINUS]
             );
         }
-        assert!(subtracted_e_surface.t_scaling[MINUS] < T::zero());
-        assert!(subtracted_e_surface.t_scaling[PLUS] > T::zero());
+        if subtracted_e_surface.t_scaling[PLUS] < T::zero() {
+            panic!(
+                "Unexpected negative t-scaling for positive solution: {:+.e}",
+                subtracted_e_surface.t_scaling[PLUS]
+            );
+        }
+        assert!(subtracted_e_surface.t_scaling[MINUS] <= T::zero());
+        assert!(subtracted_e_surface.t_scaling[PLUS] >= T::zero());
 
         let mut all_new_cts = vec![];
 
@@ -571,6 +587,30 @@ impl TriBoxTriIntegrand {
                     &cache.external_momenta,
                     cut,
                 );
+
+                if self
+                    .integrand_settings
+                    .threshold_ct_settings
+                    .apply_anti_observable
+                {
+                    //TODO: the implementation below is of course dummy and should be replaced by the actual anti-observable
+                    //for now we'll call it unimplemented
+                    unimplemented!("The anti-observable is not implemented yet");
+                    let ct_cut_edges_and_flip = vec![(1_usize, -1_isize)];
+                    let mut evt = self.event_manager.create_event(
+                        vec![cache.external_momenta[0]],
+                        ct_cut_edges_and_flip
+                            .iter()
+                            .map(|(i_edge, flip)| {
+                                onshell_edge_momenta_for_this_ct[*i_edge]
+                                    * Into::<T>::into(*flip as f64)
+                            })
+                            .collect::<Vec<_>>(),
+                    );
+                    if !self.event_manager.pass_selection(&mut evt) {
+                        continue;
+                    }
+                }
                 // Update the evaluation of the E-surface for the solved star loop momentum in the sampling basis (since it is what the shifts are computed for in this cache)
                 let mut e_surface_caches_for_this_ct = e_surf_cache.clone();
                 for e_surf in e_surface_caches_for_this_ct[side].iter_mut() {
@@ -897,9 +937,8 @@ impl TriBoxTriIntegrand {
     }
 
     fn evaluate_cut<T: FloatLike>(
-        &self,
+        &mut self,
         i_cut: usize,
-        cut: &Cut,
         loop_momenta: &Vec<LorentzVector<T>>,
         overall_sampling_jac: T,
         cache: &ComputationCache<T>,
@@ -909,6 +948,7 @@ impl TriBoxTriIntegrand {
         Option<ClosestESurfaceMonitor<T>>,
         Option<ClosestESurfaceMonitor<T>>,
     ) {
+        //let cut = &self.supergraph.cuts[i_cut];
         let mut cut_res = Complex::new(T::zero(), T::zero());
         if self.settings.general.debug > 1 {
             println!(
@@ -916,10 +956,10 @@ impl TriBoxTriIntegrand {
                 format!(
                 "  > Starting evaluation of cut #{}{} ( n_loop_left={} | cut_cardinality={} | n_loop_right={} )",
                 i_cut,
-                format!("({})", cut.cut_edge_ids_and_flip.iter().map(|(id, flip)| if *flip > 0 { format!("+{}",id) } else { format!("-{}",id) }).collect::<Vec<_>>().join("|")).blue(),
-                cut.left_amplitude.n_loop,
-                cut.cut_edge_ids_and_flip.len(),
-                cut.right_amplitude.n_loop,            )
+                format!("({})", self.supergraph.cuts[i_cut].cut_edge_ids_and_flip.iter().map(|(id, flip)| if *flip > 0 { format!("+{}",id) } else { format!("-{}",id) }).collect::<Vec<_>>().join("|")).blue(),
+                self.supergraph.cuts[i_cut].left_amplitude.n_loop,
+                self.supergraph.cuts[i_cut].cut_edge_ids_and_flip.len(),
+                self.supergraph.cuts[i_cut].right_amplitude.n_loop,            )
                 .blue()
             );
         }
@@ -931,11 +971,14 @@ impl TriBoxTriIntegrand {
         constants /= (Into::<T>::into(2 as f64) * T::PI()).powi(self.supergraph.edges.len() as i32);
 
         // Evaluate kinematics before forcing correct hyperradius
-        let onshell_edge_momenta_for_this_cut =
-            self.evaluate_onshell_edge_momenta(&loop_momenta, &cache.external_momenta, cut);
+        let onshell_edge_momenta_for_this_cut = self.evaluate_onshell_edge_momenta(
+            &loop_momenta,
+            &cache.external_momenta,
+            &self.supergraph.cuts[i_cut],
+        );
 
         // Build the E-surface corresponding to this Cutkosky cut
-        let cut_edge_ids = &cut
+        let cut_edge_ids = &self.supergraph.cuts[i_cut]
             .cut_edge_ids_and_flip
             .iter()
             .map(|(e_id, _flip)| *e_id)
@@ -1001,8 +1044,58 @@ impl TriBoxTriIntegrand {
         let onshell_edge_momenta_for_this_cut = self.evaluate_onshell_edge_momenta(
             &rescaled_loop_momenta,
             &cache.external_momenta,
-            cut,
+            &self.supergraph.cuts[i_cut],
         );
+
+        // Now add the event and check if it passes the selector
+        let mut evt = self.event_manager.create_event(
+            vec![cache.external_momenta[0]],
+            self.supergraph.cuts[i_cut]
+                .cut_edge_ids_and_flip
+                .iter()
+                .map(|(i_edge, flip)| {
+                    onshell_edge_momenta_for_this_cut[*i_edge] * Into::<T>::into(*flip as f64)
+                })
+                .collect::<Vec<_>>(),
+        );
+        if !self.event_manager.add_event(evt) {
+            if self.settings.general.debug > 0 {
+                println!(
+                    "The following event for cut #{}{} failed to pass the cuts:\n{:?}",
+                    i_cut,
+                    format!(
+                        "({})",
+                        self.supergraph.cuts[i_cut]
+                            .cut_edge_ids_and_flip
+                            .iter()
+                            .map(|(id, flip)| if *flip > 0 {
+                                format!("+{}", id)
+                            } else {
+                                format!("-{}", id)
+                            })
+                            .collect::<Vec<_>>()
+                            .join("|")
+                    ),
+                    self.event_manager.create_event(
+                        cache.external_momenta.clone(),
+                        self.supergraph.cuts[i_cut]
+                            .cut_edge_ids_and_flip
+                            .iter()
+                            .map(|(i_edge, flip)| {
+                                onshell_edge_momenta_for_this_cut[*i_edge]
+                                    * Into::<T>::into(*flip as f64)
+                            })
+                            .collect::<Vec<_>>(),
+                    )
+                );
+            }
+            return (
+                Complex::new(T::zero(), T::zero()),
+                Complex::new(T::zero(), T::zero()),
+                None,
+                None,
+            );
+        }
 
         if self.settings.general.debug > 2 {
             println!("    Edge on-shell momenta for this cut:");
@@ -1018,10 +1111,13 @@ impl TriBoxTriIntegrand {
             }
         }
 
-        let amplitude_for_sides = [&cut.left_amplitude, &cut.right_amplitude];
         // Evaluate E-surfaces
         let mut e_surf_caches: [Vec<GenericESurfaceCache<T>>; 2] = [vec![], vec![]];
         for side in [LEFT, RIGHT] {
+            let amplitude_for_sides = [
+                &self.supergraph.cuts[i_cut].left_amplitude,
+                &self.supergraph.cuts[i_cut].right_amplitude,
+            ];
             e_surf_caches[side] = self.build_e_surfaces(
                 &onshell_edge_momenta_for_this_cut,
                 &cache,
@@ -1033,6 +1129,10 @@ impl TriBoxTriIntegrand {
         let mut closest_existing_e_surf: Option<ClosestESurfaceMonitor<T>> = None;
         let mut closest_pinched_e_surf: Option<ClosestESurfaceMonitor<T>> = None;
         if self.settings.general.debug > 0 {
+            let amplitude_for_sides = [
+                &self.supergraph.cuts[i_cut].left_amplitude,
+                &self.supergraph.cuts[i_cut].right_amplitude,
+            ];
             for side in [LEFT, RIGHT] {
                 for (i_surf, e_surf_cache) in e_surf_caches[side].iter().enumerate() {
                     let new_monitor = ClosestESurfaceMonitor {
@@ -1065,6 +1165,10 @@ impl TriBoxTriIntegrand {
             }
         }
         if self.settings.general.debug > 3 {
+            let amplitude_for_sides = [
+                &self.supergraph.cuts[i_cut].left_amplitude,
+                &self.supergraph.cuts[i_cut].right_amplitude,
+            ];
             for side in [LEFT, RIGHT] {
                 if e_surf_caches[side].len() == 0 {
                     println!(
@@ -1134,6 +1238,10 @@ impl TriBoxTriIntegrand {
         let mut i_term = 0;
         let mut cff_evaluations = [vec![], vec![]];
         for side in [LEFT, RIGHT] {
+            let amplitude_for_sides = [
+                &self.supergraph.cuts[i_cut].left_amplitude,
+                &self.supergraph.cuts[i_cut].right_amplitude,
+            ];
             for (i_cff, cff_term) in amplitude_for_sides[side]
                 .cff_expression
                 .terms
@@ -1161,18 +1269,22 @@ impl TriBoxTriIntegrand {
         }
 
         let mut e_product_left = T::one();
-        for e in cut.left_amplitude.edges.iter() {
+        for e in self.supergraph.cuts[i_cut].left_amplitude.edges.iter() {
             e_product_left *=
                 Into::<T>::into(2 as f64) * onshell_edge_momenta_for_this_cut[e.id].t.abs();
         }
         let mut e_product_right = T::one();
-        for e in cut.right_amplitude.edges.iter() {
+        for e in self.supergraph.cuts[i_cut].right_amplitude.edges.iter() {
             e_product_right *=
                 Into::<T>::into(2 as f64) * onshell_edge_momenta_for_this_cut[e.id].t.abs();
         }
         // Build the non-loop propagators too
         let mut non_loop_propagators_contributions = [T::one(), T::one()];
         for side in [LEFT, RIGHT] {
+            let amplitude_for_sides = [
+                &self.supergraph.cuts[i_cut].left_amplitude,
+                &self.supergraph.cuts[i_cut].right_amplitude,
+            ];
             for non_loop_prop_signature in amplitude_for_sides[side].non_loop_propagators.iter() {
                 let prop_momentum = compute_propagator_momentum(
                     non_loop_prop_signature,
@@ -1192,19 +1304,28 @@ impl TriBoxTriIntegrand {
         if self.integrand_settings.threshold_ct_settings.enabled {
             // There are smarter ways to do this, but this is the most straightforward and clear for this exploration
             for side in [LEFT, RIGHT] {
-                let amplitude = if side == LEFT {
-                    &cut.left_amplitude
+                let n_e_surfs = if side == LEFT {
+                    self.supergraph.cuts[i_cut]
+                        .left_amplitude
+                        .cff_expression
+                        .e_surfaces
+                        .len()
                 } else {
-                    &cut.right_amplitude
+                    self.supergraph.cuts[i_cut]
+                        .right_amplitude
+                        .cff_expression
+                        .e_surfaces
+                        .len()
                 };
-
-                for (e_surf_id, _e_surface) in
-                    amplitude.cff_expression.e_surfaces.iter().enumerate()
-                {
+                for e_surf_id in 0..n_e_surfs {
                     if e_surf_caches[side][e_surf_id].exists
                         && !e_surf_caches[side][e_surf_id].pinched
                     {
                         if self.settings.general.debug > 4 {
+                            let amplitude_for_sides = [
+                                &self.supergraph.cuts[i_cut].left_amplitude,
+                                &self.supergraph.cuts[i_cut].right_amplitude,
+                            ];
                             println!(
                                 "Now building CTs for the following E-surface {}",
                                 format!(
@@ -1220,14 +1341,15 @@ impl TriBoxTriIntegrand {
                                 )
                             );
                         }
-                        cts[side].extend(self.build_cts_for_e_surf_id(
+                        let new_cts = self.build_cts_for_e_surf_id(
                             side,
                             e_surf_id,
                             &rescaled_loop_momenta,
                             &e_surf_caches,
                             cache,
-                            cut,
-                        ))
+                            i_cut,
+                        );
+                        cts[side].extend(new_cts);
                     }
                 }
             }
@@ -1268,11 +1390,19 @@ impl TriBoxTriIntegrand {
         let mut cff_sum = Complex::new(T::zero(), T::zero());
         let mut cff_cts_sum = Complex::new(T::zero(), T::zero());
         let mut cff_im_squared_cts_sum = T::zero();
-        for (left_i_cff, left_cff_term) in
-            cut.left_amplitude.cff_expression.terms.iter().enumerate()
+        for (left_i_cff, left_cff_term) in self.supergraph.cuts[i_cut]
+            .left_amplitude
+            .cff_expression
+            .terms
+            .iter()
+            .enumerate()
         {
-            for (right_i_cff, right_cff_term) in
-                cut.right_amplitude.cff_expression.terms.iter().enumerate()
+            for (right_i_cff, right_cff_term) in self.supergraph.cuts[i_cut]
+                .right_amplitude
+                .cff_expression
+                .terms
+                .iter()
+                .enumerate()
             {
                 i_term += 1;
                 let mut numerator_wgt = self.evaluate_numerator(
@@ -1301,7 +1431,10 @@ impl TriBoxTriIntegrand {
                 cff_sum += this_cff_term_contribution;
 
                 // Now include counterterms
-                let amplitudes_pair = [&cut.left_amplitude, &cut.right_amplitude];
+                let amplitudes_pair = [
+                    &self.supergraph.cuts[i_cut].left_amplitude,
+                    &self.supergraph.cuts[i_cut].right_amplitude,
+                ];
                 let i_cff_pair = [left_i_cff, right_i_cff];
                 let mut cts_sum_for_this_term = Complex::new(T::zero(), T::zero());
                 for ct_side in [LEFT, RIGHT] {
@@ -1420,6 +1553,10 @@ impl TriBoxTriIntegrand {
                         }
 
                         if self.settings.general.debug > 3 {
+                            let amplitude_for_sides = [
+                                &self.supergraph.cuts[i_cut].left_amplitude,
+                                &self.supergraph.cuts[i_cut].right_amplitude,
+                            ];
                             println!(
                                 "   > cFF Evaluation #{} : CT for {} E-surface {} : {:+.e} + i {:+.e}",
                                 format!("{}", i_term).green(),
@@ -1530,6 +1667,10 @@ impl TriBoxTriIntegrand {
                         }
 
                         if self.settings.general.debug > 3 {
+                            let amplitude_for_sides = [
+                                &self.supergraph.cuts[i_cut].left_amplitude,
+                                &self.supergraph.cuts[i_cut].right_amplitude,
+                            ];
                             println!(
                                 "   > cFF Evaluation #{} : CT for {} E-surfaces ({}) x ({}) : {:+.e} + i {:+.e}",
                                 format!("{}", i_term).green(),
@@ -1596,7 +1737,7 @@ impl TriBoxTriIntegrand {
         }
 
         let mut e_product_cut = T::one();
-        for (e_id, _flip) in cut.cut_edge_ids_and_flip.iter() {
+        for (e_id, _flip) in self.supergraph.cuts[i_cut].cut_edge_ids_and_flip.iter() {
             e_product_cut *=
                 Into::<T>::into(2 as f64) * onshell_edge_momenta_for_this_cut[*e_id].t.abs();
         }
@@ -1670,10 +1811,10 @@ impl TriBoxTriIntegrand {
             format!(
             "  > Result for cut #{}{} ( n_loop_left={} | cut_cardinality={} | n_loop_right={} ): {} ( ∑ CTs = {:+.e} )",
             i_cut,
-            format!("({})", cut.cut_edge_ids_and_flip.iter().map(|(id, flip)| if *flip > 0 { format!("+{}",id) } else { format!("-{}",id) }).collect::<Vec<_>>().join("|")).green(),
-            cut.left_amplitude.n_loop,
-            cut.cut_edge_ids_and_flip.len(),
-            cut.right_amplitude.n_loop,
+            format!("({})", self.supergraph.cuts[i_cut].cut_edge_ids_and_flip.iter().map(|(id, flip)| if *flip > 0 { format!("+{}",id) } else { format!("-{}",id) }).collect::<Vec<_>>().join("|")).green(),
+            self.supergraph.cuts[i_cut].left_amplitude.n_loop,
+            self.supergraph.cuts[i_cut].cut_edge_ids_and_flip.len(),
+            self.supergraph.cuts[i_cut].right_amplitude.n_loop,
             format!("{:+.e}",cut_res).bold(),
             cff_cts_sum_contribution
         )
@@ -1681,6 +1822,12 @@ impl TriBoxTriIntegrand {
         );
         }
 
+        // Update the event weight to the result just computed
+        self.event_manager
+            .event_buffer
+            .last_mut()
+            .unwrap()
+            .integrand = Complex::new(cut_res.re.to_f64().unwrap(), cut_res.im.to_f64().unwrap());
         return (
             cut_res,
             cff_cts_sum_contribution,
@@ -1689,12 +1836,38 @@ impl TriBoxTriIntegrand {
         );
     }
 
-    fn evaluate_sample_generic<T: FloatLike>(&self, xs: &[T]) -> Complex<T> {
+    fn evaluate_sample_generic<T: FloatLike>(&mut self, xs: &[T]) -> Complex<T> {
         let (moms, overall_sampling_jac) = self.parameterize(xs);
 
         let mut loop_momenta = vec![];
         for m in &moms {
             loop_momenta.push(LorentzVector::from_args(T::zero(), m[0], m[1], m[2]));
+        }
+        if self.integrand_settings.sampling_basis != vec![1, 3, 6] {
+            if !self.sampling_rot.is_some() {
+                self.sampling_rot = Some([[0; 3]; 3]);
+                let mut sig_matrix = [[0; 3]; 3];
+                for i in 0..=2 {
+                    for j in 0..=2 {
+                        sig_matrix[i][j] = self.supergraph.edges
+                            [self.integrand_settings.sampling_basis[i]]
+                            .signature
+                            .0[j];
+                    }
+                }
+                self.sampling_rot = Some(utils::inv_3x3_sig_matrix(sig_matrix));
+            }
+            let m_rot = &self.sampling_rot.unwrap();
+            let mut rotated_loop_momenta = vec![];
+            for i in 0..=2 {
+                let mut rotated_momenta =
+                    LorentzVector::from_args(T::zero(), T::zero(), T::zero(), T::zero());
+                for j in 0..=2 {
+                    rotated_momenta += loop_momenta[j] * Into::<T>::into(m_rot[i][j] as f64);
+                }
+                rotated_loop_momenta.push(rotated_momenta);
+            }
+            loop_momenta = rotated_loop_momenta;
         }
         if self.settings.general.debug > 1 {
             println!(
@@ -1730,7 +1903,7 @@ impl TriBoxTriIntegrand {
         let mut final_wgt_cts = Complex::new(T::zero(), T::zero());
         let mut overall_closest_existing_e_surf: Option<ClosestESurfaceMonitor<T>> = None;
         let mut overall_closest_pinched_e_surf: Option<ClosestESurfaceMonitor<T>> = None;
-        for (i_cut, cut) in self.supergraph.cuts.iter().enumerate() {
+        for i_cut in 1..self.supergraph.cuts.len() {
             let (
                 wgt_agg,
                 wgt_cts_agg,
@@ -1738,7 +1911,6 @@ impl TriBoxTriIntegrand {
                 closest_pinched_e_surf_for_cut,
             ) = self.evaluate_cut(
                 i_cut,
-                cut,
                 &loop_momenta,
                 overall_sampling_jac,
                 &computational_cache,
@@ -1828,8 +2000,45 @@ impl HasIntegrand for TriBoxTriIntegrand {
         return self.n_dim;
     }
 
+    fn get_event_manager_mut(&mut self) -> &mut EventManager {
+        return &mut self.event_manager;
+    }
+
+    fn merge_results<I: HasIntegrand>(&mut self, other: &mut I, _iter: usize) {
+        self.event_manager
+            .merge_samples(other.get_event_manager_mut());
+    }
+
+    fn update_results(&mut self, iter: usize) {
+        self.event_manager.update_result(iter);
+        println!("|  -------------------------------------------------------------------------------------------");
+        println!(
+            "|  Fraction of rejected events : {}",
+            format!(
+                "{:.2}%",
+                (self.event_manager.rejected_event_counter as f64)
+                    / ((self.event_manager.rejected_event_counter
+                        + self.event_manager.accepted_event_counter) as f64)
+                    * 100.0
+            )
+            .blue()
+        );
+        // for o in &self.event_manager.observables {
+        //     if let Observables::CrossSection(xs) = o {
+        //         println!(
+        //             "|  Cross section observable re : {}",
+        //             format!("{:-19}", utils::format_uncertainty(xs.re.avg, xs.re.err)).green()
+        //         );
+        //         println!(
+        //             "|  Cross section observable im : {}",
+        //             format!("{:-19}", utils::format_uncertainty(xs.im.avg, xs.im.err)).green()
+        //         );
+        //     }
+        // }
+    }
+
     fn evaluate_sample(
-        &self,
+        &mut self,
         sample: &Sample,
         wgt: f64,
         #[allow(unused)] iter: usize,
@@ -1856,7 +2065,7 @@ impl HasIntegrand for TriBoxTriIntegrand {
 
         // TODO implement stability check
 
-        if use_f128 {
+        let result = if use_f128 {
             let sample_xs_f128 = sample_xs
                 .iter()
                 .map(|x| Into::<f128::f128>::into(*x))
@@ -1871,13 +2080,15 @@ impl HasIntegrand for TriBoxTriIntegrand {
                         .join(", ")
                 );
             }
-            let res = self.evaluate_sample_generic(sample_xs_f128.as_slice());
-            return Complex::new(
-                f128::f128::to_f64(&res.re).unwrap(),
-                f128::f128::to_f64(&res.im).unwrap(),
-            );
+            let r = self.evaluate_sample_generic(sample_xs_f128.as_slice());
+            Complex::new(
+                f128::f128::to_f64(&r.re).unwrap(),
+                f128::f128::to_f64(&r.im).unwrap(),
+            )
         } else {
-            return self.evaluate_sample_generic(sample_xs.as_slice());
-        }
+            self.evaluate_sample_generic(sample_xs.as_slice())
+        };
+        self.event_manager.process_events(result, wgt);
+        return result;
     }
 }

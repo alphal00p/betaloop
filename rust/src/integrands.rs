@@ -1,6 +1,7 @@
 use crate::box_subtraction::{BoxSubtractionIntegrand, BoxSubtractionSettings};
 use crate::h_function_test::{HFunctionTestIntegrand, HFunctionTestSettings};
 use crate::loop_induced_triboxtri::{LoopInducedTriBoxTriIntegrand, LoopInducedTriBoxTriSettings};
+use crate::observables::EventManager;
 use crate::triangle_subtraction::{TriangleSubtractionIntegrand, TriangleSubtractionSettings};
 use crate::triboxtri::{TriBoxTriIntegrand, TriBoxTriSettings};
 use crate::utils::FloatLike;
@@ -960,7 +961,7 @@ pub trait HasIntegrand {
     fn create_grid(&self) -> Grid;
 
     fn evaluate_sample(
-        &self,
+        &mut self,
         sample: &Sample,
         wgt: f64,
         iter: usize,
@@ -968,6 +969,17 @@ pub trait HasIntegrand {
     ) -> Complex<f64>;
 
     fn get_n_dim(&self) -> usize;
+
+    // In case your integrand supports observable, then overload this function to combine the observables
+    fn merge_results<I: HasIntegrand>(&mut self, _other: &mut I, _iter: usize) {}
+
+    // In case your integrand supports observable, then overload this function to write the observables to file
+    fn update_results(&mut self, _iter: usize) {}
+
+    // In case your integrand has an EventManager, overload this function to return it
+    fn get_event_manager_mut(&mut self) -> &mut EventManager {
+        panic!("This integrand does not have an EventManager");
+    }
 }
 
 #[enum_dispatch(HasIntegrand)]
@@ -1074,7 +1086,7 @@ impl HasIntegrand for UnitSurfaceIntegrand {
     }
 
     fn evaluate_sample(
-        &self,
+        &mut self,
         sample: &Sample,
         wgt: f64,
         iter: usize,
@@ -1191,7 +1203,7 @@ impl HasIntegrand for UnitVolumeIntegrand {
     }
 
     fn evaluate_sample(
-        &self,
+        &mut self,
         sample: &Sample,
         wgt: f64,
         iter: usize,

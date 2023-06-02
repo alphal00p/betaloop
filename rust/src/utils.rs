@@ -1445,3 +1445,27 @@ pub fn inverse_gamma_lr(a: f64, p: f64, n_iter: usize) -> f64 {
 
     return x_n;
 }
+
+pub fn inv_3x3_sig_matrix(mat: [[isize; 3]; 3]) -> [[isize; 3]; 3] {
+    let denom = -mat[0][2] * mat[1][1] * mat[2][0]
+        + mat[0][1] * mat[1][2] * mat[2][0]
+        + mat[0][2] * mat[1][0] * mat[2][1]
+        - mat[0][0] * mat[1][2] * mat[2][1]
+        - mat[0][1] * mat[1][0] * mat[2][2]
+        + mat[0][0] * mat[1][1] * mat[2][2];
+    if denom != 1 && denom != -1 {
+        panic!("Non invertible signature matrix.");
+    }
+    let mut inv_mat = [[0; 3]; 3];
+    inv_mat[0][0] = (-mat[1][2] * mat[2][1] + mat[1][1] * mat[2][2]) * denom;
+    inv_mat[0][1] = (mat[0][2] * mat[2][1] - mat[0][1] * mat[2][2]) * denom;
+    inv_mat[0][2] = (-mat[0][2] * mat[1][1] + mat[0][1] * mat[1][2]) * denom;
+    inv_mat[1][0] = (mat[1][2] * mat[2][0] - mat[1][0] * mat[2][2]) * denom;
+    inv_mat[1][1] = (-mat[0][2] * mat[2][0] + mat[0][0] * mat[2][2]) * denom;
+    inv_mat[1][2] = (mat[0][2] * mat[1][0] - mat[0][0] * mat[1][2]) * denom;
+    inv_mat[2][0] = (-mat[1][1] * mat[2][0] + mat[1][0] * mat[2][1]) * denom;
+    inv_mat[2][1] = (mat[0][1] * mat[2][0] - mat[0][0] * mat[2][1]) * denom;
+    inv_mat[2][2] = (-mat[0][1] * mat[1][0] + mat[0][0] * mat[1][1]) * denom;
+
+    inv_mat
+}
