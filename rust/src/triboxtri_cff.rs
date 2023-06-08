@@ -61,7 +61,7 @@ pub struct TriBoxTriCFFIntegrand {
 
 pub fn e_surf_str(e_surf_id: usize, e_surf: &Esurface) -> String {
     format!(
-        "#{:<3} edge_ids={:-8} e_shift={:-10}",
+        "#{:<3} edge_ids={:-10} e_shift={:-5}",
         e_surf_id,
         format!(
             "[{}]",
@@ -1895,7 +1895,7 @@ impl TriBoxTriCFFIntegrand {
         let mut final_wgt_cts = Complex::new(T::zero(), T::zero());
         let mut overall_closest_existing_e_surf: Option<ClosestESurfaceMonitor<T>> = None;
         let mut overall_closest_pinched_e_surf: Option<ClosestESurfaceMonitor<T>> = None;
-        for i_cut in 1..self.supergraph.cuts.len() {
+        for i_cut in 0..self.supergraph.cuts.len() {
             let (
                 wgt_agg,
                 wgt_cts_agg,

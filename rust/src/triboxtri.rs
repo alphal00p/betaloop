@@ -1908,7 +1908,7 @@ impl TriBoxTriIntegrand {
         let mut final_wgt_cts = Complex::new(T::zero(), T::zero());
         let mut overall_closest_existing_e_surf: Option<ClosestESurfaceMonitor<T>> = None;
         let mut overall_closest_pinched_e_surf: Option<ClosestESurfaceMonitor<T>> = None;
-        for i_cut in 1..self.supergraph.cuts.len() {
+        for i_cut in 0..self.supergraph.cuts.len() {
             let (
                 wgt_agg,
                 wgt_cts_agg,
