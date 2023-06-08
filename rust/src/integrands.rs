@@ -4,6 +4,7 @@ use crate::loop_induced_triboxtri::{LoopInducedTriBoxTriIntegrand, LoopInducedTr
 use crate::observables::EventManager;
 use crate::triangle_subtraction::{TriangleSubtractionIntegrand, TriangleSubtractionSettings};
 use crate::triboxtri::{TriBoxTriIntegrand, TriBoxTriSettings};
+use crate::triboxtri_cff::{TriBoxTriCFFIntegrand, TriBoxTriCFFSettings};
 use crate::utils::FloatLike;
 use crate::{utils, Settings};
 use color_eyre::{Help, Report};
@@ -17,23 +18,7 @@ use num::Complex;
 use serde::Deserialize;
 use std::fmt::{Display, Formatter};
 use std::fs::File;
-use utils::PINCH_TEST_THRESHOLD;
-
-#[derive(Debug, Copy, Clone, PartialEq, Deserialize)]
-pub enum HardCodedIntegrand {
-    #[serde(rename = "unit_surface")]
-    UnitSurface,
-    #[serde(rename = "unit_volume")]
-    UnitVolume,
-    #[serde(rename = "loop_induced_TriBoxTri")]
-    LoopInducedTriBoxTri,
-    #[serde(rename = "triangle_subtraction")]
-    TriangleSubtraction,
-    #[serde(rename = "box_subtraction")]
-    BoxSubtraction,
-    #[serde(rename = "h_function_test")]
-    HFunctionTest,
-}
+use utils::{NOSIDE, PINCH_TEST_THRESHOLD};
 
 #[derive(Debug, Clone, Deserialize)]
 #[allow(non_snake_case)]
@@ -47,6 +32,8 @@ pub enum HardCodedIntegrandSettings {
     LoopInducedTriBoxTri(LoopInducedTriBoxTriSettings),
     #[serde(rename = "TriBoxTri")]
     TriBoxTri(TriBoxTriSettings),
+    #[serde(rename = "TriBoxTriCFF")]
+    TriBoxTriCFF(TriBoxTriCFFSettings),
     #[serde(rename = "triangle_subtraction")]
     TriangleSubtraction(TriangleSubtractionSettings),
     #[serde(rename = "box_subtraction")]
@@ -65,6 +52,9 @@ impl Display for HardCodedIntegrandSettings {
             }
             HardCodedIntegrandSettings::TriBoxTri(_) => {
                 write!(f, "TriBoxTri")
+            }
+            HardCodedIntegrandSettings::TriBoxTriCFF(_) => {
+                write!(f, "TriBoxTriCFF")
             }
             HardCodedIntegrandSettings::TriangleSubtraction(_) => {
                 write!(f, "triangle_subtraction")
@@ -148,6 +138,7 @@ pub trait ESurfaceCacheTrait<T: FloatLike> {
     fn t_der(&self, k: &Vec<LorentzVector<T>>) -> T;
     fn compute_t_scaling(&self, k: &Vec<LorentzVector<T>>) -> [T; 2];
     fn adjust_loop_momenta_shifts(&mut self, loop_momenta_shift_adjustments: &Vec<[T; 3]>);
+    fn get_side(&self) -> usize;
 }
 
 #[derive(Debug, Clone)]
@@ -162,6 +153,7 @@ pub struct GenericESurfaceCache<T: FloatLike> {
     pub pinched: bool,
     pub eval: T,
     pub t_scaling: [T; 2],
+    pub side: usize,
 }
 
 #[derive(Debug, Clone)]
@@ -175,6 +167,7 @@ pub struct OneLoopESurfaceCache<T: FloatLike> {
     pub pinched: bool,
     pub eval: T,
     pub t_scaling: [T; 2],
+    pub side: usize,
 }
 
 #[allow(unused)]
@@ -190,6 +183,7 @@ impl<T: FloatLike> OneLoopESurfaceCache<T> {
             pinched: false,
             eval: T::zero(),
             t_scaling: [T::zero(), T::zero()],
+            side: NOSIDE,
         }
     }
 
@@ -199,6 +193,7 @@ impl<T: FloatLike> OneLoopESurfaceCache<T> {
         m1_sq: T,
         m2_sq: T,
         e_shift: T,
+        side: usize,
     ) -> OneLoopESurfaceCache<T> {
         OneLoopESurfaceCache {
             p1: p1,
@@ -211,6 +206,7 @@ impl<T: FloatLike> OneLoopESurfaceCache<T> {
             pinched: true,
             eval: T::zero(),
             t_scaling: [T::zero(), T::zero()],
+            side: side,
         }
     }
 
@@ -223,6 +219,7 @@ impl<T: FloatLike> OneLoopESurfaceCache<T> {
         pinched: bool,
         eval: T,
         t_scaling: [T; 2],
+        side: usize,
     ) -> GenericESurfaceCache<T> {
         // At one loop we require the momenta under both square roots to be normalised as k+p, so positive sig.
         assert!(sigs == vec![vec![T::one()], vec![T::one()]]);
@@ -239,6 +236,7 @@ impl<T: FloatLike> OneLoopESurfaceCache<T> {
             pinched: pinched,
             eval: eval,
             t_scaling: t_scaling,
+            side: side,
         }
     }
 
@@ -268,6 +266,11 @@ impl<T: FloatLike> ESurfaceCacheTrait<T> for OneLoopESurfaceCache<T> {
             self.m2_sq,
             self.e_shift,
         )
+    }
+
+    #[inline]
+    fn get_side(&self) -> usize {
+        self.side
     }
 
     #[inline]
@@ -340,6 +343,7 @@ impl<T: FloatLike> GenericESurfaceCache<T> {
             pinched: false,
             eval: T::zero(),
             t_scaling: [T::zero(), T::zero()],
+            side: NOSIDE,
         }
     }
 
@@ -349,6 +353,7 @@ impl<T: FloatLike> GenericESurfaceCache<T> {
         ps: Vec<[T; 3]>,
         ms: Vec<T>,
         e_shift: T,
+        side: usize,
     ) -> GenericESurfaceCache<T> {
         // Not applicable for more than one-loop
         let mut one_loop_basis_index = 99;
@@ -397,6 +402,7 @@ impl<T: FloatLike> GenericESurfaceCache<T> {
             pinched: false,
             eval: T::zero(),
             t_scaling: [T::zero(), T::zero()],
+            side: side,
         }
     }
 
@@ -411,6 +417,7 @@ impl<T: FloatLike> GenericESurfaceCache<T> {
         pinched: bool,
         eval: T,
         t_scaling: [T; 2],
+        side: usize,
     ) -> GenericESurfaceCache<T> {
         // Not applicable for more than one-loop
         let mut one_loop_basis_index = 99;
@@ -456,6 +463,7 @@ impl<T: FloatLike> GenericESurfaceCache<T> {
             pinched: pinched,
             eval: eval,
             t_scaling: t_scaling,
+            side: side,
         }
     }
 
@@ -595,6 +603,11 @@ impl<T: FloatLike> ESurfaceCacheTrait<T> for GenericESurfaceCache<T> {
                 p[2] += self.sigs[i][i_sig] * loop_momenta_shift_adjustments[*j][2];
             }
         }
+    }
+
+    #[inline]
+    fn get_side(&self) -> usize {
+        self.side
     }
 
     #[inline]
@@ -739,38 +752,35 @@ impl CFFFactor {
     pub fn evaluate<T: FloatLike, ESC: ESurfaceCacheTrait<T>>(
         &self,
         e_surface_caches: &Vec<ESC>,
-        expand_e_surf: Option<(usize, T)>,
-        has_found_expanded_e_surf: bool,
+        expand_e_surfs: &mut Vec<(usize, T)>,
     ) -> T {
         let mut coef = T::one();
-        let mut next_has_found_expanded_e_surf = has_found_expanded_e_surf;
         for e_surf_id in self.denominator.iter() {
-            if let Some((expanded_e_surf_id, expanded_e_surf)) = expand_e_surf {
-                if expanded_e_surf_id != *e_surf_id {
-                    coef *= e_surface_caches[*e_surf_id].cached_eval();
-                } else {
-                    if has_found_expanded_e_surf {
-                        panic!("Current implementation only supports E-surfaces that appear as single-pole only.");
-                    }
-                    next_has_found_expanded_e_surf = true;
-                    coef *= expanded_e_surf;
+            match expand_e_surfs
+                .iter()
+                .enumerate()
+                .find(|(_i_exp, (surf_id, _exp_value))| surf_id == e_surf_id)
+            {
+                Some((i_exp, (_surf_id, expanded_eval))) => {
+                    coef *= *expanded_eval;
+                    expand_e_surfs.remove(i_exp);
                 }
-            } else {
-                coef *= e_surface_caches[*e_surf_id].cached_eval();
+                _ => {
+                    // if e_surface_caches[*e_surf_id].cached_eval() == T::zero() {
+                    //     println!("AIE: {} {:?}", e_surf_id, expand_e_surfs);
+                    // }
+                    coef *= e_surface_caches[*e_surf_id].cached_eval();
+                }
             }
         }
         if self.factors.len() > 0 {
             let mut factors_sum = T::zero();
             for factor in self.factors.iter() {
-                factors_sum += factor.evaluate(
-                    e_surface_caches,
-                    expand_e_surf,
-                    next_has_found_expanded_e_surf,
-                );
+                factors_sum += factor.evaluate(e_surface_caches, &mut expand_e_surfs.clone());
             }
             coef.inv() * factors_sum
         } else {
-            if expand_e_surf.is_some() && !next_has_found_expanded_e_surf {
+            if expand_e_surfs.len() > 0 {
                 T::zero()
             } else {
                 coef.inv()
@@ -809,14 +819,18 @@ impl CFFTerm {
     pub fn evaluate<T: FloatLike, ESC: ESurfaceCacheTrait<T> + fmt::Debug>(
         &self,
         e_surface_caches: &Vec<ESC>,
-        expand_e_surf: Option<(usize, T)>,
+        expand_e_surfs: Option<Vec<(usize, T)>>,
     ) -> T {
         let mut result = T::zero();
+        let mut e_surf_to_expand = match expand_e_surfs.clone() {
+            Some(e_surf_to_expand) => e_surf_to_expand,
+            None => vec![],
+        };
         for factor in self.factors.iter() {
-            result += factor.evaluate(e_surface_caches, expand_e_surf, false);
+            result += factor.evaluate(e_surface_caches, &mut e_surf_to_expand.clone());
         }
         if !result.is_finite() {
-            println!("expand_e_surf={:?}", expand_e_surf);
+            println!("expand_e_surf={:?}", expand_e_surfs);
             println!(
                 "e_surface_caches =\n {}",
                 e_surface_caches
@@ -925,14 +939,21 @@ impl Edge {
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct SuperGraph {
     pub edges: Vec<Edge>,
+    pub supergraph_cff: Amplitude,
     pub cuts: Vec<Cut>,
     pub n_loop: usize,
 }
 #[allow(unused)]
 impl SuperGraph {
-    pub fn new(edges: Vec<Edge>, cuts: Vec<Cut>, n_loop: usize) -> SuperGraph {
+    pub fn new(
+        edges: Vec<Edge>,
+        cuts: Vec<Cut>,
+        supergraph_cff: Amplitude,
+        n_loop: usize,
+    ) -> SuperGraph {
         SuperGraph {
             edges,
+            supergraph_cff,
             cuts,
             n_loop,
         }
@@ -941,6 +962,7 @@ impl SuperGraph {
     pub fn default() -> SuperGraph {
         SuperGraph {
             edges: Vec::new(),
+            supergraph_cff: Amplitude::default(),
             cuts: Vec::new(),
             n_loop: 0,
         }
@@ -989,6 +1011,7 @@ pub enum Integrand {
     HFunctionTest(HFunctionTestIntegrand),
     LoopInducedTriBoxTri(LoopInducedTriBoxTriIntegrand),
     TriBoxTri(TriBoxTriIntegrand),
+    TriBoxTriCFF(TriBoxTriCFFIntegrand),
     TriangleSubtraction(TriangleSubtractionIntegrand),
     BoxSubtraction(BoxSubtractionIntegrand),
 }
@@ -1012,6 +1035,9 @@ pub fn integrand_factory(settings: &Settings) -> Integrand {
         }
         HardCodedIntegrandSettings::TriBoxTri(integrand_settings) => Integrand::TriBoxTri(
             TriBoxTriIntegrand::new(settings.clone(), integrand_settings),
+        ),
+        HardCodedIntegrandSettings::TriBoxTriCFF(integrand_settings) => Integrand::TriBoxTriCFF(
+            TriBoxTriCFFIntegrand::new(settings.clone(), integrand_settings),
         ),
         HardCodedIntegrandSettings::TriangleSubtraction(integrand_settings) => {
             Integrand::TriangleSubtraction(TriangleSubtractionIntegrand::new(integrand_settings))

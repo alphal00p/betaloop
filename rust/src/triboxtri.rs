@@ -245,6 +245,7 @@ impl TriBoxTriIntegrand {
         cache: &ComputationCache<T>,
         loop_momenta: &Vec<LorentzVector<T>>,
         e_shift: T,
+        side: usize,
     ) -> GenericESurfaceCache<T> {
         // Build the E-surface corresponding to this Cutkosky cut
         let mut ps = vec![];
@@ -279,7 +280,7 @@ impl TriBoxTriIntegrand {
             }
             ps.push([shift.x, shift.y, shift.z]);
         }
-        GenericESurfaceCache::new_from_inputs(cut_basis_indices, sigs, ps, ms, e_shift)
+        GenericESurfaceCache::new_from_inputs(cut_basis_indices, sigs, ps, ms, e_shift, side)
     }
 
     fn build_e_surfaces<T: FloatLike>(
@@ -289,6 +290,7 @@ impl TriBoxTriIntegrand {
         amplitude: &Amplitude,
         e_surfaces: &Vec<Esurface>,
         loop_momenta: &Vec<LorentzVector<T>>,
+        side: usize,
     ) -> Vec<GenericESurfaceCache<T>> {
         let mut e_surf_caches: Vec<GenericESurfaceCache<T>> = vec![];
 
@@ -322,6 +324,7 @@ impl TriBoxTriIntegrand {
                 cache,
                 loop_momenta,
                 e_shift,
+                side,
             );
             (e_surf_cache.exists, e_surf_cache.pinched) = e_surf_cache.does_exist();
             e_surf_cache.eval = e_surf_cache.eval(&loop_momenta);
@@ -779,7 +782,7 @@ impl TriBoxTriIntegrand {
                     } else {
                         cff_evaluations[side].push(cff_term.evaluate(
                             &e_surface_caches_for_this_ct[side],
-                            Some((e_surf_id, T::one())),
+                            Some(vec![(e_surf_id, T::one())]),
                         ));
                         if !pinch_dampening_settings.enabled || pinch_dampening_settings.global {
                             if ct_level == AMPLITUDE_LEVEL_CT {
@@ -991,6 +994,7 @@ impl TriBoxTriIntegrand {
             // But this construction is useful when building the amplitude e-surfaces using the same function.
             loop_momenta,
             -cache.external_momenta[0].t,
+            LEFT,
         );
 
         e_surface_cc_cut.t_scaling = e_surface_cc_cut.compute_t_scaling(&loop_momenta);
@@ -1124,6 +1128,7 @@ impl TriBoxTriIntegrand {
                 &amplitude_for_sides[side],
                 &amplitude_for_sides[side].cff_expression.e_surfaces,
                 &rescaled_loop_momenta,
+                side,
             );
         }
         let mut closest_existing_e_surf: Option<ClosestESurfaceMonitor<T>> = None;

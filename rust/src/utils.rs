@@ -15,6 +15,7 @@ const MAX_DIMENSION: usize = MAX_LOOP * 3;
 
 pub const LEFT: usize = 0;
 pub const RIGHT: usize = 1;
+pub const NOSIDE: usize = 2;
 
 pub const PLUS: usize = 0;
 pub const MINUS: usize = 1;

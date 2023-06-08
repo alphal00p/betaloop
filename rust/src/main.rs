@@ -6,6 +6,7 @@ mod observables;
 mod tests;
 mod triangle_subtraction;
 mod triboxtri;
+mod triboxtri_cff;
 mod utils;
 
 use clap::{App, Arg, SubCommand};

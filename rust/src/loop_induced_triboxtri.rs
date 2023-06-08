@@ -122,6 +122,7 @@ impl LoopInducedTriBoxTriIntegrand {
         amplitude: &Amplitude,
         e_surfaces: &Vec<Esurface>,
         loop_momenta: &Vec<LorentzVector<T>>,
+        side: usize,
     ) -> Vec<OneLoopESurfaceCache<T>> {
         let mut e_surf_caches: Vec<OneLoopESurfaceCache<T>> = vec![];
 
@@ -190,6 +191,7 @@ impl LoopInducedTriBoxTriIntegrand {
                         * self.supergraph.edges[e_surf.edge_ids[1]].mass,
                 ),
                 shift,
+                side,
             );
             (e_surf_cache.exists, e_surf_cache.pinched) = e_surf_cache.does_exist();
             let k = onshell_edge_momenta[amplitude.lmb_edges[0].id];
@@ -490,7 +492,7 @@ impl LoopInducedTriBoxTriIntegrand {
                     } else {
                         cff_evaluations[side].push(cff_term.evaluate(
                             &e_surface_caches_for_this_ct[side],
-                            Some((e_surf_id, T::one())),
+                            Some(vec![(e_surf_id, T::one())]),
                         ));
                         cff_pinch_dampenings[side].push(T::one());
                     }
@@ -655,6 +657,7 @@ impl LoopInducedTriBoxTriIntegrand {
             Into::<T>::into(self.supergraph.edges[cut.cut_edge_ids_and_flip[1].0].mass)
                 * Into::<T>::into(self.supergraph.edges[cut.cut_edge_ids_and_flip[1].0].mass),
             -Into::<T>::into(self.integrand_settings.q[0]),
+            LEFT,
         );
         //println!("e_surface_cc_cut={:?}", e_surface_cc_cut);
         e_surface_cc_cut.t_scaling = e_surface_cc_cut.compute_t_scaling(&vec![loop_momenta[2]]);
@@ -741,6 +744,7 @@ impl LoopInducedTriBoxTriIntegrand {
                 &amplitude,
                 &amplitude.cff_expression.e_surfaces,
                 &rescaled_loop_momenta,
+                side,
             );
         }
         if self.settings.general.debug > 3 {

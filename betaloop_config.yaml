@@ -1,33 +1,32 @@
 General:
   debug: 0
 HardCodedIntegrand:
-  type: TriBoxTri
+  type: TriBoxTriCFF
   supergraph_yaml_file: ./data/TriBoxTri.yaml
   q: [60.0, 0.0, 0.0, 0.0]
   numerator: one #spatial_exponential_dummy # Options are "one", "spatial_exponential_dummy" and "physical"
   #sampling_basis: [1, 3, 6] # This is the generation LMB
   sampling_basis: [1, 4, 7] # This is the LMB with vertical edges in it
+  selected_sg_cff_term: 122 # e.g. 122
   h_function:
     function: poly_left_right_exponential # Options are poly_exponential, poly_left_right_exponential, exponential
-    sigma: 20. #20.
-    power: 10 #10 # Typically best to set to 3*n_loops+1
+    sigma: 1. #20.
+    power: 0 #10 # Typically best to set to 3*n_loops+1
   threshold_CT_settings:
     enabled: true
     include_integrated_ct: false
     compute_only_im_squared: false
-    im_squared_through_local_ct_only: true
+    im_squared_through_local_ct_only: false
     include_amplitude_level_cts: true
     variable: R # for the local CT: options in this case are R and logR
-    local_ct_sliver_width: 0.5 # Specify an f64 for a finite sliver width, otherwise leave Option to null
-    integrated_ct_sliver_width: 0.5 # Specify an f64 for a finite sliver width, otherwise leave Option to null
+    local_ct_sliver_width: 1 # Specify an f64 for a finite sliver width, otherwise leave Option to null
+    integrated_ct_sliver_width: 1 # Specify an f64 for a finite sliver width, otherwise leave Option to null
     parameterization_center: [[0., 0., 0.], [0., 0., 0.], [0., 0., 0.]] # [[3., -5., 1.], [2., 7., -3.], [2., -4., -1.]] # [[0., 0., 0.], [0., 0., 0.], [0., 0., 0.]]
-    apply_anti_observable: false
-    pinch_dampening:
+    anti_observable_settings:
       enabled: true
-      global: true # Whether to use a dampening power global to all cFF terms
-      dampen_all_pinch_surfaces: true # Whether to only dampen pinched surfaces with loop momentum dependence overlapping with that of the subtracted E-surface
-      regularization_multiplier: 1.0 # multiplier m in eta^a / (eta^a + m * (r/r^\star -1)^b)
-      powers: [2, 2] # Powers `a` and `b` in the above
+      choose_subspace_based_off_other_e_surface_passing_cuts: false
+      anti_select_cut_of_subtracted_e_surface: true
+      anti_select_pinched_cut_same_side_as_subtracted_e_surface: false
     local_ct_h_function:
       function: exponential_ct # Options in this case is just exponential_ct
       sigma: 15.
@@ -89,21 +88,21 @@ Parameterization:
   mode: hyperspherical_flat # choices are cartesian, spherical, hyperspherical and hyperspherical_flat
 Selectors:
   - type: jet
-    min_jets: 3
+    min_jets: 2
     max_jets: 100
-    min_jpt: 5.
+    min_jpt: 5.0
     min_j1pt: 0.
     max_j1pt: -1.
     dR: 0.7
     use_fastjet: true
 Observables:
   - type: cross_section
-  - type: jet1pt
-    x_min: 0.
-    x_max: 100.
-    dR: 0.7
-    min_jpt: 5.
-    n_bins: 100
-    write_to_file: true
-    filename: "observables/jet1_pt.HwU"
-    use_fastjet: true
+#   - type: jet1pt
+#     x_min: 0.
+#     x_max: 100.
+#     dR: 0.7
+#     min_jpt: 5.
+#     n_bins: 100
+#     write_to_file: true
+#     filename: "observables/jet1_pt.HwU"
+#     use_fastjet: true
