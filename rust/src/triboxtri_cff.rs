@@ -1,3 +1,5 @@
+use std::cmp::Ordering;
+
 use crate::integrands::*;
 #[allow(unused)]
 use crate::observables::{Event, EventManager, Observables};
@@ -46,6 +48,7 @@ pub struct TriBoxTriCFFSettings {
     pub numerator: NumeratorType,
     pub sampling_basis: Vec<usize>,
     pub selected_sg_cff_term: Option<usize>,
+    pub selected_cuts: Option<Vec<usize>>,
     #[serde(rename = "threshold_CT_settings")]
     pub threshold_ct_settings: TriBoxTriCFFCTSettings,
 }
@@ -544,12 +547,24 @@ impl TriBoxTriCFFIntegrand {
                     // If this event passes the selection, it means that the corresponding other one-loop threshold CT will be disabled, so that we must solve
                     // this current one-loop CT in a hyperradius that does *not* include the degrees of freedom of that other one-loop threshold so that
                     // dual cancelations are maintained.
-                    if self.event_manager.pass_selection(&mut evt) {
+                    let subspace_anti_selected = self.event_manager.pass_selection(&mut evt);
+                    if subspace_anti_selected {
                         loop_indices_for_this_ct.remove(
                             loop_indices_for_this_ct
                                 .iter()
                                 .position(|idx| *idx == other_e_surf.one_loop_basis_index)
                                 .unwrap(),
+                        );
+                    }
+                    if self.settings.general.debug > 3 {
+                        println!(
+                            "      > {} against cut {}{} {} remove the solving in the same-side loop index #{} of the following e-surface: {}",
+                            format!("{}","Subspace anti-selection").blue(),
+                            format!("#{}",as_i_cut).green(),
+                            format!("({})", self.supergraph.cuts[as_i_cut].cut_edge_ids_and_flip.iter().map(|(id, flip)| if *flip > 0 { format!("+{}",id) } else { format!("-{}",id) }).collect::<Vec<_>>().join("|")).blue(),
+                            if subspace_anti_selected { format!("{}","DID").green() } else { format!("{}","DID NOT").red() },
+                            self.supergraph.supergraph_cff.lmb_edges[other_e_surf.one_loop_basis_index].id,
+                            e_surf_str(e_surf_id, &self.supergraph.supergraph_cff.cff_expression.e_surfaces[e_surf_id],).red()
                         );
                     }
                 }
@@ -575,6 +590,15 @@ impl TriBoxTriCFFIntegrand {
                     // dual cancelations are maintained.
                     if self.event_manager.pass_selection(&mut evt) {
                         for other_e_surf_loop_index in &other_e_surf.e_surf_basis_indices {
+                            if self.settings.general.debug > 3 {
+                                println!(
+                                    "      Subspace anti-selection against cut {}{} removed the solving in the other-side loop index #{} of the following e-surface: {}",
+                                    format!("#{}",as_i_cut).green(),
+                                    self.supergraph.supergraph_cff.lmb_edges[other_e_surf.one_loop_basis_index].id,
+                                    format!("({})", self.supergraph.cuts[as_i_cut].cut_edge_ids_and_flip.iter().map(|(id, flip)| if *flip > 0 { format!("+{}",id) } else { format!("-{}",id) }).collect::<Vec<_>>().join("|")).blue(),
+                                    e_surf_str(e_surf_id, &self.supergraph.supergraph_cff.cff_expression.e_surfaces[e_surf_id],).red()
+                                );
+                            }
                             other_side_loop_indices.remove(
                                 other_side_loop_indices
                                     .iter()
@@ -634,6 +658,17 @@ impl TriBoxTriCFFIntegrand {
 
         // The building of the E-surface should be done more generically and efficiently, but here in this simple case we can do it this way
         let mut subtracted_e_surface = e_surf_cache[e_surf_id].clone();
+
+        // let mut subtracted_e_surface = self.build_e_surface_for_edges(
+        //     &loop_indices_for_this_ct,
+        //     &self.supergraph.cuts[i_cut].cut_edge_ids_and_flip,
+        //     &cache,
+        //     // Nothing will be used from the loop momenta in this context because we specify all edges to be in the e surf basis here.
+        //     // But this construction is useful when building the amplitude e-surfaces using the same function.
+        //     scaled_loop_momenta_in_sampling_basis,
+        //     side,
+        //     &vec![-1, 0],
+        // );
 
         let center_eval = subtracted_e_surface.eval(&center_shifts);
         assert!(center_eval < T::zero());
@@ -696,6 +731,25 @@ impl TriBoxTriCFFIntegrand {
                 }
             }
             for solution_type in solutions_to_consider.clone() {
+                if self.settings.general.debug > 3 {
+                    println!(
+                        "      > Solving {} CT ({} solution) in same side loop indices {} and other side loop indices {} for e-surface {}",
+                        if ct_level == SUPERGRAPH_LEVEL_CT {"SG "} else {"AMP"},
+                        if solution_type == PLUS {"+"} else {"-"},
+                        if loop_indices_for_this_ct.len() > 0 {
+                            format!("({})", loop_indices_for_this_ct.iter().map(|&i| format!("{}",self.supergraph.supergraph_cff.lmb_edges[i].id)).collect::<Vec<_>>().join("|")).blue()
+                        } else {
+                            format!("{}","(none)").blue()
+                        },
+                        if other_side_loop_indices.len() > 0 {
+                            format!("({})", other_side_loop_indices.iter().map(|&i| format!("{}",self.supergraph.supergraph_cff.lmb_edges[i].id)).collect::<Vec<_>>().join("|")).blue()
+                        } else {
+                            format!("{}","(none)").blue()
+                        },
+                        e_surf_str(e_surf_id, &self.supergraph.supergraph_cff.cff_expression.e_surfaces[e_surf_id],).red()
+                    );
+                }
+
                 // println!(
                 //     "t considered = {:+.e}=",
                 //     subtracted_e_surface.t_scaling[solution_type]
@@ -833,7 +887,7 @@ impl TriBoxTriCFFIntegrand {
                         if self.event_manager.pass_selection(&mut evt) {
                             if self.settings.general.debug > 3 {
                                 println!(
-                                    "      Observable anti-selection against cut {}{} removed the subtraction of the following e-surface: {}",
+                                    "      > Observable anti-selection against cut {}{} removed the subtraction of the following e-surface: {}",
                                     format!("#{}",as_i_cut).green(),
                                     format!("({})", self.supergraph.cuts[as_i_cut].cut_edge_ids_and_flip.iter().map(|(id, flip)| if *flip > 0 { format!("+{}",id) } else { format!("-{}",id) }).collect::<Vec<_>>().join("|")).blue(),
                                     e_surf_str(e_surf_id, &self.supergraph.supergraph_cff.cff_expression.e_surfaces[e_surf_id],).red()
@@ -966,6 +1020,17 @@ impl TriBoxTriCFFIntegrand {
                     None
                 };
 
+                let loop_indices_solved = if side == LEFT {
+                    (
+                        loop_indices_for_this_ct.clone(),
+                        other_side_loop_indices.clone(),
+                    )
+                } else {
+                    (
+                        loop_indices_for_this_ct.clone(),
+                        other_side_loop_indices.clone(),
+                    )
+                };
                 all_new_cts.push(ESurfaceCT {
                     e_surf_id,
                     ct_basis_signature: ct_basis_signature.clone(), // Not used at the moment, could be dropped
@@ -981,6 +1046,7 @@ impl TriBoxTriCFFIntegrand {
                     cff_pinch_dampenings, // Dummy in this case
                     integrated_ct,
                     ct_level,
+                    loop_indices_solved,
                 });
             }
         }
@@ -1016,9 +1082,12 @@ impl TriBoxTriCFFIntegrand {
         loop_momenta: &Vec<LorentzVector<T>>,
         overall_sampling_jac: T,
         cache: &ComputationCache<T>,
+        selected_sg_cff_term: Option<usize>,
     ) -> (
         Complex<T>,
         Complex<T>,
+        Vec<Complex<T>>,
+        Vec<Complex<T>>,
         Option<ClosestESurfaceMonitor<T>>,
         Option<ClosestESurfaceMonitor<T>>,
     ) {
@@ -1204,6 +1273,14 @@ impl TriBoxTriCFFIntegrand {
             return (
                 Complex::new(T::zero(), T::zero()),
                 Complex::new(T::zero(), T::zero()),
+                vec![
+                    Complex::new(T::zero(), T::zero());
+                    self.supergraph.supergraph_cff.cff_expression.terms.len()
+                ],
+                vec![
+                    Complex::new(T::zero(), T::zero());
+                    self.supergraph.supergraph_cff.cff_expression.terms.len()
+                ],
                 None,
                 None,
             );
@@ -1256,11 +1333,16 @@ impl TriBoxTriCFFIntegrand {
                 .include_amplitude_level_cts;
 
         // Note that we could also consider splitting the numerator into a left and right component, depending on its implementation
-        let mut cff_sum = Complex::new(T::zero(), T::zero());
-        let mut cff_cts_sum = Complex::new(T::zero(), T::zero());
-        let mut cff_im_squared_cts_sum = T::zero();
-
-        let mut i_term = 0;
+        let mut cff_res = vec![
+            Complex::new(T::zero(), T::zero());
+            self.supergraph.supergraph_cff.cff_expression.terms.len()
+        ];
+        let mut cff_cts_res = vec![
+            Complex::new(T::zero(), T::zero());
+            self.supergraph.supergraph_cff.cff_expression.terms.len()
+        ];
+        let mut cff_im_squared_cts_res =
+            vec![T::zero(); self.supergraph.supergraph_cff.cff_expression.terms.len()];
 
         for i_cff in 0..self.supergraph.supergraph_cff.cff_expression.terms.len() {
             // Adjust the energy signs for this cff term
@@ -1273,8 +1355,7 @@ impl TriBoxTriCFFIntegrand {
                         * Into::<T>::into(*flip as f64);
             }
 
-            i_term += 1;
-            if let Some(selected_term) = self.integrand_settings.selected_sg_cff_term {
+            if let Some(selected_term) = selected_sg_cff_term {
                 if i_cff != selected_term {
                     continue;
                 }
@@ -1362,7 +1443,7 @@ impl TriBoxTriCFFIntegrand {
                 ];
                 if e_surf_caches.len() == 0 {
                     println!(
-                        "    All e_surf caches:      {}",
+                        "    | All e_surf caches:      {}",
                         format!("{}", "None").green()
                     );
                 } else {
@@ -1452,7 +1533,7 @@ impl TriBoxTriCFFIntegrand {
                                     &self.supergraph.cuts[i_cut].right_amplitude,
                                 ];
                                 println!(
-                                    "Now building CTs for the following E-surface {}",
+                                    "    | E-surface {} now being subtracted",
                                     format!(
                                         "{} : {:?}",
                                         e_surf_str(
@@ -1464,7 +1545,7 @@ impl TriBoxTriCFFIntegrand {
                                                 .e_surfaces[e_surf_id]
                                         )
                                         .bold()
-                                        .green(),
+                                        .red(),
                                         e_surf_caches[e_surf_id]
                                     )
                                 );
@@ -1511,7 +1592,7 @@ impl TriBoxTriCFFIntegrand {
             {
                 this_cff_term_contribution = T::zero();
             }
-            cff_sum += this_cff_term_contribution;
+            cff_res[i_cff] += this_cff_term_contribution;
 
             // Now include counterterms
             let mut cts_sum_for_this_term = Complex::new(T::zero(), T::zero());
@@ -1577,7 +1658,7 @@ impl TriBoxTriCFFIntegrand {
 
                     if self.settings.general.debug > 3 {
                         println!(
-                            "   > cFF Evaluation #{} : CT for {} E-surface {} : {:+.e} + i {:+.e}",
+                            "   > cFF Evaluation #{} : CT for {} E-surface {} solved in {}: {:+.e} + i {:+.e}",
                             format!("{}", i_cff).green(),
                             format!(
                                 "{}|{}|{}",
@@ -1596,6 +1677,10 @@ impl TriBoxTriCFFIntegrand {
                                     [ct.e_surf_id]
                             )
                             .blue(),
+                            format!("[{}x{}]",
+                                format!("({:-3})", ct.loop_indices_solved.0.iter().map(|lis| format!("{}", lis)).collect::<Vec<_>>().join(",")),
+                                format!("({:-3})", ct.loop_indices_solved.1.iter().map(|lis| format!("{}", lis)).collect::<Vec<_>>().join(",")),
+                            ).blue(),
                             re_ct_weight,
                             im_ct_weight
                         );
@@ -1701,7 +1786,7 @@ impl TriBoxTriCFFIntegrand {
                     if self.settings.general.debug > 3 {
                         println!(
                                 "   > cFF Evaluation #{} : CT for {} E-surfaces ({}) x ({}) : {:+.e} + i {:+.e}",
-                                format!("{}", i_term).green(),
+                                format!("{}", i_cff).green(),
                                 format!("L|AMP|{} x R|AMP|{}", 
                                     if left_ct.solution_type == PLUS {"+"} else {"-"},
                                     if right_ct.solution_type == PLUS {"+"} else {"-"},
@@ -1723,14 +1808,14 @@ impl TriBoxTriCFFIntegrand {
                 }
             }
 
-            cff_cts_sum += cts_sum_for_this_term;
-            cff_im_squared_cts_sum += ct_im_squared_weight_for_this_term;
+            cff_cts_res[i_cff] += cts_sum_for_this_term;
+            cff_im_squared_cts_res[i_cff] += ct_im_squared_weight_for_this_term;
 
             if self.settings.general.debug > 2 {
                 let cff_term = &self.supergraph.supergraph_cff.cff_expression.terms[i_cff];
                 println!(
                     "   > cFF evaluation #{} for orientation ({}):",
-                    format!("{}", i_term).green(),
+                    format!("{}", i_cff).green(),
                     cff_term
                         .orientation
                         .iter()
@@ -1764,37 +1849,107 @@ impl TriBoxTriCFFIntegrand {
             if self.settings.general.debug > 0 {
                 println!("{}",format!("{}","   > Option 'compute_only_im_squared' enabled. Now turning off all other contributions.").red());
             }
-            cff_sum = Complex::new(T::zero(), T::zero());
-            // We only need to do that when trying to compute the imaginary squared part using the squaring of the integrated threshold CT.
-            // if not, then we will have already done the necessary modification before.
-            if !use_imaginary_squared_trick {
-                cff_cts_sum = Complex::new(cff_im_squared_cts_sum, T::zero());
-            } else {
-                cff_cts_sum = Complex::new(cff_cts_sum.re, T::zero());
+            for i_cff in 0..self.supergraph.supergraph_cff.cff_expression.terms.len() {
+                cff_res[i_cff] = Complex::new(T::zero(), T::zero());
+                // We only need to do that when trying to compute the imaginary squared part using the squaring of the integrated threshold CT.
+                // if not, then we will have already done the necessary modification before.
+                if !use_imaginary_squared_trick {
+                    cff_cts_res[i_cff] = Complex::new(cff_im_squared_cts_res[i_cff], T::zero());
+                } else {
+                    cff_cts_res[i_cff] = Complex::new(cff_cts_res[i_cff].re, T::zero());
+                }
             }
         }
+
+        if self.settings.general.debug > 2 && selected_sg_cff_term.is_none() {
+            let mut all_res = cff_res
+                .iter()
+                .enumerate()
+                .zip(&cff_cts_res)
+                .map(|((i_a_cff, a), a_ct)| (i_a_cff, *a - *a_ct, *a_ct))
+                .collect::<Vec<_>>();
+            all_res.sort_by(|(i_b_cff, b, b_ct), (i_a_cff, a, a_ct)| {
+                (a + a_ct)
+                    .re
+                    .abs()
+                    .partial_cmp(&(b + b_ct).re.abs())
+                    .unwrap_or(Ordering::Equal)
+            });
+            let sorted_cff_res = all_res
+                .iter()
+                .filter(|(i_cff, res_no_ct, ct)| (res_no_ct + ct).re.abs() > T::zero())
+                .map(|(i_cff, res_no_ct, ct)| {
+                    format!(
+                        "  | #{:-3} ({}) : {:-23} ( {:-23} | {:+.e} )",
+                        format!("{}", i_cff).green(),
+                        self.supergraph.supergraph_cff.cff_expression.terms[*i_cff]
+                            .orientation
+                            .iter()
+                            .map(|(_id, flip)| if *flip > 0 { "+" } else { "-" })
+                            .collect::<Vec<_>>()
+                            .join("")
+                            .blue(),
+                        format!("{:+.e}", (res_no_ct + ct).re).bold(),
+                        format!("{:+.e}", res_no_ct.re),
+                        ct.re
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join("\n");
+            let n_non_zero = all_res
+                .iter()
+                .filter(|(i_cff, res_no_ct, ct)| (res_no_ct + ct).re.abs() > T::zero())
+                .count();
+            if n_non_zero > 0 {
+                println!("{}",format!("  > All {} sorted non-zero real results for independent cFF terms for cut #{}{} ( n_loop_left={} | cut_cardinality={} | n_loop_right={} ):",
+                n_non_zero,
+                i_cut,
+                format!("({})", self.supergraph.cuts[i_cut].cut_edge_ids_and_flip.iter().map(|(id, flip)| if *flip > 0 { format!("+{}",id) } else { format!("-{}",id) }).collect::<Vec<_>>().join("|")).green(),
+                self.supergraph.cuts[i_cut].left_amplitude.n_loop,
+                self.supergraph.cuts[i_cut].cut_edge_ids_and_flip.len(),
+                self.supergraph.cuts[i_cut].right_amplitude.n_loop
+            ).green());
+                println!(
+                    "{}",
+                    format!(
+                        "  | #{:-3} ({}) : {:-23} ( {:-23} | {} )",
+                        format!("{}", "ID").green(),
+                        format!("{}", "12345678").blue(),
+                        format!("{}", "res + CTs").bold(),
+                        format!("{}", "no CTs"),
+                        format!("{}", "∑ CTs")
+                    ),
+                );
+                println!("{}", sorted_cff_res);
+            }
+        }
+
+        let cff_sum = cff_res.iter().sum::<Complex<T>>();
+        let cff_cts_sum = cff_cts_res.iter().sum::<Complex<T>>();
+        let cff_im_squared_cts_sum = cff_im_squared_cts_res.iter().map(|r| *r).sum::<T>();
 
         cut_res = cff_sum + cff_cts_sum;
         // println!("cff_sum={:+.e}, cff_cts_sum={:+.e}", cff_sum, cff_cts_sum);
 
-        // Collect all factors that are common for the original integrand and the threshold counterterms
-        cut_res *= constants;
-        cut_res *= overall_sampling_jac;
-        cut_res *= t_scaling_jacobian;
-        cut_res *= cut_h_function;
-        cut_res *= cut_e_surface_derivative;
+        let global_factors = constants
+            * overall_sampling_jac
+            * t_scaling_jacobian
+            * cut_h_function
+            * cut_e_surface_derivative;
         // println!("constants={:+.e}", constants);
         // println!("overall_sampling_jac={:+.e}", overall_sampling_jac);
         // println!("t_scaling_jacobian={:+.e}", t_scaling_jacobian);
         // println!("cut_h_function={:+.e}", cut_h_function);
         // println!("cut_e_surface_derivative={:+.e}", cut_e_surface_derivative);
 
-        let cff_cts_sum_contribution = cff_cts_sum
-            * constants
-            * overall_sampling_jac
-            * t_scaling_jacobian
-            * cut_h_function
-            * cut_e_surface_derivative;
+        // Collect all factors that are common for the original integrand and the threshold counterterms
+        cut_res *= global_factors;
+
+        let cff_cts_sum_contribution = cff_cts_sum * global_factors;
+        for i_cff in 0..self.supergraph.supergraph_cff.cff_expression.terms.len() {
+            cff_cts_res[i_cff] *= global_factors;
+            cff_res[i_cff] *= global_factors;
+        }
 
         if self.settings.general.debug > 1 {
             println!(
@@ -1823,6 +1978,8 @@ impl TriBoxTriCFFIntegrand {
         return (
             cut_res,
             cff_cts_sum_contribution,
+            cff_res,
+            cff_cts_res,
             closest_existing_e_surf,
             closest_pinched_e_surf,
         );
@@ -1895,10 +2052,30 @@ impl TriBoxTriCFFIntegrand {
         let mut final_wgt_cts = Complex::new(T::zero(), T::zero());
         let mut overall_closest_existing_e_surf: Option<ClosestESurfaceMonitor<T>> = None;
         let mut overall_closest_pinched_e_surf: Option<ClosestESurfaceMonitor<T>> = None;
+        let mut final_wgt_per_cff = vec![
+            Complex::new(T::zero(), T::zero());
+            self.supergraph.supergraph_cff.cff_expression.terms.len()
+        ];
+        let mut final_wgt_per_cff_cts =
+            vec![
+                Complex::new(T::zero(), T::zero());
+                self.supergraph.supergraph_cff.cff_expression.terms.len()
+            ];
+        let mut final_wgt_per_cut =
+            vec![Complex::new(T::zero(), T::zero()); self.supergraph.cuts.len()];
+        let mut final_wgt_cts_per_cut =
+            vec![Complex::new(T::zero(), T::zero()); self.supergraph.cuts.len()];
         for i_cut in 0..self.supergraph.cuts.len() {
+            if let Some(selected_cuts) = self.integrand_settings.selected_cuts.as_ref() {
+                if !selected_cuts.contains(&i_cut) {
+                    continue;
+                }
+            }
             let (
                 wgt_agg,
                 wgt_cts_agg,
+                wgt_agg_per_cff,
+                wgt_cts_agg_per_cff,
                 closest_existing_e_surf_for_cut,
                 closest_pinched_e_surf_for_cut,
             ) = self.evaluate_cut(
@@ -1906,9 +2083,16 @@ impl TriBoxTriCFFIntegrand {
                 &loop_momenta,
                 overall_sampling_jac,
                 &computational_cache,
+                self.integrand_settings.selected_sg_cff_term,
             );
             final_wgt += wgt_agg;
             final_wgt_cts += wgt_cts_agg;
+            final_wgt_per_cut[i_cut] += wgt_agg;
+            final_wgt_cts_per_cut[i_cut] += wgt_cts_agg;
+            for i_cff in 0..self.supergraph.supergraph_cff.cff_expression.terms.len() {
+                final_wgt_per_cff[i_cff] += wgt_agg_per_cff[i_cff];
+                final_wgt_per_cff_cts[i_cff] += wgt_cts_agg_per_cff[i_cff];
+            }
             if let Some(closest) = closest_existing_e_surf_for_cut {
                 if let Some(overall_closest) = &overall_closest_existing_e_surf {
                     if closest.distance.abs() < overall_closest.distance.abs() {
@@ -1927,6 +2111,123 @@ impl TriBoxTriCFFIntegrand {
                     overall_closest_pinched_e_surf = Some(closest.clone());
                 }
             }
+        }
+
+        if self.settings.general.debug > 2 {
+            let mut all_res = final_wgt_per_cff
+                .iter()
+                .enumerate()
+                .zip(&final_wgt_per_cff_cts)
+                .map(|((i_a_cff, a), a_ct)| (i_a_cff, *a - *a_ct, *a_ct))
+                .collect::<Vec<_>>();
+            all_res.sort_by(|(i_b_cff, b, b_ct), (i_a_cff, a, a_ct)| {
+                (a + a_ct)
+                    .re
+                    .abs()
+                    .partial_cmp(&(b + b_ct).re.abs())
+                    .unwrap_or(Ordering::Equal)
+            });
+            let n_non_zero = all_res
+                .iter()
+                .filter(|(i_cff, res_no_ct, ct)| (res_no_ct + ct).re.abs() > T::zero())
+                .count();
+            let sorted_cff_res = all_res
+                .iter()
+                .filter(|(i_cff, res_no_ct, ct)| (res_no_ct + ct).re.abs() > T::zero())
+                .map(|(i_cff, res_no_ct, ct)| {
+                    format!(
+                        "  | #{:-3} ({})     : {:-23} ( {:-23} | {:+.e} )",
+                        format!("{}", i_cff).green(),
+                        self.supergraph.supergraph_cff.cff_expression.terms[*i_cff]
+                            .orientation
+                            .iter()
+                            .map(|(_id, flip)| if *flip > 0 { "+" } else { "-" })
+                            .collect::<Vec<_>>()
+                            .join("")
+                            .blue(),
+                        format!("{:+.e}", (res_no_ct + ct).re).bold(),
+                        format!("{:+.e}", res_no_ct.re),
+                        ct.re
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join("\n");
+            if n_non_zero > 0 {
+                println!("{}",
+                format!("  > All {} sorted non-zero real results for independent cFF terms for the sum over all cuts:",n_non_zero).green().bold()
+            );
+                println!(
+                    "{}",
+                    format!(
+                        "  | #{:-3} ({})     : {:-23} ( {:-23} | {} )",
+                        format!("{}", "ID").green(),
+                        format!("{}", "12345678").blue(),
+                        format!("{}", "res + CTs").bold(),
+                        format!("{}", "no CTs"),
+                        format!("{}", "∑ CTs")
+                    ),
+                );
+                println!("{}", sorted_cff_res);
+            }
+        }
+
+        if self.settings.general.debug > 1 {
+            let mut all_res = final_wgt_per_cut
+                .iter()
+                .enumerate()
+                .zip(&final_wgt_cts_per_cut)
+                .map(|((i_a_cut, a), a_ct)| (i_a_cut, *a - *a_ct, *a_ct))
+                .collect::<Vec<_>>();
+
+            let sorted_cut_res = all_res
+                .iter()
+                .map(|(i_cut, res_no_ct, ct)| {
+                    format!(
+                        "  | #{:-3} ({:-12}) : {:-23} ( {:-23} | {:+.e} )",
+                        format!("{}", i_cut).green(),
+                        format!(
+                            "{}",
+                            self.supergraph.cuts[*i_cut]
+                                .cut_edge_ids_and_flip
+                                .iter()
+                                .map(|(id, flip)| if *flip > 0 {
+                                    format!("+{}", id)
+                                } else {
+                                    format!("-{}", id)
+                                })
+                                .collect::<Vec<_>>()
+                                .join("|")
+                        )
+                        .blue(),
+                        format!("{:+.e}", (res_no_ct + ct).re).bold(),
+                        format!("{:+.e}", res_no_ct.re),
+                        ct.re
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join("\n");
+
+            println!(
+                "{}",
+                format!(
+                    "  > All {} real results for each Cutkosky cut:",
+                    all_res.len()
+                )
+                .green()
+                .bold()
+            );
+            println!(
+                "{}",
+                format!(
+                    "  | #{:-3} ({:-12}) : {:-23} ( {:-23} | {} )",
+                    format!("{}", "ID").green(),
+                    format!("{}", "cut edges").blue(),
+                    format!("{}", "res + CTs").bold(),
+                    format!("{}", "no CTs"),
+                    format!("{}", "∑ CTs")
+                ),
+            );
+            println!("{}", sorted_cut_res);
         }
 
         if self.settings.general.debug > 0 {

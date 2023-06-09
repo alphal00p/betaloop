@@ -896,6 +896,17 @@ impl TriBoxTriIntegrand {
                     None
                 };
 
+                let loop_indices_solved = if side == LEFT {
+                    (
+                        loop_indices_for_this_ct.clone(),
+                        other_side_loop_indices.clone(),
+                    )
+                } else {
+                    (
+                        loop_indices_for_this_ct.clone(),
+                        other_side_loop_indices.clone(),
+                    )
+                };
                 all_new_cts.push(ESurfaceCT {
                     e_surf_id,
                     ct_basis_signature: ct_basis_signature.clone(), // Not used at the moment, could be dropped
@@ -911,6 +922,7 @@ impl TriBoxTriIntegrand {
                     cff_pinch_dampenings,
                     integrated_ct,
                     ct_level,
+                    loop_indices_solved,
                 });
             }
         }

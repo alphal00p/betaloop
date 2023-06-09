@@ -7,7 +7,8 @@ HardCodedIntegrand:
   numerator: one #spatial_exponential_dummy # Options are "one", "spatial_exponential_dummy" and "physical"
   #sampling_basis: [1, 3, 6] # This is the generation LMB
   sampling_basis: [1, 4, 7] # This is the LMB with vertical edges in it
-  selected_sg_cff_term: 122 # e.g. 122
+  selected_sg_cff_term: 110 # e.g. 122 or null for enabling all
+  selected_cuts: null # e.g [0,3] or null for enabling all
   h_function:
     function: poly_left_right_exponential # Options are poly_exponential, poly_left_right_exponential, exponential
     sigma: 1. #20.
@@ -24,7 +25,7 @@ HardCodedIntegrand:
     parameterization_center: [[0., 0., 0.], [0., 0., 0.], [0., 0., 0.]] # [[3., -5., 1.], [2., 7., -3.], [2., -4., -1.]] # [[0., 0., 0.], [0., 0., 0.], [0., 0., 0.]]
     anti_observable_settings:
       enabled: true
-      choose_subspace_based_off_other_e_surface_passing_cuts: false
+      choose_subspace_based_off_other_e_surface_passing_cuts: true
       anti_select_cut_of_subtracted_e_surface: true
       anti_select_pinched_cut_same_side_as_subtracted_e_surface: false
     local_ct_h_function:
@@ -86,6 +87,7 @@ Parameterization:
   b: 1.0
   mapping: linear
   mode: hyperspherical_flat # choices are cartesian, spherical, hyperspherical and hyperspherical_flat
+#Selectors: []
 Selectors:
   - type: jet
     min_jets: 2

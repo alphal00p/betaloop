@@ -554,6 +554,25 @@ impl LoopInducedTriBoxTriIntegrand {
                     None
                 };
 
+                let loop_indices_solved = if ct_level == SUPERGRAPH_LEVEL_CT {
+                    if side == LEFT {
+                        (
+                            vec![loop_index_for_this_ct],
+                            vec![other_side_loop_index_for_this_ct],
+                        )
+                    } else {
+                        (
+                            vec![other_side_loop_index_for_this_ct],
+                            vec![loop_index_for_this_ct],
+                        )
+                    }
+                } else {
+                    if side == LEFT {
+                        (vec![loop_index_for_this_ct], vec![])
+                    } else {
+                        (vec![], vec![loop_index_for_this_ct])
+                    }
+                };
                 all_new_cts.push(ESurfaceCT {
                     e_surf_id,
                     ct_basis_signature: ct_basis_signature.clone(), // Not used at the moment, could be dropped
@@ -569,6 +588,7 @@ impl LoopInducedTriBoxTriIntegrand {
                     cff_pinch_dampenings,
                     integrated_ct,
                     ct_level,
+                    loop_indices_solved,
                 });
             }
         }

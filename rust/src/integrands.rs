@@ -127,6 +127,7 @@ pub struct ESurfaceCT<T: FloatLike, ESC: ESurfaceCacheTrait<T>> {
     pub solution_type: usize,
     pub ct_level: usize, // either utils::AMPLITUDE_LEVEL_CT or utils::SUPERGRAPH_LEVEL_CT
     pub integrated_ct: Option<ESurfaceIntegratedCT<T>>,
+    pub loop_indices_solved: (Vec<usize>, Vec<usize>),
 }
 
 pub trait ESurfaceCacheTrait<T: FloatLike> {
