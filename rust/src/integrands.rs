@@ -140,6 +140,7 @@ pub trait ESurfaceCacheTrait<T: FloatLike> {
     fn compute_t_scaling(&self, k: &Vec<LorentzVector<T>>) -> [T; 2];
     fn adjust_loop_momenta_shifts(&mut self, loop_momenta_shift_adjustments: &Vec<[T; 3]>);
     fn get_side(&self) -> usize;
+    fn get_loop_indices_dependence(&self) -> Vec<usize>;
 }
 
 #[derive(Debug, Clone)]
@@ -284,6 +285,10 @@ impl<T: FloatLike> ESurfaceCacheTrait<T> for OneLoopESurfaceCache<T> {
         vec![0]
     }
 
+    #[inline]
+    fn get_loop_indices_dependence(&self) -> Vec<usize> {
+        vec![0]
+    }
     fn norm(&self, k: &Vec<LorentzVector<T>>) -> LorentzVector<T> {
         let k_array = &[k[0].x, k[0].y, k[0].z];
         let res = utils::one_loop_eval_e_surf_k_derivative(
@@ -619,6 +624,24 @@ impl<T: FloatLike> ESurfaceCacheTrait<T> for GenericESurfaceCache<T> {
     #[inline]
     fn get_e_surface_basis_indices(&self) -> Vec<usize> {
         self.e_surf_basis_indices.clone()
+    }
+
+    fn get_loop_indices_dependence(&self) -> Vec<usize> {
+        if self.one_loop_basis_index != 99 {
+            return vec![self.one_loop_basis_index];
+        } else {
+            let mut loop_indices_dependence: Vec<usize> = vec![];
+            for sig in self.sigs.iter() {
+                for (i, s) in sig.iter().enumerate() {
+                    if *s != T::zero()
+                        && !loop_indices_dependence.contains(&self.e_surf_basis_indices[i])
+                    {
+                        loop_indices_dependence.push(self.e_surf_basis_indices[i]);
+                    }
+                }
+            }
+            loop_indices_dependence
+        }
     }
 
     fn eval(&self, k: &Vec<LorentzVector<T>>) -> T {

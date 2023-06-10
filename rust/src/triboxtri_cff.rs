@@ -35,6 +35,7 @@ pub struct TriBoxTriCFFCTSettings {
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct AntiObservableSettings {
     pub enabled: bool,
+    pub enable_subspace_treatment_only_when_pinches_are_closest: bool,
     pub anti_select_cut_of_subtracted_e_surface: bool,
     pub anti_select_pinched_cut_same_side_as_subtracted_e_surface: bool,
     pub choose_subspace_based_off_other_e_surface_passing_cuts: bool,
@@ -474,6 +475,7 @@ impl TriBoxTriCFFIntegrand {
         cache: &ComputationCache<T>,
         i_cut: usize,
         i_cff: usize,
+        allow_subspace_projection: bool,
     ) -> Vec<ESurfaceCT<T, GenericESurfaceCache<T>>> {
         let cut = &self.supergraph.cuts[i_cut];
 
@@ -520,19 +522,40 @@ impl TriBoxTriCFFIntegrand {
             vec![AMPLITUDE_LEVEL_CT]
         };
 
-        // If this is a one-loop E-surface, then drop the other loop variables not part of this one-loop E-surface if there are
-        // some other one-loop threshold E-surfaces with no dependence on that main one-loop E-surface variables and whose corresponding Cutkosky cut pass the selection.
-        if anti_observable_settings.enabled
+        let mut edges_to_consider_when_building_subtracted_e_surf =
+            self.supergraph.supergraph_cff.cff_expression.e_surfaces[e_surf_id]
+                .edge_ids
+                .iter()
+                .filter(|&e_id| amplitudes_pair[side].edges.iter().any(|e| e.id == *e_id))
+                .map(|e_id| *e_id)
+                .collect::<Vec<_>>();
+
+        if self.settings.general.debug > 3 {
+            if anti_observable_settings.enabled && !allow_subspace_projection {
+                println!(
+                    "{}",
+                    format!("{}", "      > Subspace projection disabled by caller.").red()
+                );
+            }
+        }
+
+        if allow_subspace_projection
+            && anti_observable_settings.enabled
             && anti_observable_settings.choose_subspace_based_off_other_e_surface_passing_cuts
         {
             if !anti_observable_settings.anti_select_cut_of_subtracted_e_surface {
                 panic!("Selecting choose_subspace_based_off_other_e_surface_passing_cuts=true requires anti_select_cut_of_subtracted_e_surface=true");
             }
+            // If this is a one-loop E-surface, then drop the other loop variables not part of this one-loop E-surface if there are
+            // some other one-loop threshold E-surfaces with no dependence on that main one-loop E-surface variables and whose corresponding Cutkosky cut pass the selection.
+
+            /* OLD VERSION
+            // Subspace treatment same-side loop indices
             if e_surf_cache[e_surf_id].one_loop_basis_index != 99 {
                 for (i_other_e_surf, other_e_surf) in e_surf_cache.iter().enumerate() {
                     if other_e_surf.side != side
-                        || other_e_surf.pinched
                         || !other_e_surf.exists
+                        || !other_e_surf.pinched
                         || other_e_surf.one_loop_basis_index == 99
                         || other_e_surf.one_loop_basis_index
                             == e_surf_cache[e_surf_id].one_loop_basis_index
@@ -569,14 +592,134 @@ impl TriBoxTriCFFIntegrand {
                     }
                 }
             }
+            */
+
+            /* NEW VERSION */
+
+            // Subspace treatment same-side loop indices
+            for (i_other_e_surf, other_e_surf) in e_surf_cache.iter().enumerate() {
+                let other_e_surf_loop_indices = other_e_surf.get_loop_indices_dependence();
+                let loop_indices_overlap = loop_indices_for_this_ct
+                    .iter()
+                    .filter(|e_id| other_e_surf_loop_indices.contains(e_id))
+                    .map(|e_id| *e_id)
+                    .collect::<Vec<_>>();
+                let edges_overlap = edges_to_consider_when_building_subtracted_e_surf
+                    .iter()
+                    .filter(|&e_id| {
+                        self.supergraph.supergraph_cff.cff_expression.e_surfaces[i_other_e_surf]
+                            .edge_ids
+                            .contains(e_id)
+                    })
+                    .map(|e_id| *e_id)
+                    .collect::<Vec<_>>();
+                let sg_level_e_surf_intersection_n_edges =
+                    self.supergraph.supergraph_cff.cff_expression.e_surfaces[e_surf_id]
+                        .edge_ids
+                        .len()
+                        + self.supergraph.supergraph_cff.cff_expression.e_surfaces[i_other_e_surf]
+                            .edge_ids
+                            .len()
+                        - 2 * self.supergraph.supergraph_cff.cff_expression.e_surfaces[e_surf_id]
+                            .edge_ids
+                            .iter()
+                            .filter(|&e_id| {
+                                self.supergraph.supergraph_cff.cff_expression.e_surfaces
+                                    [i_other_e_surf]
+                                    .edge_ids
+                                    .contains(e_id)
+                            })
+                            .count();
+                if i_other_e_surf == e_surf_id
+                    || (loop_indices_overlap.len() == 0 && edges_overlap.len() == 0)
+                    || (sg_level_e_surf_intersection_n_edges <= 3) // Hack to ignore anti-selection vs cut for whom this e_surf ID would be a pinched surface
+                    || other_e_surf.side != side
+                    || (!other_e_surf.exists && !other_e_surf.pinched)
+                {
+                    continue;
+                }
+                // println!(
+                //     "This e_surf  = {} -> {:?}\n{:?}",
+                //     e_surf_str(
+                //         e_surf_id,
+                //         &self.supergraph.supergraph_cff.cff_expression.e_surfaces[e_surf_id],
+                //     ),
+                //     this_e_surf_loop_indices,
+                //     e_surf_cache[e_surf_id]
+                // );
+                // println!(
+                //     "other e_surf = {} -> {:?}\n{:?}",
+                //     e_surf_str(
+                //         i_other_e_surf,
+                //         &self.supergraph.supergraph_cff.cff_expression.e_surfaces[i_other_e_surf],
+                //     ),
+                //     other_e_surf_loop_indices,
+                //     e_surf_cache[i_other_e_surf]
+                // );
+                let (as_i_cut, mut evt) = self.evt_for_e_surf_to_pass_selection(
+                    i_other_e_surf,
+                    &cache,
+                    onshell_edge_momenta_for_this_cut,
+                );
+                // If this event passes the selection, it means that the corresponding other one-loop threshold CT will be disabled, so that we must solve
+                // this current one-loop CT in a hyperradius that does *not* include the degrees of freedom of that other one-loop threshold so that
+                // dual cancelations are maintained.
+                let subspace_anti_selected = self.event_manager.pass_selection(&mut evt);
+                if subspace_anti_selected {
+                    for loop_index_to_remove in &loop_indices_overlap {
+                        if let Some(idx_to_remove) = loop_indices_for_this_ct
+                            .iter()
+                            .position(|idx| idx == loop_index_to_remove)
+                        {
+                            loop_indices_for_this_ct.remove(idx_to_remove);
+                        }
+                    }
+                    for edge_id_to_remove in &edges_overlap {
+                        if let Some(idx_to_remove) =
+                            edges_to_consider_when_building_subtracted_e_surf
+                                .iter()
+                                .position(|e_id| e_id == edge_id_to_remove)
+                        {
+                            edges_to_consider_when_building_subtracted_e_surf.remove(idx_to_remove);
+                        }
+                    }
+                }
+                if self.settings.general.debug > 3 {
+                    println!(
+                        "      > {} against cut {}{:-10} {} remove the solving in the same-side loop indices {} and edges {} (remaining edges after removal: {}) of the following e-surface: {}",
+                        format!("{}","Subspace anti-selection").blue(),
+                        format!("#{}",as_i_cut).green(),
+                        format!("({})", self.supergraph.cuts[as_i_cut].cut_edge_ids_and_flip.iter().map(|(id, flip)| if *flip > 0 { format!("+{}",id) } else { format!("-{}",id) }).collect::<Vec<_>>().join("|")).blue(),
+                        if subspace_anti_selected { format!("{}","DID").green() } else { format!("{}","DID NOT").red() },
+                        format!("({})",loop_indices_overlap.iter().map(|&li| format!("lmb#{}",li)).collect::<Vec<_>>().join(",")),
+                        format!("[{}]",edges_overlap.iter().map(|&li| format!("{}",li)).collect::<Vec<_>>().join(",")),
+                        format!("[{}]",edges_to_consider_when_building_subtracted_e_surf.iter().map(|&e_id| format!("#{}",e_id)).collect::<Vec<_>>().join(",")),
+                        e_surf_str(e_surf_id, &self.supergraph.supergraph_cff.cff_expression.e_surfaces[e_surf_id],).red()
+                    );
+                }
+            }
+            // If we need to project to a subspace of an E-surface made up of less than one square root, then ignore the counterterm altogether
+            if edges_to_consider_when_building_subtracted_e_surf.len() < 2 {
+                if self.settings.general.debug > 3 {
+                    println!("      > {} projected away the subspace to a point so that the following e-surface {}: {}",
+                        format!("{}","Subspace anti-selection").red(), 
+                        format!("{}","will not be subtracted at all").red(),
+                        e_surf_str(e_surf_id, &self.supergraph.supergraph_cff.cff_expression.e_surfaces[e_surf_id],).red()
+                    );
+                }
+                return vec![];
+            }
+
+            /* */
+
+            // Subspace treatment of other-side loop indices
 
             // For the supergraph-level CT, we must also remove loop indices in which we solve it for all other thresholds existing on that other side
             // and sharing a degree of freedom with the one we are about to rescale
             if ct_levels_to_consider.contains(&SUPERGRAPH_LEVEL_CT) {
                 for (i_other_e_surf, other_e_surf) in e_surf_cache.iter().enumerate() {
                     if other_e_surf.side != other_side
-                        || other_e_surf.pinched
-                        || !other_e_surf.exists
+                        || (!other_e_surf.exists && !other_e_surf.pinched)
                     {
                         continue;
                     }
@@ -588,24 +731,27 @@ impl TriBoxTriCFFIntegrand {
                     // If this event passes the selection, it means that the corresponding other one-loop threshold CT will be disabled, so that we must solve
                     // this current one-loop CT in a hyperradius that does *not* include the degrees of freedom of that other one-loop threshold so that
                     // dual cancelations are maintained.
-                    if self.event_manager.pass_selection(&mut evt) {
+                    let subspace_anti_selected = self.event_manager.pass_selection(&mut evt);
+                    if subspace_anti_selected {
                         for other_e_surf_loop_index in &other_e_surf.e_surf_basis_indices {
-                            if self.settings.general.debug > 3 {
-                                println!(
-                                    "      Subspace anti-selection against cut {}{} removed the solving in the other-side loop index #{} of the following e-surface: {}",
-                                    format!("#{}",as_i_cut).green(),
-                                    self.supergraph.supergraph_cff.lmb_edges[other_e_surf.one_loop_basis_index].id,
-                                    format!("({})", self.supergraph.cuts[as_i_cut].cut_edge_ids_and_flip.iter().map(|(id, flip)| if *flip > 0 { format!("+{}",id) } else { format!("-{}",id) }).collect::<Vec<_>>().join("|")).blue(),
-                                    e_surf_str(e_surf_id, &self.supergraph.supergraph_cff.cff_expression.e_surfaces[e_surf_id],).red()
-                                );
+                            if let Some(idx_to_remove) = other_side_loop_indices
+                                .iter()
+                                .position(|idx| idx == other_e_surf_loop_index)
+                            {
+                                other_side_loop_indices.remove(idx_to_remove);
                             }
-                            other_side_loop_indices.remove(
-                                other_side_loop_indices
-                                    .iter()
-                                    .position(|idx| idx == other_e_surf_loop_index)
-                                    .unwrap(),
-                            );
                         }
+                    }
+                    if self.settings.general.debug > 3 {
+                        println!(
+                            "      > {} against cut {}{:-10} {} remove the solving in the other-side loop indices {} of the following e-surface: {}",
+                            format!("{}","Subspace anti-selection").blue(),
+                            format!("#{}",as_i_cut).green(),
+                            format!("({})", self.supergraph.cuts[as_i_cut].cut_edge_ids_and_flip.iter().map(|(id, flip)| if *flip > 0 { format!("+{}",id) } else { format!("-{}",id) }).collect::<Vec<_>>().join("|")).blue(),
+                            if subspace_anti_selected { format!("{}","DID").green() } else { format!("{}","DID NOT").red() },
+                            format!("({})",other_e_surf.e_surf_basis_indices.iter().map(|&li| format!("lmb#{}",li)).collect::<Vec<_>>().join(",")),
+                            e_surf_str(e_surf_id, &self.supergraph.supergraph_cff.cff_expression.e_surfaces[e_surf_id],).red()
+                        );
                     }
                 }
             }
@@ -657,18 +803,78 @@ impl TriBoxTriCFFIntegrand {
         }
 
         // The building of the E-surface should be done more generically and efficiently, but here in this simple case we can do it this way
-        let mut subtracted_e_surface = e_surf_cache[e_surf_id].clone();
+        let mut subtracted_e_surface = if edges_to_consider_when_building_subtracted_e_surf
+            == self.supergraph.supergraph_cff.cff_expression.e_surfaces[e_surf_id].edge_ids
+        {
+            e_surf_cache[e_surf_id].clone()
+        } else {
+            let subtracted_e_surface_edge_ids_and_orientations =
+                edges_to_consider_when_building_subtracted_e_surf
+                    .iter()
+                    .map(|&i_e| {
+                        (
+                            i_e,
+                            self.supergraph.supergraph_cff.cff_expression.terms[i_cff]
+                                .orientation
+                                .iter()
+                                .find(|&o| o.0 == i_e)
+                                .unwrap()
+                                .1,
+                        )
+                    })
+                    .collect::<Vec<_>>();
+            let mut e_surf_to_build = self.build_e_surface_for_edges(
+                &loop_indices_for_this_ct
+                    .iter()
+                    .map(|li| self.supergraph.supergraph_cff.lmb_edges[*li].id)
+                    .collect::<Vec<_>>(),
+                &subtracted_e_surface_edge_ids_and_orientations,
+                &cache,
+                // Nothing will be used from the loop momenta in this context because we specify all edges to be in the e surf basis here.
+                // But this construction is useful when building the amplitude e-surfaces using the same function.
+                scaled_loop_momenta_in_sampling_basis,
+                side,
+                &vec![-1, 0],
+            );
+            for i_e in &self.supergraph.supergraph_cff.cff_expression.e_surfaces[e_surf_id].edge_ids
+            {
+                if !edges_to_consider_when_building_subtracted_e_surf.contains(i_e) {
+                    e_surf_to_build.e_shift += onshell_edge_momenta_for_this_cut[*i_e].t.abs();
+                }
+            }
+            (e_surf_to_build.exists, e_surf_to_build.pinched) = e_surf_to_build.does_exist();
+            if self.settings.general.debug > 3 {
+                e_surf_to_build.eval = e_surf_to_build.eval(&scaled_loop_momenta_in_sampling_basis);
+                println!(
+                    "      > E-surface {} to subtract after projection on loop indices {} and edges {} is:\n       | {:?}",
+                    e_surf_str(
+                        e_surf_id,
+                        &self.supergraph.supergraph_cff.cff_expression.e_surfaces[e_surf_id],
+                    )
+                    .red(),
+                    format!("({})",loop_indices_for_this_ct.iter().map(|&li| format!("lmb#{}",li)).collect::<Vec<_>>().join(",")).blue(),
+                    format!("[{}]",edges_to_consider_when_building_subtracted_e_surf.iter().map(|&li| format!("{}",li)).collect::<Vec<_>>().join(",")).blue(),
+                    e_surf_to_build
+                );
+            }
+            e_surf_to_build
+        };
 
-        // let mut subtracted_e_surface = self.build_e_surface_for_edges(
-        //     &loop_indices_for_this_ct,
-        //     &self.supergraph.cuts[i_cut].cut_edge_ids_and_flip,
-        //     &cache,
-        //     // Nothing will be used from the loop momenta in this context because we specify all edges to be in the e surf basis here.
-        //     // But this construction is useful when building the amplitude e-surfaces using the same function.
-        //     scaled_loop_momenta_in_sampling_basis,
-        //     side,
-        //     &vec![-1, 0],
-        // );
+        if !subtracted_e_surface.exists || subtracted_e_surface.pinched {
+            if self.settings.general.debug > 3 {
+                println!("      > The following e-surface projected into subspace with edges {} and loop indices {} {} and will therefore not be subtracted: {}",
+                    format!("[{}]",edges_to_consider_when_building_subtracted_e_surf.iter().map(|&e_id| format!("#{}",e_id)).collect::<Vec<_>>().join(",")).blue(),
+                    format!("({})",loop_indices_for_this_ct.iter().map(|&li| format!("lmb#{}",li)).collect::<Vec<_>>().join(",")).blue(),
+                    if !subtracted_e_surface.exists {
+                        format!("{}","no longer exists in that subspace").red()
+                    } else {
+                        format!("{}","no now pinched in that subspace").red()
+                    },
+                    e_surf_str(e_surf_id, &self.supergraph.supergraph_cff.cff_expression.e_surfaces[e_surf_id],).red()
+                );
+            }
+            return vec![];
+        }
 
         let center_eval = subtracted_e_surface.eval(&center_shifts);
         assert!(center_eval < T::zero());
@@ -733,11 +939,12 @@ impl TriBoxTriCFFIntegrand {
             for solution_type in solutions_to_consider.clone() {
                 if self.settings.general.debug > 3 {
                     println!(
-                        "      > Solving {} CT ({} solution) in same side loop indices {} and other side loop indices {} for e-surface {}",
+                        "      > Solving {} CT ({} solution, t={:+.16e}) in same side loop indices {} and other side loop indices {} for e-surface {}",
                         if ct_level == SUPERGRAPH_LEVEL_CT {"SG "} else {"AMP"},
                         if solution_type == PLUS {"+"} else {"-"},
+                        subtracted_e_surface.t_scaling[solution_type],
                         if loop_indices_for_this_ct.len() > 0 {
-                            format!("({})", loop_indices_for_this_ct.iter().map(|&i| format!("{}",self.supergraph.supergraph_cff.lmb_edges[i].id)).collect::<Vec<_>>().join("|")).blue()
+                            format!("({})", loop_indices_for_this_ct.iter().map(|&i| format!("lmb#{}",i)).collect::<Vec<_>>().join(",")).blue()
                         } else {
                             format!("{}","(none)").blue()
                         },
@@ -845,6 +1052,11 @@ impl TriBoxTriCFFIntegrand {
                     }
                 }
                 if !include_local_ct && !include_integrated_ct {
+                    if self.settings.general.debug > 4 {
+                        println!(
+                            "      > Counterterm didn't pass the proximity threshold, skipping it."
+                        );
+                    }
                     continue;
                 }
 
@@ -855,7 +1067,7 @@ impl TriBoxTriCFFIntegrand {
                 );
 
                 // Apply anti-observables
-                if anti_observable_settings.enabled {
+                if allow_subspace_projection && anti_observable_settings.enabled {
                     let mut anti_selected_e_surf_ids = vec![];
 
                     // Anti-select vs the subtracted E-surface itself, since there is anyway the Cutkosky cut contribution otherwise which will contribute to the same region.
@@ -882,7 +1094,8 @@ impl TriBoxTriCFFIntegrand {
                         let (as_i_cut, mut evt) = self.evt_for_e_surf_to_pass_selection(
                             asc_e_surf_id,
                             &cache,
-                            &onshell_edge_momenta_for_this_ct,
+                            //&onshell_edge_momenta_for_this_ct,
+                            &onshell_edge_momenta_for_this_cut,
                         );
                         if self.event_manager.pass_selection(&mut evt) {
                             if self.settings.general.debug > 3 {
@@ -926,7 +1139,7 @@ impl TriBoxTriCFFIntegrand {
                 //     ])
                 //     .spatial_dot(&loop_momenta_star_in_e_surf_basis[loop_index_for_this_ct])
                 let e_surf_derivative =
-                    e_surf_cache[e_surf_id].t_der(&loop_momenta_star_in_sampling_basis) / r_star;
+                    subtracted_e_surface.t_der(&loop_momenta_star_in_sampling_basis) / r_star;
 
                 // Identifying the residue in t, with r=e^t means that we must drop the r_star normalisation in the expansion.
                 let e_surf_expanded = match self.integrand_settings.threshold_ct_settings.variable {
@@ -1023,12 +1236,20 @@ impl TriBoxTriCFFIntegrand {
                 let loop_indices_solved = if side == LEFT {
                     (
                         loop_indices_for_this_ct.clone(),
-                        other_side_loop_indices.clone(),
+                        if ct_level == SUPERGRAPH_LEVEL_CT {
+                            other_side_loop_indices.clone()
+                        } else {
+                            vec![]
+                        },
                     )
                 } else {
                     (
+                        if ct_level == SUPERGRAPH_LEVEL_CT {
+                            other_side_loop_indices.clone()
+                        } else {
+                            vec![]
+                        },
                         loop_indices_for_this_ct.clone(),
-                        other_side_loop_indices.clone(),
                     )
                 };
                 all_new_cts.push(ESurfaceCT {
@@ -1050,7 +1271,23 @@ impl TriBoxTriCFFIntegrand {
                 });
             }
         }
-
+        if self.settings.general.debug > 4 {
+            if all_new_cts.len() > 0 {
+                println!("      > Added the following threshold counterterms:");
+                println!("      =============================================");
+                println!(
+                    "{}",
+                    all_new_cts
+                        .iter()
+                        .map(|ct| format!("      | {:?}", ct))
+                        .collect::<Vec<_>>()
+                        .join("\n      ---------------------------------------------\n")
+                );
+                println!("      =============================================");
+            } else {
+                println!("      > No threshold counterterms added.");
+            }
+        }
         all_new_cts
     }
 
@@ -1076,6 +1313,282 @@ impl TriBoxTriCFFIntegrand {
         onshell_edge_momenta
     }
 
+    fn compute_allow_subspace_projection_per_cff<T: FloatLike>(
+        &mut self,
+        loop_momenta: &Vec<LorentzVector<T>>,
+        cache: &ComputationCache<T>,
+        selected_sg_cff_term: Option<usize>,
+    ) -> Vec<bool> {
+        let mut allow_subspace_projection_per_cff =
+            vec![true; self.supergraph.supergraph_cff.cff_expression.terms.len()];
+        if !self
+            .integrand_settings
+            .threshold_ct_settings
+            .anti_observable_settings
+            .enable_subspace_treatment_only_when_pinches_are_closest
+        {
+            return allow_subspace_projection_per_cff;
+        }
+
+        if self.settings.general.debug > 3 {
+            println!(
+                "{}",
+                format!("  > Now starting global analysis of whether or not to allow subspace treatment for each cFF term").bold()
+            );
+        }
+
+        let mut info_per_active_cut = vec![];
+        for i_cut in 0..self.supergraph.cuts.len() {
+            if let Some(selected_cuts) = self.integrand_settings.selected_cuts.as_ref() {
+                if !selected_cuts.contains(&i_cut) {
+                    continue;
+                }
+            }
+            let mut sg_cut_e_surf = 0;
+            let mut e_surf_cut_found = false;
+            for e_surf in self
+                .supergraph
+                .supergraph_cff
+                .cff_expression
+                .e_surfaces
+                .iter()
+            {
+                if self.supergraph.cuts[i_cut].cut_edge_ids_and_flip.len() == e_surf.edge_ids.len()
+                    && self.supergraph.cuts[i_cut]
+                        .cut_edge_ids_and_flip
+                        .iter()
+                        .all(|(e_id, _flip)| e_surf.edge_ids.contains(e_id))
+                {
+                    if e_surf.shift[1] != 0 {
+                        panic!("Assumption about supergraph e-surface depending only upon the left incoming external momenta broken")
+                    }
+                    // Check if this e-surface is the existing one.
+                    if Into::<T>::into(e_surf.shift[0] as f64) * cache.external_momenta[0].t
+                        > T::zero()
+                    {
+                        continue;
+                    }
+                    sg_cut_e_surf = e_surf.id;
+                    e_surf_cut_found = true;
+                    break;
+                }
+            }
+            if !e_surf_cut_found {
+                panic!("Could not find the e-surface corresponding to the cut in the supergraph cff expression");
+            }
+
+            // Evaluate kinematics before forcing correct hyperradius
+            let mut onshell_edge_momenta_for_this_cut = self.evaluate_onshell_edge_momenta(
+                &loop_momenta,
+                &cache.external_momenta,
+                &self.supergraph.cuts[i_cut].cut_edge_ids_and_flip,
+            );
+
+            // Build the E-surface corresponding to this Cutkosky cut
+            let mut e_surface_cc_cut = self.build_e_surface_for_edges(
+                &self
+                    .supergraph
+                    .supergraph_cff
+                    .lmb_edges
+                    .iter()
+                    .map(|e| e.id)
+                    .collect::<Vec<_>>(),
+                &self.supergraph.cuts[i_cut].cut_edge_ids_and_flip,
+                &cache,
+                // Nothing will be used from the loop momenta in this context because we specify all edges to be in the e surf basis here.
+                // But this construction is useful when building the amplitude e-surfaces using the same function.
+                loop_momenta,
+                NOSIDE,
+                &vec![-1, 0],
+            );
+
+            e_surface_cc_cut.t_scaling = e_surface_cc_cut.compute_t_scaling(&loop_momenta);
+
+            let rescaled_loop_momenta = vec![
+                loop_momenta[0] * e_surface_cc_cut.t_scaling[0],
+                loop_momenta[1] * e_surface_cc_cut.t_scaling[0],
+                loop_momenta[2] * e_surface_cc_cut.t_scaling[0],
+            ];
+
+            // Now re-evaluate the kinematics with the correct hyperradius
+            onshell_edge_momenta_for_this_cut = self.evaluate_onshell_edge_momenta(
+                &rescaled_loop_momenta,
+                &cache.external_momenta,
+                &self.supergraph.cuts[i_cut].cut_edge_ids_and_flip,
+            );
+
+            // Now add the event and check if it passes the selector
+            let mut evt = self.event_manager.create_event(
+                vec![cache.external_momenta[0]],
+                self.supergraph.cuts[i_cut]
+                    .cut_edge_ids_and_flip
+                    .iter()
+                    .map(|(i_edge, flip)| {
+                        onshell_edge_momenta_for_this_cut[*i_edge] * Into::<T>::into(*flip as f64)
+                    })
+                    .collect::<Vec<_>>(),
+            );
+            if !self.event_manager.pass_selection(&mut evt) {
+                continue;
+            }
+
+            info_per_active_cut.push((
+                i_cut,
+                sg_cut_e_surf,
+                onshell_edge_momenta_for_this_cut,
+                rescaled_loop_momenta,
+            ));
+        }
+
+        for i_cff in 0..self.supergraph.supergraph_cff.cff_expression.terms.len() {
+            if let Some(selected_term) = selected_sg_cff_term {
+                if i_cff != selected_term {
+                    continue;
+                }
+            }
+            if self.settings.general.debug > 3 {
+                println!(
+                    "    > Now analyzing cFF term #{}", i_cff
+                );
+            }
+            let mut overall_min_pinched_eval = None;
+            let mut overall_min_second_non_pinched_eval = None;
+            for (
+                i_cut_ref,
+                sg_cut_e_surf_ref,
+                onshell_edge_momenta_for_this_cut,
+                rescaled_loop_momenta,
+            ) in info_per_active_cut.iter()
+            {
+                let i_cut = *i_cut_ref;
+                let sg_cut_e_surf = *sg_cut_e_surf_ref;
+
+                let mut e_surf_caches = self.build_e_surfaces(
+                    &onshell_edge_momenta_for_this_cut,
+                    &cache,
+                    &rescaled_loop_momenta,
+                    &self.supergraph.supergraph_cff.cff_expression.terms[i_cff],
+                    i_cut,
+                );
+
+                if (self.supergraph.cuts[i_cut].left_amplitude.n_loop
+                    + self.supergraph.cuts[i_cut].right_amplitude.n_loop)
+                    >= 2
+                {
+                    let min_pinched_eval = e_surf_caches
+                        .iter()
+                        .enumerate()
+                        .filter(|(i_esc, esc)| *i_esc != sg_cut_e_surf && esc.pinched)
+                        .map(|(_i_esc, esc)| esc.eval.abs())
+                        .min_by(|a, b| a.partial_cmp(b).unwrap());
+
+                    if let Some(this_min_pinched_eval) = min_pinched_eval {
+                        if let Some(curr_min) = overall_min_pinched_eval {
+                            if curr_min > this_min_pinched_eval {
+                                overall_min_pinched_eval = Some(this_min_pinched_eval);
+                            }
+                        } else {
+                            overall_min_pinched_eval = Some(this_min_pinched_eval);
+                        }
+                    }
+                    if self.settings.general.debug > 4 {
+                        println!(
+                            "    | For cut #{}, I found the following minimum pinched eval: {:?}",
+                            i_cut, min_pinched_eval
+                        );
+                    }
+
+                    let mut sorted_non_pinched_evals = e_surf_caches
+                        .iter()
+                        .enumerate()
+                        .filter(|(i_esc, esc)| {
+                            *i_esc != sg_cut_e_surf && !esc.pinched && esc.exists
+                        })
+                        .map(|(_i_esc, esc)| esc.eval.abs())
+                        .collect::<Vec<_>>();
+                    sorted_non_pinched_evals.sort_by(|a, b| a.partial_cmp(b).unwrap());
+                    if sorted_non_pinched_evals.len() >= 2 {
+                        if let Some(curr_min) = overall_min_second_non_pinched_eval {
+                            if curr_min > sorted_non_pinched_evals[1] {
+                                overall_min_second_non_pinched_eval =
+                                    Some(sorted_non_pinched_evals[1]);
+                            }
+                        } else {
+                            overall_min_second_non_pinched_eval = Some(sorted_non_pinched_evals[1]);
+                        }
+                    }
+                    if self.settings.general.debug > 4 {
+                        println!(
+                            "    | For cut #{}, I found the following sorted non-pinched evals: {:?}",
+                            i_cut, sorted_non_pinched_evals
+                        );
+                    }
+                }
+            }
+            // println!("overall_min_pinched_eval={:?}", overall_min_pinched_eval);
+            // println!(
+            //     "overall_min_second_non_pinched_eval={:?}",
+            //     overall_min_second_non_pinched_eval
+            // );
+            if self.settings.general.debug > 3 {
+                println!(
+                    "    > Determining distance to {} and {} E-surface for deciding on subspace treatment of cff term {}.",
+                    format!("pinched ({})",
+                        if overall_min_pinched_eval.is_some() {
+                            format!("{:+.16e}",overall_min_pinched_eval.unwrap())
+                        } else {
+                            format!("{}","none")
+                        }
+                    ).red(),
+                    format!("non-pinched ({})",
+                        if overall_min_second_non_pinched_eval.is_some() {
+                            format!("{:+.16e}",overall_min_second_non_pinched_eval.unwrap())
+                        } else {
+                            format!("{}","none")
+                        }
+                    ).green(), 
+                    format!("#{}",i_cff).blue()
+                );
+            }
+            if let Some(min_pinched_eval_found) = overall_min_pinched_eval {
+                if let Some(min_second_non_pinched_eval_found) = overall_min_second_non_pinched_eval
+                {
+                    if min_second_non_pinched_eval_found < min_pinched_eval_found {
+                        if self.settings.general.debug > 3 {
+                            println!(
+                                "{}",
+                                format!("    > Disabling subspace projection for cff term #{}, because two non-pinched E-surfaces are closer ({:+.16e}) than the closest pinched one ({:+.16e})",
+                                i_cff,min_second_non_pinched_eval_found, min_pinched_eval_found
+                                ).red()
+                            );
+                        }
+                        allow_subspace_projection_per_cff[i_cff] = false;
+                    }
+                } else {
+                    if self.settings.general.debug > 3 {
+                        println!(
+                            "{}",
+                            format!("    > Disabling subspace projection for cff term #{} because there are no two pinched E-surfaces in this cut", i_cff).red()
+                        );
+                    }
+                    allow_subspace_projection_per_cff[i_cff] = false;
+                }
+            }
+            if self.settings.general.debug > 3 {
+                println!(
+                    "    > Outcome of the analyzing for cFF term #{}: subspace treatment {}", i_cff,
+                    if allow_subspace_projection_per_cff[i_cff] { 
+                        format!("{}",  "enabled").green() 
+                    } else { 
+                        format!("{}",  "disabled").red() 
+                    }
+                );
+            }
+        }
+
+        allow_subspace_projection_per_cff
+    }
+
     fn evaluate_cut<T: FloatLike>(
         &mut self,
         i_cut: usize,
@@ -1083,6 +1596,7 @@ impl TriBoxTriCFFIntegrand {
         overall_sampling_jac: T,
         cache: &ComputationCache<T>,
         selected_sg_cff_term: Option<usize>,
+        allow_subspace_projection_per_cff: &Vec<bool>,
     ) -> (
         Complex<T>,
         Complex<T>,
@@ -1345,6 +1859,12 @@ impl TriBoxTriCFFIntegrand {
             vec![T::zero(); self.supergraph.supergraph_cff.cff_expression.terms.len()];
 
         for i_cff in 0..self.supergraph.supergraph_cff.cff_expression.terms.len() {
+            if let Some(selected_term) = selected_sg_cff_term {
+                if i_cff != selected_term {
+                    continue;
+                }
+            }
+
             // Adjust the energy signs for this cff term
             for (e_id, flip) in self.supergraph.supergraph_cff.cff_expression.terms[i_cff]
                 .orientation
@@ -1353,12 +1873,6 @@ impl TriBoxTriCFFIntegrand {
                 onshell_edge_momenta_for_this_cut[*e_id].t =
                     onshell_edge_momenta_for_this_cut[*e_id].t.abs()
                         * Into::<T>::into(*flip as f64);
-            }
-
-            if let Some(selected_term) = selected_sg_cff_term {
-                if i_cff != selected_term {
-                    continue;
-                }
             }
 
             if !self.supergraph.supergraph_cff.cff_expression.terms[i_cff]
@@ -1527,13 +2041,13 @@ impl TriBoxTriCFFIntegrand {
                             continue;
                         }
                         if e_surf_caches[e_surf_id].exists && !e_surf_caches[e_surf_id].pinched {
-                            if self.settings.general.debug > 4 {
+                            if self.settings.general.debug > 3 {
                                 let amplitude_for_sides = [
                                     &self.supergraph.cuts[i_cut].left_amplitude,
                                     &self.supergraph.cuts[i_cut].right_amplitude,
                                 ];
                                 println!(
-                                    "    | E-surface {} now being subtracted",
+                                    "    | Now subtracting E-surface {}",
                                     format!(
                                         "{} : {:?}",
                                         e_surf_str(
@@ -1559,6 +2073,7 @@ impl TriBoxTriCFFIntegrand {
                                 cache,
                                 i_cut,
                                 i_cff,
+                                allow_subspace_projection_per_cff[i_cff],
                             );
                             cts[side].extend(new_cts);
                         }
@@ -2065,6 +2580,13 @@ impl TriBoxTriCFFIntegrand {
             vec![Complex::new(T::zero(), T::zero()); self.supergraph.cuts.len()];
         let mut final_wgt_cts_per_cut =
             vec![Complex::new(T::zero(), T::zero()); self.supergraph.cuts.len()];
+
+        let allow_subspace_projection_per_cff = self.compute_allow_subspace_projection_per_cff(
+            &loop_momenta,
+            &computational_cache,
+            self.integrand_settings.selected_sg_cff_term,
+        );
+
         for i_cut in 0..self.supergraph.cuts.len() {
             if let Some(selected_cuts) = self.integrand_settings.selected_cuts.as_ref() {
                 if !selected_cuts.contains(&i_cut) {
@@ -2084,6 +2606,7 @@ impl TriBoxTriCFFIntegrand {
                 overall_sampling_jac,
                 &computational_cache,
                 self.integrand_settings.selected_sg_cff_term,
+                &allow_subspace_projection_per_cff,
             );
             final_wgt += wgt_agg;
             final_wgt_cts += wgt_cts_agg;
