@@ -35,10 +35,11 @@ pub struct TriBoxTriCFFCTSettings {
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct AntiObservableSettings {
     pub enabled: bool,
-    pub enable_subspace_treatment_only_when_pinches_are_closest: bool,
+    pub enable_subspace_treatment_only_when_pinches_are_closest: Option<f64>,
     pub anti_select_cut_of_subtracted_e_surface: bool,
     pub anti_select_pinched_cut_same_side_as_subtracted_e_surface: bool,
     pub choose_subspace_based_off_other_e_surface_passing_cuts: bool,
+    pub use_exact_cut_selection: bool
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -62,6 +63,23 @@ pub struct TriBoxTriCFFIntegrand {
     pub event_manager: EventManager,
     pub sampling_rot: Option<[[isize; 3]; 3]>,
 }
+
+pub struct TriBoxTriCFFComputationCache<T: FloatLike> {
+    pub external_momenta: Vec<LorentzVector<T>>,
+    pub onshell_edge_momenta_per_cut: Vec<Vec<LorentzVector<T>>>,
+    pub selection_result_per_cut: Vec<bool>,
+}
+
+impl<T: FloatLike> TriBoxTriCFFComputationCache<T> {
+    pub fn default() -> TriBoxTriCFFComputationCache<T> {
+        TriBoxTriCFFComputationCache {
+            external_momenta: vec![],
+            onshell_edge_momenta_per_cut: vec![],
+            selection_result_per_cut: vec![]
+        }
+    }
+}
+
 
 pub fn e_surf_str(e_surf_id: usize, e_surf: &Esurface) -> String {
     format!(
@@ -249,7 +267,7 @@ impl TriBoxTriCFFIntegrand {
         &self,
         esurf_basis_edge_ids: &Vec<usize>,
         edge_ids_and_orientations: &Vec<(usize, isize)>,
-        cache: &ComputationCache<T>,
+        cache: &TriBoxTriCFFComputationCache<T>,
         loop_momenta: &Vec<LorentzVector<T>>,
         side: usize,
         e_shift_sig: &Vec<isize>,
@@ -307,7 +325,7 @@ impl TriBoxTriCFFIntegrand {
     fn build_e_surfaces<T: FloatLike>(
         &self,
         onshell_edge_momenta: &Vec<LorentzVector<T>>,
-        cache: &ComputationCache<T>,
+        cache: &TriBoxTriCFFComputationCache<T>,
         loop_momenta: &Vec<LorentzVector<T>>,
         cff_term: &CFFTerm,
         i_cut: usize,
@@ -429,8 +447,8 @@ impl TriBoxTriCFFIntegrand {
     fn evt_for_e_surf_to_pass_selection<T: FloatLike>(
         &self,
         asc_e_surf_id: usize,
-        cache: &ComputationCache<T>,
-        onshell_edge_momenta: &Vec<LorentzVector<T>>,
+        cache: &TriBoxTriCFFComputationCache<T>,
+        onshell_edge_momenta: &Vec<LorentzVector<T>>
     ) -> (usize, Event) {
         let (as_i_cut, anti_selected_cut) =
             match self.supergraph.cuts.iter().enumerate().find(|(_i, c)| {
@@ -472,7 +490,7 @@ impl TriBoxTriCFFIntegrand {
         scaled_loop_momenta_in_sampling_basis: &Vec<LorentzVector<T>>,
         onshell_edge_momenta_for_this_cut: &Vec<LorentzVector<T>>,
         e_surf_cache: &Vec<GenericESurfaceCache<T>>,
-        cache: &ComputationCache<T>,
+        cache: &TriBoxTriCFFComputationCache<T>,
         i_cut: usize,
         i_cff: usize,
         allow_subspace_projection: bool,
@@ -664,7 +682,11 @@ impl TriBoxTriCFFIntegrand {
                 // If this event passes the selection, it means that the corresponding other one-loop threshold CT will be disabled, so that we must solve
                 // this current one-loop CT in a hyperradius that does *not* include the degrees of freedom of that other one-loop threshold so that
                 // dual cancelations are maintained.
-                let subspace_anti_selected = self.event_manager.pass_selection(&mut evt);
+                let subspace_anti_selected = if self.integrand_settings.threshold_ct_settings.anti_observable_settings.use_exact_cut_selection {
+                    cache.selection_result_per_cut[as_i_cut]
+                } else {
+                    self.event_manager.pass_selection(&mut evt)
+                };
                 if subspace_anti_selected {
                     for loop_index_to_remove in &loop_indices_overlap {
                         if let Some(idx_to_remove) = loop_indices_for_this_ct
@@ -731,7 +753,11 @@ impl TriBoxTriCFFIntegrand {
                     // If this event passes the selection, it means that the corresponding other one-loop threshold CT will be disabled, so that we must solve
                     // this current one-loop CT in a hyperradius that does *not* include the degrees of freedom of that other one-loop threshold so that
                     // dual cancelations are maintained.
-                    let subspace_anti_selected = self.event_manager.pass_selection(&mut evt);
+                    let subspace_anti_selected = if self.integrand_settings.threshold_ct_settings.anti_observable_settings.use_exact_cut_selection {
+                        cache.selection_result_per_cut[as_i_cut]
+                    } else {
+                        self.event_manager.pass_selection(&mut evt)
+                    };
                     if subspace_anti_selected {
                         for other_e_surf_loop_index in &other_e_surf.e_surf_basis_indices {
                             if let Some(idx_to_remove) = other_side_loop_indices
@@ -1097,7 +1123,12 @@ impl TriBoxTriCFFIntegrand {
                             //&onshell_edge_momenta_for_this_ct,
                             &onshell_edge_momenta_for_this_cut,
                         );
-                        if self.event_manager.pass_selection(&mut evt) {
+                        let pass_selector = if self.integrand_settings.threshold_ct_settings.anti_observable_settings.use_exact_cut_selection {
+                            cache.selection_result_per_cut[as_i_cut]
+                        } else {
+                            self.event_manager.pass_selection(&mut evt)
+                        };
+                        if pass_selector {
                             if self.settings.general.debug > 3 {
                                 println!(
                                     "      > Observable anti-selection against cut {}{} removed the subtraction of the following e-surface: {}",
@@ -1316,16 +1347,17 @@ impl TriBoxTriCFFIntegrand {
     fn compute_allow_subspace_projection_per_cff<T: FloatLike>(
         &mut self,
         loop_momenta: &Vec<LorentzVector<T>>,
-        cache: &ComputationCache<T>,
+        cache: &mut TriBoxTriCFFComputationCache<T>,
         selected_sg_cff_term: Option<usize>,
     ) -> Vec<bool> {
         let mut allow_subspace_projection_per_cff =
             vec![true; self.supergraph.supergraph_cff.cff_expression.terms.len()];
+
         if !self
             .integrand_settings
             .threshold_ct_settings
             .anti_observable_settings
-            .enable_subspace_treatment_only_when_pinches_are_closest
+            .enabled
         {
             return allow_subspace_projection_per_cff;
         }
@@ -1337,6 +1369,8 @@ impl TriBoxTriCFFIntegrand {
             );
         }
 
+        cache.onshell_edge_momenta_per_cut = vec![vec![]; self.supergraph.cuts.len()];
+        cache.selection_result_per_cut = vec![false; self.supergraph.cuts.len()];
         let mut info_per_active_cut = vec![];
         for i_cut in 0..self.supergraph.cuts.len() {
             if let Some(selected_cuts) = self.integrand_settings.selected_cuts.as_ref() {
@@ -1416,6 +1450,7 @@ impl TriBoxTriCFFIntegrand {
                 &cache.external_momenta,
                 &self.supergraph.cuts[i_cut].cut_edge_ids_and_flip,
             );
+            cache.onshell_edge_momenta_per_cut[i_cut] = onshell_edge_momenta_for_this_cut.clone();
 
             // Now add the event and check if it passes the selector
             let mut evt = self.event_manager.create_event(
@@ -1428,7 +1463,8 @@ impl TriBoxTriCFFIntegrand {
                     })
                     .collect::<Vec<_>>(),
             );
-            if !self.event_manager.pass_selection(&mut evt) {
+            cache.selection_result_per_cut[i_cut] = self.event_manager.pass_selection(&mut evt);
+            if !cache.selection_result_per_cut[i_cut] {
                 continue;
             }
 
@@ -1440,6 +1476,20 @@ impl TriBoxTriCFFIntegrand {
             ));
         }
 
+        if self
+            .integrand_settings
+            .threshold_ct_settings
+            .anti_observable_settings
+            .enable_subspace_treatment_only_when_pinches_are_closest.is_none()
+        {
+            return allow_subspace_projection_per_cff;
+        }
+        
+        let subspace_projection_enabling_threshold = Into::<T>::into(self
+        .integrand_settings
+        .threshold_ct_settings
+        .anti_observable_settings
+        .enable_subspace_treatment_only_when_pinches_are_closest.unwrap());
         for i_cff in 0..self.supergraph.supergraph_cff.cff_expression.terms.len() {
             if let Some(selected_term) = selected_sg_cff_term {
                 if i_cff != selected_term {
@@ -1553,12 +1603,12 @@ impl TriBoxTriCFFIntegrand {
             if let Some(min_pinched_eval_found) = overall_min_pinched_eval {
                 if let Some(min_second_non_pinched_eval_found) = overall_min_second_non_pinched_eval
                 {
-                    if min_second_non_pinched_eval_found < min_pinched_eval_found {
+                    if min_second_non_pinched_eval_found*subspace_projection_enabling_threshold < min_pinched_eval_found {
                         if self.settings.general.debug > 3 {
                             println!(
                                 "{}",
-                                format!("    > Disabling subspace projection for cff term #{}, because two non-pinched E-surfaces are closer ({:+.16e}) than the closest pinched one ({:+.16e})",
-                                i_cff,min_second_non_pinched_eval_found, min_pinched_eval_found
+                                format!("    > Disabling subspace projection for cff term #{}, because two non-pinched E-surfaces are closer ({:+.16e}x{:+.16e}) than the closest pinched one ({:+.16e})",
+                                i_cff,min_second_non_pinched_eval_found, subspace_projection_enabling_threshold, min_pinched_eval_found
                                 ).red()
                             );
                         }
@@ -1568,11 +1618,19 @@ impl TriBoxTriCFFIntegrand {
                     if self.settings.general.debug > 3 {
                         println!(
                             "{}",
-                            format!("    > Disabling subspace projection for cff term #{} because there are no two pinched E-surfaces in this cut", i_cff).red()
+                            format!("    > Enabling subspace projection for cff term #{} because there are no two pinched E-surfaces in any cut", i_cff).red()
                         );
                     }
-                    allow_subspace_projection_per_cff[i_cff] = false;
+                    allow_subspace_projection_per_cff[i_cff] = true;
                 }
+            } else {
+                if self.settings.general.debug > 3 {
+                    println!(
+                        "{}",
+                        format!("    > Disabling subspace projection for cff term #{} because there are no pinched E-surfaces in any cut", i_cff).red()
+                    );
+                }
+                allow_subspace_projection_per_cff[i_cff] = false;
             }
             if self.settings.general.debug > 3 {
                 println!(
@@ -1594,7 +1652,7 @@ impl TriBoxTriCFFIntegrand {
         i_cut: usize,
         loop_momenta: &Vec<LorentzVector<T>>,
         overall_sampling_jac: T,
-        cache: &ComputationCache<T>,
+        cache: &TriBoxTriCFFComputationCache<T>,
         selected_sg_cff_term: Option<usize>,
         allow_subspace_projection_per_cff: &Vec<bool>,
     ) -> (
@@ -2550,7 +2608,7 @@ impl TriBoxTriCFFIntegrand {
             }
         }
 
-        let mut computational_cache = ComputationCache::default();
+        let mut computational_cache = TriBoxTriCFFComputationCache::default();
 
         for i in 0..=1 {
             computational_cache
@@ -2581,9 +2639,9 @@ impl TriBoxTriCFFIntegrand {
         let mut final_wgt_cts_per_cut =
             vec![Complex::new(T::zero(), T::zero()); self.supergraph.cuts.len()];
 
-        let allow_subspace_projection_per_cff = self.compute_allow_subspace_projection_per_cff(
+        let allow_subspace_projection_per_cff: Vec<bool> = self.compute_allow_subspace_projection_per_cff(
             &loop_momenta,
-            &computational_cache,
+            &mut computational_cache,
             self.integrand_settings.selected_sg_cff_term,
         );
 
@@ -2742,7 +2800,7 @@ impl TriBoxTriCFFIntegrand {
             println!(
                 "{}",
                 format!(
-                    "  | #{:-3} ({:-12}) : {:-23} ( {:-23} | {} )",
+                    "  | {:-4} ({:-12}) : {:-23} ( {:-23} | {} )",
                     format!("{}", "ID").green(),
                     format!("{}", "cut edges").blue(),
                     format!("{}", "res + CTs").bold(),
@@ -2750,7 +2808,20 @@ impl TriBoxTriCFFIntegrand {
                     format!("{}", "∑ CTs")
                 ),
             );
+            println!("  ----------------------------------------------------------------------------------------------------");
             println!("{}", sorted_cut_res);
+            println!("  ----------------------------------------------------------------------------------------------------");
+            println!(
+                "{}",
+                format!(
+                    "  | {:-4} ({:-12}) : {:-23} ( {:-23} | {:+.e} )",
+                    format!("{}", "TOT").green(),
+                    format!("{}", "∑ cuts").blue(),
+                    format!("{:+.e}", all_res.iter().map(|r| (r.1+r.2).re ).sum::<T>()).bold(),
+                    format!("{:+.e}", all_res.iter().map(|r| r.1.re ).sum::<T>()),
+                    all_res.iter().map(|r| r.2.re ).sum::<T>()
+                ),
+            );
         }
 
         if self.settings.general.debug > 0 {
