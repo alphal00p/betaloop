@@ -39,7 +39,7 @@ pub struct AntiObservableSettings {
     pub anti_select_cut_of_subtracted_e_surface: bool,
     pub anti_select_pinched_cut_same_side_as_subtracted_e_surface: bool,
     pub choose_subspace_based_off_other_e_surface_passing_cuts: bool,
-    pub use_exact_cut_selection: bool
+    pub use_exact_cut_selection: bool,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -75,11 +75,10 @@ impl<T: FloatLike> TriBoxTriCFFComputationCache<T> {
         TriBoxTriCFFComputationCache {
             external_momenta: vec![],
             onshell_edge_momenta_per_cut: vec![],
-            selection_result_per_cut: vec![]
+            selection_result_per_cut: vec![],
         }
     }
 }
-
 
 pub fn e_surf_str(e_surf_id: usize, e_surf: &Esurface) -> String {
     format!(
@@ -319,6 +318,7 @@ impl TriBoxTriCFFIntegrand {
             ms,
             computed_e_shift,
             side,
+            vec![],
         )
     }
 
@@ -448,7 +448,7 @@ impl TriBoxTriCFFIntegrand {
         &self,
         asc_e_surf_id: usize,
         cache: &TriBoxTriCFFComputationCache<T>,
-        onshell_edge_momenta: &Vec<LorentzVector<T>>
+        onshell_edge_momenta: &Vec<LorentzVector<T>>,
     ) -> (usize, Event) {
         let (as_i_cut, anti_selected_cut) =
             match self.supergraph.cuts.iter().enumerate().find(|(_i, c)| {
@@ -677,12 +677,18 @@ impl TriBoxTriCFFIntegrand {
                 let (as_i_cut, mut evt) = self.evt_for_e_surf_to_pass_selection(
                     i_other_e_surf,
                     &cache,
+                    // NOTE THAT THIS BREAKS PV BEING ZERO, something like onshell_edge_momenta_for_this_ct must be used instead
                     onshell_edge_momenta_for_this_cut,
                 );
                 // If this event passes the selection, it means that the corresponding other one-loop threshold CT will be disabled, so that we must solve
                 // this current one-loop CT in a hyperradius that does *not* include the degrees of freedom of that other one-loop threshold so that
                 // dual cancelations are maintained.
-                let subspace_anti_selected = if self.integrand_settings.threshold_ct_settings.anti_observable_settings.use_exact_cut_selection {
+                let subspace_anti_selected = if self
+                    .integrand_settings
+                    .threshold_ct_settings
+                    .anti_observable_settings
+                    .use_exact_cut_selection
+                {
                     cache.selection_result_per_cut[as_i_cut]
                 } else {
                     self.event_manager.pass_selection(&mut evt)
@@ -748,12 +754,18 @@ impl TriBoxTriCFFIntegrand {
                     let (as_i_cut, mut evt) = self.evt_for_e_surf_to_pass_selection(
                         i_other_e_surf,
                         &cache,
+                        // NOTE THAT THIS BREAKS PV BEING ZERO, something like onshell_edge_momenta_for_this_ct must be used instead
                         onshell_edge_momenta_for_this_cut,
                     );
                     // If this event passes the selection, it means that the corresponding other one-loop threshold CT will be disabled, so that we must solve
                     // this current one-loop CT in a hyperradius that does *not* include the degrees of freedom of that other one-loop threshold so that
                     // dual cancelations are maintained.
-                    let subspace_anti_selected = if self.integrand_settings.threshold_ct_settings.anti_observable_settings.use_exact_cut_selection {
+                    let subspace_anti_selected = if self
+                        .integrand_settings
+                        .threshold_ct_settings
+                        .anti_observable_settings
+                        .use_exact_cut_selection
+                    {
                         cache.selection_result_per_cut[as_i_cut]
                     } else {
                         self.event_manager.pass_selection(&mut evt)
@@ -910,17 +922,38 @@ impl TriBoxTriCFFIntegrand {
 
         subtracted_e_surface.t_scaling =
             subtracted_e_surface.compute_t_scaling(&loop_momenta_in_e_surf_basis);
+        const _THRESHOLD: f64 = 1.0e-7;
         if subtracted_e_surface.t_scaling[MINUS] > T::zero() {
-            panic!(
-                "Unexpected positive t-scaling for negative solution: {:+.e}",
-                subtracted_e_surface.t_scaling[MINUS]
-            );
+            if subtracted_e_surface.t_scaling[MINUS]
+                > Into::<T>::into(_THRESHOLD * self.settings.kinematics.e_cm as f64)
+            {
+                panic!(
+                    "Unexpected positive t-scaling for negative solution: {:+.e} for e_surf:\n{:?}",
+                    subtracted_e_surface.t_scaling[MINUS], subtracted_e_surface
+                );
+            }
+            println!("{}",format!(
+                "WARNING:: Unexpected positive t-scaling for negative solution: {:+.e} for e_surf:\n{:?}",
+                subtracted_e_surface.t_scaling[MINUS],subtracted_e_surface
+            ).bold().red());
+            subtracted_e_surface.t_scaling[MINUS] =
+                -Into::<T>::into(_THRESHOLD * self.settings.kinematics.e_cm as f64);
         }
         if subtracted_e_surface.t_scaling[PLUS] < T::zero() {
-            panic!(
-                "Unexpected negative t-scaling for positive solution: {:+.e}",
-                subtracted_e_surface.t_scaling[PLUS]
+            if subtracted_e_surface.t_scaling[PLUS]
+                < -Into::<T>::into(_THRESHOLD * self.settings.kinematics.e_cm as f64)
+            {
+                panic!(
+                    "Unexpected negative t-scaling for positive solution: {:+.e} for e_surf:\n{:?}",
+                    subtracted_e_surface.t_scaling[PLUS], subtracted_e_surface
+                );
+            }
+            println!("{}",format!(
+                "WARNING: Unexpected negative t-scaling for positive solution: {:+.e} for e_surf:\n{:?}",
+                subtracted_e_surface.t_scaling[PLUS],subtracted_e_surface).bold().red()
             );
+            subtracted_e_surface.t_scaling[PLUS] =
+                Into::<T>::into(_THRESHOLD * self.settings.kinematics.e_cm as f64);
         }
         assert!(subtracted_e_surface.t_scaling[MINUS] <= T::zero());
         assert!(subtracted_e_surface.t_scaling[PLUS] >= T::zero());
@@ -1121,9 +1154,15 @@ impl TriBoxTriCFFIntegrand {
                             asc_e_surf_id,
                             &cache,
                             //&onshell_edge_momenta_for_this_ct,
+                            // NOTE THAT THIS BREAKS PV BEING ZERO, something like onshell_edge_momenta_for_this_ct must be used instead
                             &onshell_edge_momenta_for_this_cut,
                         );
-                        let pass_selector = if self.integrand_settings.threshold_ct_settings.anti_observable_settings.use_exact_cut_selection {
+                        let pass_selector = if self
+                            .integrand_settings
+                            .threshold_ct_settings
+                            .anti_observable_settings
+                            .use_exact_cut_selection
+                        {
                             cache.selection_result_per_cut[as_i_cut]
                         } else {
                             self.event_manager.pass_selection(&mut evt)
@@ -1171,7 +1210,6 @@ impl TriBoxTriCFFIntegrand {
                 //     .spatial_dot(&loop_momenta_star_in_e_surf_basis[loop_index_for_this_ct])
                 let e_surf_derivative =
                     subtracted_e_surface.t_der(&loop_momenta_star_in_sampling_basis) / r_star;
-
                 // Identifying the residue in t, with r=e^t means that we must drop the r_star normalisation in the expansion.
                 let e_surf_expanded = match self.integrand_settings.threshold_ct_settings.variable {
                     CTVariable::Radius => e_surf_derivative * (t - t_star),
@@ -1198,6 +1236,7 @@ impl TriBoxTriCFFIntegrand {
                         adjusted_sampling_jac *= (r_star / r).powi(3);
                     }
                 }
+
                 // Disable the local CT by setting the weight of the adjusted_sampling_jac to zero.
                 // We cannot skip any computation here because they are needed for the computation of the integrated CT which is
                 // not disabled if this point in the code is reached.
@@ -1299,6 +1338,8 @@ impl TriBoxTriCFFIntegrand {
                     integrated_ct,
                     ct_level,
                     loop_indices_solved,
+                    ct_sector_signature: vec![], // Not used for this implementation
+                    e_surface_analysis: ESurfaceCTAnalysis::default(), // Dummy in this case
                 });
             }
         }
@@ -1480,16 +1521,20 @@ impl TriBoxTriCFFIntegrand {
             .integrand_settings
             .threshold_ct_settings
             .anti_observable_settings
-            .enable_subspace_treatment_only_when_pinches_are_closest.is_none()
+            .enable_subspace_treatment_only_when_pinches_are_closest
+            .is_none()
         {
             return allow_subspace_projection_per_cff;
         }
-        
-        let subspace_projection_enabling_threshold = Into::<T>::into(self
-        .integrand_settings
-        .threshold_ct_settings
-        .anti_observable_settings
-        .enable_subspace_treatment_only_when_pinches_are_closest.unwrap());
+
+        let subspace_projection_enabling_threshold = Into::<T>::into(
+            self.integrand_settings
+                .threshold_ct_settings
+                .anti_observable_settings
+                .enable_subspace_treatment_only_when_pinches_are_closest
+                .unwrap(),
+        );
+        const _NTH_NON_PINCHED_E_SURF_TO_CONSIDER: usize = 0;
         for i_cff in 0..self.supergraph.supergraph_cff.cff_expression.terms.len() {
             if let Some(selected_term) = selected_sg_cff_term {
                 if i_cff != selected_term {
@@ -1497,9 +1542,7 @@ impl TriBoxTriCFFIntegrand {
                 }
             }
             if self.settings.general.debug > 3 {
-                println!(
-                    "    > Now analyzing cFF term #{}", i_cff
-                );
+                println!("    > Now analyzing cFF term #{}", i_cff);
             }
             let mut overall_min_pinched_eval = None;
             let mut overall_min_second_non_pinched_eval = None;
@@ -1557,14 +1600,18 @@ impl TriBoxTriCFFIntegrand {
                         .map(|(_i_esc, esc)| esc.eval.abs())
                         .collect::<Vec<_>>();
                     sorted_non_pinched_evals.sort_by(|a, b| a.partial_cmp(b).unwrap());
-                    if sorted_non_pinched_evals.len() >= 2 {
+                    if sorted_non_pinched_evals.len() >= _NTH_NON_PINCHED_E_SURF_TO_CONSIDER + 1 {
                         if let Some(curr_min) = overall_min_second_non_pinched_eval {
-                            if curr_min > sorted_non_pinched_evals[1] {
-                                overall_min_second_non_pinched_eval =
-                                    Some(sorted_non_pinched_evals[1]);
+                            if curr_min
+                                > sorted_non_pinched_evals[_NTH_NON_PINCHED_E_SURF_TO_CONSIDER]
+                            {
+                                overall_min_second_non_pinched_eval = Some(
+                                    sorted_non_pinched_evals[_NTH_NON_PINCHED_E_SURF_TO_CONSIDER],
+                                );
                             }
                         } else {
-                            overall_min_second_non_pinched_eval = Some(sorted_non_pinched_evals[1]);
+                            overall_min_second_non_pinched_eval =
+                                Some(sorted_non_pinched_evals[_NTH_NON_PINCHED_E_SURF_TO_CONSIDER]);
                         }
                     }
                     if self.settings.general.debug > 4 {
@@ -1596,14 +1643,16 @@ impl TriBoxTriCFFIntegrand {
                         } else {
                             format!("{}","none")
                         }
-                    ).green(), 
+                    ).green(),
                     format!("#{}",i_cff).blue()
                 );
             }
             if let Some(min_pinched_eval_found) = overall_min_pinched_eval {
                 if let Some(min_second_non_pinched_eval_found) = overall_min_second_non_pinched_eval
                 {
-                    if min_second_non_pinched_eval_found*subspace_projection_enabling_threshold < min_pinched_eval_found {
+                    if min_second_non_pinched_eval_found * subspace_projection_enabling_threshold
+                        < min_pinched_eval_found
+                    {
                         if self.settings.general.debug > 3 {
                             println!(
                                 "{}",
@@ -1634,11 +1683,12 @@ impl TriBoxTriCFFIntegrand {
             }
             if self.settings.general.debug > 3 {
                 println!(
-                    "    > Outcome of the analyzing for cFF term #{}: subspace treatment {}", i_cff,
-                    if allow_subspace_projection_per_cff[i_cff] { 
-                        format!("{}",  "enabled").green() 
-                    } else { 
-                        format!("{}",  "disabled").red() 
+                    "    > Outcome of the analyzing for cFF term #{}: subspace treatment {}",
+                    i_cff,
+                    if allow_subspace_projection_per_cff[i_cff] {
+                        format!("{}", "enabled").green()
+                    } else {
+                        format!("{}", "disabled").red()
                     }
                 );
             }
@@ -2228,7 +2278,7 @@ impl TriBoxTriCFFIntegrand {
                             }
                         }
                     }
-
+                    //println!("CT={:?}",ct);
                     if self.settings.general.debug > 3 {
                         println!(
                             "   > cFF Evaluation #{} : CT for {} E-surface {} solved in {}: {:+.e} + i {:+.e}",
@@ -2639,11 +2689,12 @@ impl TriBoxTriCFFIntegrand {
         let mut final_wgt_cts_per_cut =
             vec![Complex::new(T::zero(), T::zero()); self.supergraph.cuts.len()];
 
-        let allow_subspace_projection_per_cff: Vec<bool> = self.compute_allow_subspace_projection_per_cff(
-            &loop_momenta,
-            &mut computational_cache,
-            self.integrand_settings.selected_sg_cff_term,
-        );
+        let allow_subspace_projection_per_cff: Vec<bool> = self
+            .compute_allow_subspace_projection_per_cff(
+                &loop_momenta,
+                &mut computational_cache,
+                self.integrand_settings.selected_sg_cff_term,
+            );
 
         for i_cut in 0..self.supergraph.cuts.len() {
             if let Some(selected_cuts) = self.integrand_settings.selected_cuts.as_ref() {
@@ -2817,9 +2868,9 @@ impl TriBoxTriCFFIntegrand {
                     "  | {:-4} ({:-12}) : {:-23} ( {:-23} | {:+.e} )",
                     format!("{}", "TOT").green(),
                     format!("{}", "∑ cuts").blue(),
-                    format!("{:+.e}", all_res.iter().map(|r| (r.1+r.2).re ).sum::<T>()).bold(),
-                    format!("{:+.e}", all_res.iter().map(|r| r.1.re ).sum::<T>()),
-                    all_res.iter().map(|r| r.2.re ).sum::<T>()
+                    format!("{:+.e}", all_res.iter().map(|r| (r.1 + r.2).re).sum::<T>()).bold(),
+                    format!("{:+.e}", all_res.iter().map(|r| r.1.re).sum::<T>()),
+                    all_res.iter().map(|r| r.2.re).sum::<T>()
                 ),
             );
         }
@@ -2952,7 +3003,7 @@ impl HasIntegrand for TriBoxTriCFFIntegrand {
 
         // TODO implement stability check
 
-        let result = if use_f128 {
+        let mut result = if use_f128 {
             let sample_xs_f128 = sample_xs
                 .iter()
                 .map(|x| Into::<f128::f128>::into(*x))
@@ -2976,6 +3027,10 @@ impl HasIntegrand for TriBoxTriCFFIntegrand {
             self.evaluate_sample_generic(sample_xs.as_slice())
         };
         self.event_manager.process_events(result, wgt);
+        if !result.re.is_finite() || !result.im.is_finite() {
+            println!("{}",format!("WARNING: Found infinite result (now set to zero) for xs={:?} : {:+16e} + i {:+16e}", sample_xs, result.re, result.im).bold().red());
+            result = Complex::new(0.0, 0.0);
+        }
         return result;
     }
 }

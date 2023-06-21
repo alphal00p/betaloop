@@ -280,7 +280,15 @@ impl TriBoxTriIntegrand {
             }
             ps.push([shift.x, shift.y, shift.z]);
         }
-        GenericESurfaceCache::new_from_inputs(cut_basis_indices, sigs, ps, ms, e_shift, side)
+        GenericESurfaceCache::new_from_inputs(
+            cut_basis_indices,
+            sigs,
+            ps,
+            ms,
+            e_shift,
+            side,
+            vec![],
+        )
     }
 
     fn build_e_surfaces<T: FloatLike>(
@@ -923,6 +931,8 @@ impl TriBoxTriIntegrand {
                     integrated_ct,
                     ct_level,
                     loop_indices_solved,
+                    ct_sector_signature: vec![], // Dummy in this case
+                    e_surface_analysis: ESurfaceCTAnalysis::default(), // Dummy in this case
                 });
             }
         }

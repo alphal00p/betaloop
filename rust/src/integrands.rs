@@ -5,6 +5,7 @@ use crate::observables::EventManager;
 use crate::triangle_subtraction::{TriangleSubtractionIntegrand, TriangleSubtractionSettings};
 use crate::triboxtri::{TriBoxTriIntegrand, TriBoxTriSettings};
 use crate::triboxtri_cff::{TriBoxTriCFFIntegrand, TriBoxTriCFFSettings};
+use crate::triboxtri_cff_sectored::{TriBoxTriCFFSectoredIntegrand, TriBoxTriCFFSectoredSettings};
 use crate::utils::FloatLike;
 use crate::{utils, Settings};
 use color_eyre::{Help, Report};
@@ -34,6 +35,8 @@ pub enum HardCodedIntegrandSettings {
     TriBoxTri(TriBoxTriSettings),
     #[serde(rename = "TriBoxTriCFF")]
     TriBoxTriCFF(TriBoxTriCFFSettings),
+    #[serde(rename = "TriBoxTriCFFSectored")]
+    TriBoxTriCFFSectored(TriBoxTriCFFSectoredSettings),
     #[serde(rename = "triangle_subtraction")]
     TriangleSubtraction(TriangleSubtractionSettings),
     #[serde(rename = "box_subtraction")]
@@ -55,6 +58,9 @@ impl Display for HardCodedIntegrandSettings {
             }
             HardCodedIntegrandSettings::TriBoxTriCFF(_) => {
                 write!(f, "TriBoxTriCFF")
+            }
+            HardCodedIntegrandSettings::TriBoxTriCFFSectored(_) => {
+                write!(f, "TriBoxTriCFFSectored")
             }
             HardCodedIntegrandSettings::TriangleSubtraction(_) => {
                 write!(f, "triangle_subtraction")
@@ -104,14 +110,33 @@ impl Esurface {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ESurfaceIntegratedCT<T: FloatLike> {
     pub adjusted_sampling_jac: T,
     pub h_function_wgt: T,
     pub e_surf_residue: T,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
+pub struct ESurfaceCTAnalysis {
+    pub pinched_e_surf_ids_active_in_projected_out_subspace: Vec<usize>,
+    pub pinched_e_surf_ids_active_solved_subspace: Vec<usize>,
+    pub non_pinched_e_surf_ids_active_in_projected_out_subspace: Vec<usize>,
+    pub non_pinched_e_surf_ids_active_solved_subspace: Vec<usize>,
+}
+
+impl ESurfaceCTAnalysis {
+    pub fn default() -> ESurfaceCTAnalysis {
+        ESurfaceCTAnalysis {
+            pinched_e_surf_ids_active_in_projected_out_subspace: vec![],
+            pinched_e_surf_ids_active_solved_subspace: vec![],
+            non_pinched_e_surf_ids_active_in_projected_out_subspace: vec![],
+            non_pinched_e_surf_ids_active_solved_subspace: vec![],
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct ESurfaceCT<T: FloatLike, ESC: ESurfaceCacheTrait<T>> {
     pub e_surf_id: usize,
     pub ct_basis_signature: Vec<Vec<isize>>,
@@ -128,6 +153,8 @@ pub struct ESurfaceCT<T: FloatLike, ESC: ESurfaceCacheTrait<T>> {
     pub ct_level: usize, // either utils::AMPLITUDE_LEVEL_CT or utils::SUPERGRAPH_LEVEL_CT
     pub integrated_ct: Option<ESurfaceIntegratedCT<T>>,
     pub loop_indices_solved: (Vec<usize>, Vec<usize>),
+    pub ct_sector_signature: Vec<isize>,
+    pub e_surface_analysis: ESurfaceCTAnalysis,
 }
 
 pub trait ESurfaceCacheTrait<T: FloatLike> {
@@ -156,6 +183,7 @@ pub struct GenericESurfaceCache<T: FloatLike> {
     pub eval: T,
     pub t_scaling: [T; 2],
     pub side: usize,
+    pub sector_signature: Vec<isize>,
 }
 
 #[derive(Debug, Clone)]
@@ -222,6 +250,7 @@ impl<T: FloatLike> OneLoopESurfaceCache<T> {
         eval: T,
         t_scaling: [T; 2],
         side: usize,
+        sector_signature: Vec<isize>,
     ) -> GenericESurfaceCache<T> {
         // At one loop we require the momenta under both square roots to be normalised as k+p, so positive sig.
         assert!(sigs == vec![vec![T::one()], vec![T::one()]]);
@@ -239,6 +268,7 @@ impl<T: FloatLike> OneLoopESurfaceCache<T> {
             eval: eval,
             t_scaling: t_scaling,
             side: side,
+            sector_signature: sector_signature,
         }
     }
 
@@ -350,6 +380,7 @@ impl<T: FloatLike> GenericESurfaceCache<T> {
             eval: T::zero(),
             t_scaling: [T::zero(), T::zero()],
             side: NOSIDE,
+            sector_signature: vec![],
         }
     }
 
@@ -360,6 +391,7 @@ impl<T: FloatLike> GenericESurfaceCache<T> {
         ms: Vec<T>,
         e_shift: T,
         side: usize,
+        sector_signature: Vec<isize>,
     ) -> GenericESurfaceCache<T> {
         // Not applicable for more than one-loop
         let mut one_loop_basis_index = 99;
@@ -409,6 +441,7 @@ impl<T: FloatLike> GenericESurfaceCache<T> {
             eval: T::zero(),
             t_scaling: [T::zero(), T::zero()],
             side: side,
+            sector_signature: sector_signature,
         }
     }
 
@@ -424,6 +457,7 @@ impl<T: FloatLike> GenericESurfaceCache<T> {
         eval: T,
         t_scaling: [T; 2],
         side: usize,
+        sector_signature: Vec<isize>,
     ) -> GenericESurfaceCache<T> {
         // Not applicable for more than one-loop
         let mut one_loop_basis_index = 99;
@@ -470,6 +504,7 @@ impl<T: FloatLike> GenericESurfaceCache<T> {
             eval: eval,
             t_scaling: t_scaling,
             side: side,
+            sector_signature: sector_signature,
         }
     }
 
@@ -866,7 +901,8 @@ impl CFFTerm {
             );
             println!("self={:?}", self);
             println!("result={:+e}", result);
-            panic!("Found non-finite CFF evaluation");
+            // panic!("Found non-finite CFF evaluation");
+            result = T::zero();
         }
         result
     }
@@ -1036,6 +1072,7 @@ pub enum Integrand {
     LoopInducedTriBoxTri(LoopInducedTriBoxTriIntegrand),
     TriBoxTri(TriBoxTriIntegrand),
     TriBoxTriCFF(TriBoxTriCFFIntegrand),
+    TriBoxTriCFFSectored(TriBoxTriCFFSectoredIntegrand),
     TriangleSubtraction(TriangleSubtractionIntegrand),
     BoxSubtraction(BoxSubtractionIntegrand),
 }
@@ -1063,6 +1100,12 @@ pub fn integrand_factory(settings: &Settings) -> Integrand {
         HardCodedIntegrandSettings::TriBoxTriCFF(integrand_settings) => Integrand::TriBoxTriCFF(
             TriBoxTriCFFIntegrand::new(settings.clone(), integrand_settings),
         ),
+        HardCodedIntegrandSettings::TriBoxTriCFFSectored(integrand_settings) => {
+            Integrand::TriBoxTriCFFSectored(TriBoxTriCFFSectoredIntegrand::new(
+                settings.clone(),
+                integrand_settings,
+            ))
+        }
         HardCodedIntegrandSettings::TriangleSubtraction(integrand_settings) => {
             Integrand::TriangleSubtraction(TriangleSubtractionIntegrand::new(integrand_settings))
         }

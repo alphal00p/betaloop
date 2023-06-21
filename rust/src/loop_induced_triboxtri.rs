@@ -589,6 +589,8 @@ impl LoopInducedTriBoxTriIntegrand {
                     integrated_ct,
                     ct_level,
                     loop_indices_solved,
+                    ct_sector_signature: vec![], // Not used in this implementation
+                    e_surface_analysis: ESurfaceCTAnalysis::default(),
                 });
             }
         }

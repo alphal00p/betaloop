@@ -25,6 +25,10 @@ pub const SUPERGRAPH_LEVEL_CT: usize = 1;
 
 pub const PINCH_TEST_THRESHOLD: f64 = 1e-10;
 
+pub const CUT_ABSENT: isize = -1;
+pub const CUT_ACTIVE: isize = 1;
+pub const CUT_INACTIVE: isize = 0;
+
 pub trait FloatConvertFrom<U> {
     fn convert_from(x: &U) -> Self;
 }

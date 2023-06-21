@@ -1,14 +1,14 @@
 General:
   debug: 0
 HardCodedIntegrand:
-  type: TriBoxTriCFFSectored
+  type: TriBoxTriCFF
   supergraph_yaml_file: ./data/TriBoxTri.yaml
   q: [60.0, 0.0, 0.0, 0.0]
   numerator: spatial_exponential_dummy #spatial_exponential_dummy # Options are "one", "spatial_exponential_dummy" and "physical"
   #sampling_basis: [1, 3, 6] # This is the generation LMB
   sampling_basis: [1, 4, 7] # This is the LMB with vertical edges in it
   selected_sg_cff_term: 110 #110 # e.g. 122 or null for enabling all
-  selected_sector_signature: null # e.g. [-1,1,1,0,0,0,-1,1,1] or null for enabling all
+  selected_cuts: null # e.g [0,3] or null for enabling all
   h_function:
     function: poly_left_right_exponential # Options are poly_exponential, poly_left_right_exponential, exponential
     sigma: 1. #20.
@@ -20,19 +20,16 @@ HardCodedIntegrand:
     im_squared_through_local_ct_only: false
     include_amplitude_level_cts: true
     variable: R # for the local CT: options in this case are R and logR
-    local_ct_sliver_width: 0.1 # Specify an f64 for a finite sliver width, otherwise leave Option to null
-    integrated_ct_sliver_width: 0.1 # Specify an f64 for a finite sliver width, otherwise leave Option to null
+    local_ct_sliver_width: 0.5 # Specify an f64 for a finite sliver width, otherwise leave Option to null
+    integrated_ct_sliver_width: 0.5 # Specify an f64 for a finite sliver width, otherwise leave Option to null
     parameterization_center: [[0., 0., 0.], [0., 0., 0.], [0., 0., 0.]] # [[3., -5., 1.], [2., 7., -3.], [2., -4., -1.]] # [[0., 0., 0.], [0., 0., 0.], [0., 0., 0.]]
-    include_cts_solved_in_two_loop_space: true
-    include_cts_solved_in_one_loop_subspace: true
-    sectoring_settings:
+    anti_observable_settings:
       enabled: true
-      accept_all: false
-      sector_based_analysis: true
-      select_one_loop_vs_two_loop_ct_based_on_soft_sector: true
-      always_solve_cts_in_all_amplitude_loop_indices: false
-      anti_select_threshold_against_observable: true
-      correlate_event_sector_with_ct_sector: false
+      enable_subspace_treatment_only_when_pinches_are_closest: 1000.0 #null # enable always if null, otherwise enable only when min_pinch < min_non_pinch * this_value.
+      choose_subspace_based_off_other_e_surface_passing_cuts: true
+      anti_select_cut_of_subtracted_e_surface: true
+      anti_select_pinched_cut_same_side_as_subtracted_e_surface: false
+      use_exact_cut_selection: false
     local_ct_h_function:
       function: exponential_ct # Options in this case is just exponential_ct
       sigma: 15.
