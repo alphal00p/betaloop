@@ -29,7 +29,7 @@ HardCodedIntegrand:
       enabled: true
       accept_all: false
       sector_based_analysis: true
-      select_one_loop_vs_two_loop_ct_based_on_soft_sector: true
+      force_one_loop_ct_in_soft_sector: true
       always_solve_cts_in_all_amplitude_loop_indices: false
       anti_select_threshold_against_observable: true
       correlate_event_sector_with_ct_sector: false

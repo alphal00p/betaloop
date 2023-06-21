@@ -42,7 +42,7 @@ pub struct SectoringSettings {
     pub enabled: bool,
     pub accept_all: bool,
     pub sector_based_analysis: bool,
-    pub select_one_loop_vs_two_loop_ct_based_on_soft_sector: bool,
+    pub force_one_loop_ct_in_soft_sector: bool,
     pub always_solve_cts_in_all_amplitude_loop_indices: bool,
     pub anti_select_threshold_against_observable: bool,
     pub correlate_event_sector_with_ct_sector: bool,
@@ -2431,7 +2431,7 @@ impl TriBoxTriCFFSectoredIntegrand {
                                     .integrand_settings
                                     .threshold_ct_settings
                                     .sectoring_settings
-                                    .select_one_loop_vs_two_loop_ct_based_on_soft_sector
+                                    .force_one_loop_ct_in_soft_sector
                                 || self
                                     .integrand_settings
                                     .threshold_ct_settings
@@ -2608,15 +2608,28 @@ impl TriBoxTriCFFSectoredIntegrand {
                                         .integrand_settings
                                         .threshold_ct_settings
                                         .sectoring_settings
-                                        .select_one_loop_vs_two_loop_ct_based_on_soft_sector
-                                        || self
-                                            .integrand_settings
-                                            .threshold_ct_settings
-                                            .sectoring_settings
-                                            .always_solve_cts_in_all_amplitude_loop_indices
+                                        .always_solve_cts_in_all_amplitude_loop_indices
                                     {
-                                        let mut choose_two_loop_over_one_loop = true;
+                                        if !loop_indices_in_this_amplitude
+                                            .iter()
+                                            .all(|lia| loop_indices_solved.contains(lia))
+                                        {
+                                            keep_this_one_ct = false;
+                                            if self.settings.general.debug > 3 {
+                                                reason_for_this_ct = format!("it is a counterterm solved only in loop_indices {:?}, but the soft sector analysis requires to keep only CTs solved in ALL loop momenta ({:?}).",
+                                                        loop_indices_solved, loop_indices_in_this_amplitude
+                                                    );
+                                            }
+                                        }
+                                    }
 
+                                    let mut force_projected_one_loop_cts = false;
+                                    if self
+                                        .integrand_settings
+                                        .threshold_ct_settings
+                                        .sectoring_settings
+                                        .force_one_loop_ct_in_soft_sector
+                                    {
                                         if self
                                             .integrand_settings
                                             .threshold_ct_settings
@@ -2648,31 +2661,19 @@ impl TriBoxTriCFFSectoredIntegrand {
                                                         )
                                                     },
                                                 ) {
-                                                    choose_two_loop_over_one_loop = false;
+                                                    force_projected_one_loop_cts = true;
                                                 }
                                             }
                                             if self.settings.general.debug > 4 {
-                                                if choose_two_loop_over_one_loop {
-                                                    println!("     | Soft analysis found no soft sector and CTs will be required to be solved in the full set of amplitude loop indices.");
-                                                } else {
+                                                if force_projected_one_loop_cts {
                                                     println!("     | Soft analysis did find a soft sector and all two-loop CTs will be required to be solved in projected spaces.");
+                                                } else {
+                                                    println!("     | Soft analysis found no soft sector and CTs will be required to be solved in the full set of amplitude loop indices.");
                                                 }
                                             }
                                         }
 
-                                        if choose_two_loop_over_one_loop {
-                                            if !loop_indices_in_this_amplitude
-                                                .iter()
-                                                .all(|lia| loop_indices_solved.contains(lia))
-                                            {
-                                                keep_this_one_ct = false;
-                                                if self.settings.general.debug > 3 {
-                                                    reason_for_this_ct = format!("it is a counterterm solved only in loop_indices {:?}, but the soft sector analysis requires to keep only CTs solved in ALL loop momenta ({:?}).",
-                                                        loop_indices_solved, loop_indices_in_this_amplitude
-                                                    );
-                                                }
-                                            }
-                                        } else {
+                                        if force_projected_one_loop_cts {
                                             if n_loop_ct > 1
                                                 && loop_indices_in_this_amplitude
                                                     .iter()
@@ -2686,7 +2687,9 @@ impl TriBoxTriCFFSectoredIntegrand {
                                                 }
                                             }
                                         }
-                                    } else {
+                                    }
+
+                                    if keep_this_one_ct && !force_projected_one_loop_cts {
                                         if self.settings.general.debug > 4 {
                                             println!("     | Active loop indices for this CT: {:?}, and present in the amplitude being subtracted: {:?}",loop_indices_available_for_subtraction_in_this_sector,loop_indices_in_this_amplitude);
                                         }
