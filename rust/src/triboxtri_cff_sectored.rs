@@ -3778,7 +3778,7 @@ impl TriBoxTriCFFSectoredIntegrand {
                             }
                         }
                         println!(
-                            "   > cFF Evaluation #{} : CT for {} E-surface {} solved in {} with sector signature {} {}: {} + i {}",
+                            "   > cFF Evaluation #{} : CT for {} E-surface {} solved in {} with sector signature {} {} = {} + i {}",
                             format!("{}", i_cff).green(),
                             format!(
                                 "{}|{}|{}",
@@ -3802,7 +3802,7 @@ impl TriBoxTriCFFSectoredIntegrand {
                                 format!("({:-3})", ct.loop_indices_solved.1.iter().map(|lis| format!("{}", lis)).collect::<Vec<_>>().join(",")),
                             ).blue(),
                             format!("{:?}", this_ct_sector_signature).blue(),
-                            format!("and MC factor weight = {:+.16e}",ct_mc_factor),
+                            format!("and MC factor weight: {:+.16e} x ({:+.16e} + i {:+.16e})",ct_mc_factor, re_ct_weight/ct_mc_factor, im_ct_weight/ct_mc_factor ),
                             format!("{:+.e}",re_ct_weight).green(),
                             format!("{:+.e}",im_ct_weight).green(),
                         );

@@ -266,14 +266,15 @@ def generate_file(filename):
                             'enabled': (intersecting_cut != CUT_56 or len(loop_indices) == 2),
                             'mc_factor': {
                                 'e_surf_ids_prod_in_num':
-                                [[E_SURF_MAP[broken_soft_sector_info['active_VV_cut']], E_SURF_MAP[broken_soft_sector_info['active_RV_cut']]]] if (len(loop_indices) == 2 or intersecting_cut == CUT_56) else
-                                [[E_SURF_MAP[CUT_56],
-                                    E_SURF_MAP[broken_soft_sector_info['active_RV_cut']]]],
+                                [[E_SURF_MAP[broken_soft_sector_info['active_VV_cut']],
+                                    E_SURF_MAP[broken_soft_sector_info['active_RV_cut']]]] if (len(loop_indices) == 2 or intersecting_cut == CUT_56) else
+                                [[E_SURF_MAP[broken_soft_sector_info['active_VV_cut']],
+                                    E_SURF_MAP[CUT_56]]],
                                 'e_surf_ids_prods_to_sum_in_denom': [
                                     [[E_SURF_MAP[broken_soft_sector_info['active_VV_cut']],
                                         E_SURF_MAP[broken_soft_sector_info['active_RV_cut']]]],
-                                    [[E_SURF_MAP[CUT_56],
-                                        E_SURF_MAP[broken_soft_sector_info['active_RV_cut']]]]
+                                    [[E_SURF_MAP[broken_soft_sector_info['active_VV_cut']],
+                                        E_SURF_MAP[CUT_56]]]
                                 ]
                             }
                         }
