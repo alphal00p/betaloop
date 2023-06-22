@@ -20,11 +20,12 @@ HardCodedIntegrand:
     im_squared_through_local_ct_only: false
     include_amplitude_level_cts: true
     variable: R # for the local CT: options in this case are R and logR
-    local_ct_sliver_width: 0.1 # Specify an f64 for a finite sliver width, otherwise leave Option to null
-    integrated_ct_sliver_width: 0.1 # Specify an f64 for a finite sliver width, otherwise leave Option to null
+    local_ct_sliver_width: 1.0 # Specify an f64 for a finite sliver width, otherwise leave Option to null
+    integrated_ct_sliver_width: 1.0 # Specify an f64 for a finite sliver width, otherwise leave Option to null
     parameterization_center: [[0., 0., 0.], [0., 0., 0.], [0., 0., 0.]] # [[3., -5., 1.], [2., 7., -3.], [2., -4., -1.]] # [[0., 0., 0.], [0., 0., 0.], [0., 0., 0.]]
     include_cts_solved_in_two_loop_space: true
     include_cts_solved_in_one_loop_subspace: true
+    apply_original_event_selection_to_cts: true
     sectoring_settings:
       enabled: true
       accept_all: false
@@ -33,6 +34,9 @@ HardCodedIntegrand:
       always_solve_cts_in_all_amplitude_loop_indices: false
       anti_select_threshold_against_observable: true
       correlate_event_sector_with_ct_sector: false
+      apply_hard_coded_rules: true
+      check_for_absent_e_surfaces_when_building_mc_factor: true
+      hard_coded_rules_file: ./data/auto_sectoring_rules_TriBoxTri.yaml #./data/sectoring_rules_TriBoxTri.yaml
     local_ct_h_function:
       function: exponential_ct # Options in this case is just exponential_ct
       sigma: 15.

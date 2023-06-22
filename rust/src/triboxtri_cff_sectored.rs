@@ -14,6 +14,7 @@ use num::Complex;
 use num_traits::FloatConst;
 use num_traits::ToPrimitive;
 use serde::Deserialize;
+use std::fs::File;
 use utils::{
     AMPLITUDE_LEVEL_CT, CUT_ABSENT, CUT_ACTIVE, CUT_INACTIVE, LEFT, MINUS, NOSIDE, PLUS, RIGHT,
     SUPERGRAPH_LEVEL_CT,
@@ -35,6 +36,7 @@ pub struct TriBoxTriCFFSectoredCTSettings {
     pub include_cts_solved_in_two_loop_space: bool,
     pub include_cts_solved_in_one_loop_subspace: bool,
     pub sectoring_settings: SectoringSettings,
+    pub apply_original_event_selection_to_cts: bool,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -46,6 +48,43 @@ pub struct SectoringSettings {
     pub always_solve_cts_in_all_amplitude_loop_indices: bool,
     pub anti_select_threshold_against_observable: bool,
     pub correlate_event_sector_with_ct_sector: bool,
+    pub apply_hard_coded_rules: bool,
+    pub check_for_absent_e_surfaces_when_building_mc_factor: bool,
+    pub hard_coded_rules_file: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct SectoringRule {
+    pub sector_signature: Vec<isize>,
+    pub rules_for_cut: Vec<SectoringRuleForCut>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct SectoringRuleForCut {
+    pub cut_id: usize,
+    pub rules_for_ct: Vec<SectoringRuleForCutAndCT>,
+}
+
+fn _default_mc_factor() -> SectoringRuleMCFactor {
+    SectoringRuleMCFactor {
+        e_surf_ids_prod_in_num: vec![],
+        e_surf_ids_prods_to_sum_in_denom: vec![],
+    }
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct SectoringRuleForCutAndCT {
+    pub surf_id_subtracted: usize,
+    pub loop_indices_this_ct_is_solved_in: Vec<usize>,
+    pub enabled: bool,
+    #[serde(default = "_default_mc_factor")]
+    pub mc_factor: SectoringRuleMCFactor,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct SectoringRuleMCFactor {
+    pub e_surf_ids_prod_in_num: Vec<(usize, usize)>,
+    pub e_surf_ids_prods_to_sum_in_denom: Vec<Vec<(usize, usize)>>,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -68,6 +107,7 @@ pub struct TriBoxTriCFFSectoredIntegrand {
     pub integrand_settings: TriBoxTriCFFSectoredSettings,
     pub event_manager: EventManager,
     pub sampling_rot: Option<[[isize; 3]; 3]>,
+    pub hard_coded_rules: Vec<SectoringRule>,
 }
 
 #[derive(Debug, Clone)]
@@ -229,6 +269,24 @@ impl TriBoxTriCFFSectoredIntegrand {
         let sg = SuperGraph::from_file(integrand_settings.supergraph_yaml_file.as_str()).unwrap();
         let n_dim = utils::get_n_dim_for_n_loop_momenta(&settings, sg.n_loop, false);
         let event_manager = EventManager::new(true, settings.clone());
+        let hard_coded_rules: Vec<SectoringRule> = if let Some(hard_coded_rules_file) =
+            integrand_settings
+                .threshold_ct_settings
+                .sectoring_settings
+                .hard_coded_rules_file
+                .as_ref()
+        {
+            let f = File::open(&hard_coded_rules_file).unwrap_or_else(|_e| {
+                panic!(
+                    "Could not open hardcoded sectoring rules file {}",
+                    hard_coded_rules_file
+                )
+            });
+            serde_yaml::from_reader(f)
+                .unwrap_or_else(|_e| panic!("Could not parse hardcoded sectoring rules file"))
+        } else {
+            vec![]
+        };
         TriBoxTriCFFSectoredIntegrand {
             settings,
             supergraph: sg,
@@ -236,6 +294,7 @@ impl TriBoxTriCFFSectoredIntegrand {
             integrand_settings,
             event_manager,
             sampling_rot: None,
+            hard_coded_rules,
         }
     }
 
@@ -604,6 +663,16 @@ impl TriBoxTriCFFSectoredIntegrand {
             if !e_surf_cut_found {
                 panic!("Could not find the e-surface corresponding to the cut in the supergraph cff expression");
             }
+            if self.settings.general.debug > 4 {
+                println!(
+                    "{}",
+                    format!(
+                        "  > Found that cut #{} corresponds to E-surface with id {}",
+                        i_cut, sg_cut_e_surf
+                    )
+                    .blue()
+                );
+            }
             cache.cut_caches[i_cut].cut_sg_e_surf_id = sg_cut_e_surf;
 
             // Evaluate kinematics before forcing correct hyperradius
@@ -761,19 +830,25 @@ impl TriBoxTriCFFSectoredIntegrand {
         }
 
         for i_cut in 0..self.supergraph.cuts.len() {
-            if cache.cut_caches[i_cut].sector_signature[i_cut] == CUT_INACTIVE {
-                if self.settings.general.debug > 2 {
-                    println!(
-                        "{}",
-                        format!(
-                            "      > Cut {}: Aborting analysis of this cut as it does not pass its own cut selection.",
-                            i_cut,
-                        )
-                        .red()
-                        .bold()
-                    );
+            if self
+                .integrand_settings
+                .threshold_ct_settings
+                .apply_original_event_selection_to_cts
+            {
+                if cache.cut_caches[i_cut].sector_signature[i_cut] == CUT_INACTIVE {
+                    if self.settings.general.debug > 2 {
+                        println!(
+                            "{}",
+                            format!(
+                                "      > Cut {}: Aborting analysis of this cut as it does not pass its own cut selection.",
+                                i_cut,
+                            )
+                            .red()
+                            .bold()
+                        );
+                    }
+                    continue;
                 }
-                continue;
             }
             let cut = &self.supergraph.cuts[i_cut];
             if self.settings.general.debug > 2 {
@@ -1258,7 +1333,7 @@ impl TriBoxTriCFFSectoredIntegrand {
 
                 subtracted_e_surface.t_scaling =
                     subtracted_e_surface.compute_t_scaling(&loop_momenta_in_e_surf_basis);
-                const _THRESHOLD: f64 = 1.0e-5;
+                const _THRESHOLD: f64 = 1.0e-3;
                 if subtracted_e_surface.t_scaling[MINUS] > T::zero() {
                     if subtracted_e_surface.t_scaling[MINUS]
                         > Into::<T>::into(_THRESHOLD * self.settings.kinematics.e_cm as f64)
@@ -1927,7 +2002,7 @@ impl TriBoxTriCFFSectoredIntegrand {
             }
         }
 
-        if self.settings.general.debug > 4 {
+        if self.settings.general.debug > 5 {
             if all_new_cts.len() > 0 {
                 println!("      > Added the following threshold counterterms:");
                 println!("      =============================================");
@@ -2043,7 +2118,13 @@ impl TriBoxTriCFFSectoredIntegrand {
                 })
                 .collect::<Vec<_>>(),
         );
-        if !self.event_manager.add_event(evt) {
+        let original_event_did_pass_selection = self.event_manager.add_event(evt);
+        if self
+            .integrand_settings
+            .threshold_ct_settings
+            .apply_original_event_selection_to_cts
+            && !original_event_did_pass_selection
+        {
             if self.settings.general.debug > 1 {
                 println!(
                     "{}",
@@ -2406,6 +2487,338 @@ impl TriBoxTriCFFSectoredIntegrand {
                                 );
                             }
 
+                            let loop_indices_solved = if side == LEFT {
+                                &ct.loop_indices_solved.0
+                            } else {
+                                &ct.loop_indices_solved.1
+                            };
+
+                            if self
+                                .integrand_settings
+                                .threshold_ct_settings
+                                .sectoring_settings
+                                .apply_hard_coded_rules
+                            {
+                                let mut keep_this_one_ct = true;
+                                let mut reason_for_this_ct = format!("{}", "");
+                                let mut rule_found = None;
+                                let mut mc_factor = T::one();
+
+                                // First apply anti-observable if requested
+                                for (sig_i_cut, cut_cache) in cache.cut_caches.iter().enumerate() {
+                                    let cut_str = if self.settings.general.debug > 3 {
+                                        format!(
+                                            "{}({})",
+                                            format!("#{}", sig_i_cut).blue(),
+                                            format!(
+                                                "{}",
+                                                self.supergraph.cuts[sig_i_cut]
+                                                    .cut_edge_ids_and_flip
+                                                    .iter()
+                                                    .map(|(id, flip)| if *flip > 0 {
+                                                        format!("+{}", id)
+                                                    } else {
+                                                        format!("-{}", id)
+                                                    })
+                                                    .collect::<Vec<_>>()
+                                                    .join("|")
+                                            )
+                                            .blue()
+                                        )
+                                    } else {
+                                        format!("{}", "")
+                                    };
+                                    if cut_cache.cut_sg_e_surf_id == ct.e_surf_id
+                                        && self
+                                            .integrand_settings
+                                            .threshold_ct_settings
+                                            .sectoring_settings
+                                            .anti_select_threshold_against_observable
+                                    {
+                                        if this_ct_sector_signature[sig_i_cut] == CUT_ACTIVE {
+                                            keep_this_one_ct = false;
+                                            if self.settings.general.debug > 3 {
+                                                reason_for_this_ct = format!("it contains the following cut {} which is the threshold itself and selected by the observable, so anti-selection of threshold kicks in.",
+                                                    cut_str
+                                                );
+                                            }
+                                            break;
+                                        }
+                                    }
+                                }
+                                if keep_this_one_ct {
+                                    // Find a hard-coded rule
+                                    for (i_rule, hc_rule) in
+                                        self.hard_coded_rules.iter().enumerate()
+                                    {
+                                        if hc_rule
+                                            .sector_signature
+                                            .iter()
+                                            .zip(this_ct_sector_signature.iter())
+                                            .all(|(&target_sig, &sig)| {
+                                                sig == target_sig
+                                                    || (target_sig == -2 && sig != CUT_ACTIVE)
+                                            })
+                                        {
+                                            for (i_rule_cut, hc_rule_for_cut) in
+                                                hc_rule.rules_for_cut.iter().enumerate()
+                                            {
+                                                if hc_rule_for_cut.cut_id == i_cut {
+                                                    let i_rule_ct = match hc_rule_for_cut.rules_for_ct.iter().enumerate().find(|(_i_rule_ct, hc_rule_for_cut_and_ct)| {
+                                                    hc_rule_for_cut_and_ct.surf_id_subtracted == ct.e_surf_id && loop_indices_solved.iter().all(|li| hc_rule_for_cut_and_ct.loop_indices_this_ct_is_solved_in.contains(li)) && hc_rule_for_cut_and_ct.loop_indices_this_ct_is_solved_in.iter().all(|li| loop_indices_solved.contains(li))
+                                                }) {
+                                                    Some((i_rule_ct, _hc_rule_for_cut_and_ct)) => i_rule_ct,
+                                                    _ => panic!("   | Could not find hard-coded rule for this CT for E-surface #{} solved in loop indices {:?} and whose signature ({:?}) and cut id ({}) are however specified.",
+                                                        ct.e_surf_id,
+                                                        loop_indices_solved,
+                                                        this_ct_sector_signature,
+                                                        i_cut
+                                                    )
+                                                };
+                                                    if self.settings.general.debug > 3 {
+                                                        println!(
+                                                        "   | cFF Evaluation #{} : CT for {} E-surface {} solved in {} with sector signature {} will be handled by hard-coded rule #{}",
+                                                        format!("{}", i_cff).green(),
+                                                        format!(
+                                                            "{}|{}|{}",
+                                                            if side == LEFT { "L" } else { "R" },
+                                                            if ct.ct_level == AMPLITUDE_LEVEL_CT {
+                                                                "AMP"
+                                                            } else {
+                                                                "SG "
+                                                            },
+                                                            if ct.solution_type == PLUS { "+" } else { "-" }
+                                                        )
+                                                        .purple(),
+                                                        e_surf_str(
+                                                            ct.e_surf_id,
+                                                            &self.supergraph.supergraph_cff.cff_expression.e_surfaces
+                                                                [ct.e_surf_id]
+                                                        )
+                                                        .blue(),
+                                                        format!("[{}x{}]",
+                                                            format!("({:-3})", ct.loop_indices_solved.0.iter().map(|lis| format!("{}", lis)).collect::<Vec<_>>().join(",")),
+                                                            format!("({:-3})", ct.loop_indices_solved.1.iter().map(|lis| format!("{}", lis)).collect::<Vec<_>>().join(",")),
+                                                        ).blue(),
+                                                        format!("{:?}", this_ct_sector_signature).blue(),
+                                                        format!("{}", i_rule).red()
+                                                    );
+                                                    }
+                                                    if rule_found.is_some() {
+                                                        panic!("Multiple hard-coded rules found for a counterterm!");
+                                                    } else {
+                                                        rule_found =
+                                                            Some((i_rule, i_rule_cut, i_rule_ct));
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    if let Some((i_rule, i_rule_cut, i_rule_ct)) = rule_found {
+                                        let hc_rule = &self.hard_coded_rules[i_rule].rules_for_cut
+                                            [i_rule_cut]
+                                            .rules_for_ct[i_rule_ct];
+                                        if self.settings.general.debug > 3 {
+                                            println!(
+                                            "     | Found the hard-coded rule with coordinates ({},{},{}) applying to this counterterm: {:?})",
+                                            i_rule, i_rule_cut, i_rule_ct, hc_rule
+                                        )
+                                        }
+
+                                        if hc_rule.enabled {
+                                            mc_factor = if hc_rule
+                                                .mc_factor
+                                                .e_surf_ids_prod_in_num
+                                                .len()
+                                                > 0
+                                            {
+                                                // let mc_factor_num = hc_rule
+                                                //     .mc_factor
+                                                //     .e_surf_ids_prod_in_num
+                                                //     .iter()
+                                                //     .map(|e_surf_id| {
+                                                //         ct.e_surface_evals[0][*e_surf_id]
+                                                //             .cached_eval()
+                                                //             * ct.e_surface_evals[0][*e_surf_id]
+                                                //                 .cached_eval()
+                                                //     })
+                                                //     .product::<T>();
+                                                let mut mc_factor_num = T::one();
+                                                let mut found_one_factor_in_num = false;
+                                                let check_for_absent_e_surfaces_when_building_mc_factor = self
+                                                    .integrand_settings
+                                                    .threshold_ct_settings
+                                                    .sectoring_settings
+                                                    .check_for_absent_e_surfaces_when_building_mc_factor;
+                                                for (e_surf_id_a, e_surf_id_b) in
+                                                    hc_rule.mc_factor.e_surf_ids_prod_in_num.iter()
+                                                {
+                                                    if check_for_absent_e_surfaces_when_building_mc_factor
+                                                        && (!self
+                                                            .supergraph
+                                                            .supergraph_cff
+                                                            .cff_expression
+                                                            .terms[i_cff]
+                                                            .contains_e_surf_id(*e_surf_id_a)
+                                                            || !self
+                                                                .supergraph
+                                                                .supergraph_cff
+                                                                .cff_expression
+                                                                .terms[i_cff]
+                                                                .contains_e_surf_id(*e_surf_id_b))
+                                                    {
+                                                        continue;
+                                                    }
+                                                    found_one_factor_in_num = true;
+                                                    mc_factor_num *= (ct.e_surface_evals[0]
+                                                        [*e_surf_id_a]
+                                                        .cached_eval()
+                                                        - ct.e_surface_evals[0][*e_surf_id_b]
+                                                            .cached_eval())
+                                                        * (ct.e_surface_evals[0][*e_surf_id_a]
+                                                            .cached_eval()
+                                                            - ct.e_surface_evals[0][*e_surf_id_b]
+                                                                .cached_eval())
+                                                        / Into::<T>::into(
+                                                            self.settings.kinematics.e_cm
+                                                                * self.settings.kinematics.e_cm
+                                                                    as f64,
+                                                        );
+                                                }
+                                                let mut mc_factor_den = T::zero();
+                                                let mut n_terms = 0_usize;
+                                                for term in hc_rule
+                                                    .mc_factor
+                                                    .e_surf_ids_prods_to_sum_in_denom
+                                                    .iter()
+                                                {
+                                                    let mut mc_factor_den_term = T::one();
+                                                    let mut found_one_factor = false;
+                                                    for (e_surf_id_a, e_surf_id_b) in term.iter() {
+                                                        if check_for_absent_e_surfaces_when_building_mc_factor
+                                                            && (!self
+                                                                .supergraph
+                                                                .supergraph_cff
+                                                                .cff_expression
+                                                                .terms[i_cff]
+                                                                .contains_e_surf_id(*e_surf_id_a)
+                                                                || !self
+                                                                    .supergraph
+                                                                    .supergraph_cff
+                                                                    .cff_expression
+                                                                    .terms[i_cff]
+                                                                    .contains_e_surf_id(
+                                                                        *e_surf_id_b,
+                                                                    ))
+                                                        {
+                                                            continue;
+                                                        }
+                                                        found_one_factor = true;
+                                                        mc_factor_den_term *= (ct.e_surface_evals
+                                                            [0][*e_surf_id_a]
+                                                            .cached_eval()
+                                                            - ct.e_surface_evals[0][*e_surf_id_b]
+                                                                .cached_eval())
+                                                            * (ct.e_surface_evals[0][*e_surf_id_a]
+                                                                .cached_eval()
+                                                                - ct.e_surface_evals[0]
+                                                                    [*e_surf_id_b]
+                                                                    .cached_eval())
+                                                            / Into::<T>::into(
+                                                                self.settings.kinematics.e_cm
+                                                                    * self.settings.kinematics.e_cm
+                                                                        as f64,
+                                                            );
+                                                    }
+                                                    if found_one_factor {
+                                                        mc_factor_den += mc_factor_den_term;
+                                                        n_terms += 1;
+                                                    }
+                                                }
+                                                if n_terms > 2 && found_one_factor_in_num {
+                                                    if self.settings.general.debug > 5 {
+                                                        println!("     | E-surface evaluations for the computation of the MC factor specified as {:?}:\n{}",hc_rule.mc_factor,
+                                                            ct.e_surface_evals[0].iter().enumerate().map(|(i,sc)| format!("     |   E-surface #{:-2}: {:+.16e}",i,sc.cached_eval())).collect::<Vec<_>>().join("\n")
+                                                        );
+                                                    }
+                                                    if self.settings.general.debug > 4 {
+                                                        println!("     | MC factor specified as {:?} yielded the following mc_factor weight: {:+.16e}",hc_rule.mc_factor, mc_factor_num / mc_factor_den);
+                                                    }
+                                                } else {
+                                                    if self.settings.general.debug > 4 {
+                                                        println!("     | MC factor specified as {:?} yielded no mc_factor (therefore set to one) since not enough e-surfaces of this factor are present in this cFF term.",hc_rule.mc_factor);
+                                                    }
+                                                }
+                                                if n_terms > 2 && found_one_factor_in_num {
+                                                    mc_factor_num / mc_factor_den
+                                                } else {
+                                                    T::one()
+                                                }
+                                            } else {
+                                                // MC factor is absent then here
+                                                T::one()
+                                            };
+                                            if mc_factor == T::zero() {
+                                                keep_this_one_ct = false;
+                                                if self.settings.general.debug > 3 {
+                                                    reason_for_this_ct = format!("it was found in a hard-coded rule with mc_factor {:?} evaluating to zero.",hc_rule.mc_factor);
+                                                }
+                                            }
+                                        } else {
+                                            keep_this_one_ct = false;
+                                            if self.settings.general.debug > 3 {
+                                                reason_for_this_ct = format!("{}", "it was found to be explicitly disabled in a hard-coded rule.");
+                                            }
+                                        }
+                                    } else {
+                                        if self.settings.general.debug > 3 {
+                                            println!(
+                                            "     | Did not find any hard-coded rule applying to this counterterm with sector signature {:?} within cut #{}",
+                                            this_ct_sector_signature,i_cut
+                                        )
+                                        }
+                                    }
+                                }
+                                if !keep_this_one_ct {
+                                    if self.settings.general.debug > 3 {
+                                        println!(
+                                            "     | cFF Evaluation #{} : Ignoring CT for {} E-surface {} solved in {} with sector signature {} because {}",
+                                            format!("{}", i_cff).green(),
+                                            format!(
+                                                "{}|{}|{}",
+                                                if side == LEFT { "L" } else { "R" },
+                                                if ct.ct_level == AMPLITUDE_LEVEL_CT {
+                                                    "AMP"
+                                                } else {
+                                                    "SG "
+                                                },
+                                                if ct.solution_type == PLUS { "+" } else { "-" }
+                                            )
+                                            .purple(),
+                                            e_surf_str(
+                                                ct.e_surf_id,
+                                                &self.supergraph.supergraph_cff.cff_expression.e_surfaces
+                                                    [ct.e_surf_id]
+                                            )
+                                            .blue(),
+                                            format!("[{}x{}]",
+                                                format!("({:-3})", ct.loop_indices_solved.0.iter().map(|lis| format!("{}", lis)).collect::<Vec<_>>().join(",")),
+                                                format!("({:-3})", ct.loop_indices_solved.1.iter().map(|lis| format!("{}", lis)).collect::<Vec<_>>().join(",")),
+                                            ).blue(),
+                                            format!("{:?}", this_ct_sector_signature).blue(),
+                                            reason_for_this_ct
+                                        );
+                                    }
+                                    continue;
+                                } else {
+                                    if rule_found.is_some() {
+                                        cts[side].push((ct, mc_factor));
+                                        continue;
+                                    }
+                                }
+                            }
+
                             if self
                                 .integrand_settings
                                 .threshold_ct_settings
@@ -2420,7 +2833,84 @@ impl TriBoxTriCFFSectoredIntegrand {
                                             .red()
                                     );
                                 }
-                                cts[side].push(ct);
+                                let mut keep_this_one_ct = true;
+                                let mut reason_for_this_ct = format!("{}", "");
+                                for (sig_i_cut, cut_cache) in cache.cut_caches.iter().enumerate() {
+                                    let cut_str = if self.settings.general.debug > 3 {
+                                        format!(
+                                            "{}({})",
+                                            format!("#{}", sig_i_cut).blue(),
+                                            format!(
+                                                "{}",
+                                                self.supergraph.cuts[sig_i_cut]
+                                                    .cut_edge_ids_and_flip
+                                                    .iter()
+                                                    .map(|(id, flip)| if *flip > 0 {
+                                                        format!("+{}", id)
+                                                    } else {
+                                                        format!("-{}", id)
+                                                    })
+                                                    .collect::<Vec<_>>()
+                                                    .join("|")
+                                            )
+                                            .blue()
+                                        )
+                                    } else {
+                                        format!("{}", "")
+                                    };
+                                    if cut_cache.cut_sg_e_surf_id == ct.e_surf_id
+                                        && self
+                                            .integrand_settings
+                                            .threshold_ct_settings
+                                            .sectoring_settings
+                                            .anti_select_threshold_against_observable
+                                    {
+                                        if this_ct_sector_signature[sig_i_cut] == CUT_ACTIVE {
+                                            keep_this_one_ct = false;
+                                            if self.settings.general.debug > 3 {
+                                                reason_for_this_ct = format!("it contains the following cut {} which is the threshold itself and selected by the observable, so anti-selection of threshold kicks in.",
+                                                    cut_str
+                                                );
+                                            }
+                                            break;
+                                        }
+                                    }
+                                }
+
+                                if keep_this_one_ct {
+                                    cts[side].push((ct, T::one()));
+                                } else {
+                                    if self.settings.general.debug > 3 {
+                                        println!(
+                                            "     | cFF Evaluation #{} : Ignoring CT for {} E-surface {} solved in {} with sector signature {} because {}",
+                                            format!("{}", i_cff).green(),
+                                            format!(
+                                                "{}|{}|{}",
+                                                if side == LEFT { "L" } else { "R" },
+                                                if ct.ct_level == AMPLITUDE_LEVEL_CT {
+                                                    "AMP"
+                                                } else {
+                                                    "SG "
+                                                },
+                                                if ct.solution_type == PLUS { "+" } else { "-" }
+                                            )
+                                            .purple(),
+                                            e_surf_str(
+                                                ct.e_surf_id,
+                                                &self.supergraph.supergraph_cff.cff_expression.e_surfaces
+                                                    [ct.e_surf_id]
+                                            )
+                                            .blue(),
+                                            format!("[{}x{}]",
+                                                format!("({:-3})", ct.loop_indices_solved.0.iter().map(|lis| format!("{}", lis)).collect::<Vec<_>>().join(",")),
+                                                format!("({:-3})", ct.loop_indices_solved.1.iter().map(|lis| format!("{}", lis)).collect::<Vec<_>>().join(",")),
+                                            ).blue(),
+                                            format!("{:?}", this_ct_sector_signature).blue(),
+                                            reason_for_this_ct
+                                        );
+                                    }
+                                }
+
                                 continue;
                             } else if self
                                 .integrand_settings
@@ -2477,11 +2967,6 @@ impl TriBoxTriCFFSectoredIntegrand {
                                         }
                                     }
                                 }
-                                let loop_indices_solved = if side == LEFT {
-                                    &ct.loop_indices_solved.0
-                                } else {
-                                    &ct.loop_indices_solved.1
-                                };
 
                                 let mut loop_indices_available_for_subtraction_in_this_sector =
                                     vec![];
@@ -2719,11 +3204,11 @@ impl TriBoxTriCFFSectoredIntegrand {
                                 }
 
                                 if keep_this_one_ct {
-                                    cts[side].push(ct);
+                                    cts[side].push((ct, T::one()));
                                 } else {
                                     if self.settings.general.debug > 3 {
                                         println!(
-                                            "   > cFF Evaluation #{} : Ignoring CT for {} E-surface {} solved in {} with sector signature {} because {}",
+                                            "     | cFF Evaluation #{} : Ignoring CT for {} E-surface {} solved in {} with sector signature {} because {}",
                                             format!("{}", i_cff).green(),
                                             format!(
                                                 "{}|{}|{}",
@@ -3152,11 +3637,11 @@ impl TriBoxTriCFFSectoredIntegrand {
                                     )
                                 };
                                 if keep_this_ct {
-                                    cts[side].push(ct);
+                                    cts[side].push((ct, T::one()));
                                 } else {
                                     if self.settings.general.debug > 3 {
                                         println!(
-                                            "   > cFF Evaluation #{} : Ignoring CT for {} E-surface {} solved in {} with sector signature {} because {}",
+                                            "     | cFF Evaluation #{} : Ignoring CT for {} E-surface {} solved in {} with sector signature {} because {}",
                                             format!("{}", i_cff).green(),
                                             format!(
                                                 "{}|{}|{}",
@@ -3216,13 +3701,16 @@ impl TriBoxTriCFFSectoredIntegrand {
             {
                 this_cff_term_contribution = T::zero();
             }
+            if !original_event_did_pass_selection {
+                this_cff_term_contribution = T::zero();
+            }
             cff_res[i_cff] += this_cff_term_contribution;
 
             // Now include counterterms
             let mut cts_sum_for_this_term = Complex::new(T::zero(), T::zero());
             for ct_side in [LEFT, RIGHT] {
                 let other_side = if ct_side == LEFT { RIGHT } else { LEFT };
-                for ct in cts[ct_side].iter() {
+                for (ct, ct_mc_factor) in cts[ct_side].iter() {
                     let cff_term = &self.supergraph.supergraph_cff.cff_expression.terms[i_cff];
                     let ct_numerator_wgt =
                         self.evaluate_numerator(&ct.onshell_edges, &cff_term.orientation);
@@ -3242,7 +3730,8 @@ impl TriBoxTriCFFSectoredIntegrand {
                         * ct_cff_eval
                         * ct.e_surf_expanded.inv()
                         * ct.adjusted_sampling_jac
-                        * ct.h_function_wgt;
+                        * ct.h_function_wgt
+                        * ct_mc_factor;
 
                     let mut im_ct_weight = if let Some(i_ct) = &ct.integrated_ct {
                         ct_numerator_wgt
@@ -3251,6 +3740,7 @@ impl TriBoxTriCFFSectoredIntegrand {
                             * i_ct.e_surf_residue
                             * i_ct.adjusted_sampling_jac
                             * i_ct.h_function_wgt
+                            * ct_mc_factor
                     } else {
                         T::zero()
                     };
@@ -3288,7 +3778,7 @@ impl TriBoxTriCFFSectoredIntegrand {
                             }
                         }
                         println!(
-                            "   > cFF Evaluation #{} : CT for {} E-surface {} solved in {} with sector signature {} : {:+.e} + i {:+.e}",
+                            "   > cFF Evaluation #{} : CT for {} E-surface {} solved in {} with sector signature {} {}: {} + i {}",
                             format!("{}", i_cff).green(),
                             format!(
                                 "{}|{}|{}",
@@ -3312,8 +3802,9 @@ impl TriBoxTriCFFSectoredIntegrand {
                                 format!("({:-3})", ct.loop_indices_solved.1.iter().map(|lis| format!("{}", lis)).collect::<Vec<_>>().join(",")),
                             ).blue(),
                             format!("{:?}", this_ct_sector_signature).blue(),
-                            re_ct_weight,
-                            im_ct_weight
+                            format!("and MC factor weight = {:+.16e}",ct_mc_factor),
+                            format!("{:+.e}",re_ct_weight).green(),
+                            format!("{:+.e}",im_ct_weight).green(),
                         );
                     }
 
@@ -3323,11 +3814,11 @@ impl TriBoxTriCFFSectoredIntegrand {
 
             // Now implement the cross terms
             let mut ct_im_squared_weight_for_this_term = T::zero();
-            for left_ct in cts[LEFT].iter() {
+            for (left_ct, left_mc_factor) in cts[LEFT].iter() {
                 if left_ct.ct_level == SUPERGRAPH_LEVEL_CT {
                     continue;
                 }
-                for right_ct in cts[RIGHT].iter() {
+                for (right_ct, right_mc_factor) in cts[RIGHT].iter() {
                     if right_ct.ct_level == SUPERGRAPH_LEVEL_CT {
                         continue;
                     }
@@ -3375,6 +3866,7 @@ impl TriBoxTriCFFSectoredIntegrand {
                             left_i_ct.e_surf_residue
                                 * left_i_ct.adjusted_sampling_jac
                                 * left_i_ct.h_function_wgt
+                                * left_mc_factor
                         } else {
                             T::zero()
                         },
@@ -3388,6 +3880,7 @@ impl TriBoxTriCFFSectoredIntegrand {
                             -right_i_ct.e_surf_residue
                                 * right_i_ct.adjusted_sampling_jac
                                 * right_i_ct.h_function_wgt
+                                * right_mc_factor
                         } else {
                             T::zero()
                         },
@@ -3415,7 +3908,7 @@ impl TriBoxTriCFFSectoredIntegrand {
                     }
                     if self.settings.general.debug > 3 {
                         println!(
-                                "   > cFF Evaluation #{} : CT for {} E-surfaces ({}) x ({}) : {:+.e} + i {:+.e}",
+                                "   > cFF Evaluation #{} : CT for {} E-surfaces ({}) x ({}) {}: {} + i {}",
                                 format!("{}", i_cff).green(),
                                 format!("L|AMP|{} x R|AMP|{}", 
                                     if left_ct.solution_type == PLUS {"+"} else {"-"},
@@ -3429,7 +3922,9 @@ impl TriBoxTriCFFSectoredIntegrand {
                                     right_ct.e_surf_id,
                                     &self.supergraph.supergraph_cff.cff_expression.e_surfaces[right_ct.e_surf_id]
                                 ).blue(),
-                                ct_weight.re, ct_weight.im
+                                format!("and MC factor weights = ({:+.16e}) x ({:+.16e})",left_mc_factor,right_mc_factor),
+                                format!("{:+.e}",ct_weight.re).green(),
+                                format!("{:+.e}",ct_weight.im).green()
                             );
                     }
 
@@ -3600,11 +4095,14 @@ impl TriBoxTriCFFSectoredIntegrand {
         }
 
         // Update the event weight to the result just computed
-        self.event_manager
-            .event_buffer
-            .last_mut()
-            .unwrap()
-            .integrand = Complex::new(cut_res.re.to_f64().unwrap(), cut_res.im.to_f64().unwrap());
+        if original_event_did_pass_selection {
+            self.event_manager
+                .event_buffer
+                .last_mut()
+                .unwrap()
+                .integrand =
+                Complex::new(cut_res.re.to_f64().unwrap(), cut_res.im.to_f64().unwrap());
+        }
         return (
             cut_res,
             cff_cts_sum_contribution,

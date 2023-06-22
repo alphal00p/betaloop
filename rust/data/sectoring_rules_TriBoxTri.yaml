@@ -1,0 +1,72 @@
+# The cut ordering is as follows:
+# | ID   (cut edges   ) : E-surf ID
+# | #0   (-0|+1       ) : #21
+# | #1   (-2|+3       ) : #10
+# | #2   (-0|+4|+6    ) : #19
+# | #3   (+1|-4|-5    ) : #22
+# | #4   (+6|-7|-2    ) : #17
+# | #5   (+3|+7|-5    ) : #11
+# | #6   (-0|+4|+7|+3 ) : #15
+# | #7   (+1|-4|-7|-2 ) : #23
+# | #8   (-5|+6       ) : #18
+# And the loop momenta indices conventions are k=0 (left), m=1 (middle), l=2 (right)
+# If a CT belongs to a sector and cut not matching any rule below, the default behaviour will be applied
+# Convention for the signature of each cut:
+# -2: absent from cFF term OR inactive
+# -1: absent from cFF term
+#  0: present in cFF term but inactive cut (selected away by observable)
+#  1: present in cFF term and active cut (selected by the observable)
+- sector_signature: [1, 1, -2, -2, -2, -2, -2, -2, -2]
+  # Cuts not specified will receive the usual procedure
+  rules_for_cut:
+    - cut_id: 1 # cut (2,3)
+      # *all* CTs that could be generated under the run conditions must be specified here
+      rules_for_ct:
+        - surf_id_subtracted: 18 # (5,6)
+          loop_indices_this_ct_is_solved_in: [0, 2]
+          enabled: false
+          mc_factor:
+            e_surf_ids_prod_in_num: []
+            e_surf_ids_prods_to_sum_in_denom: []
+        - surf_id_subtracted: 18 # (5,6)
+          loop_indices_this_ct_is_solved_in: [2]
+          enabled: true
+          mc_factor:
+            e_surf_ids_prod_in_num: []
+            e_surf_ids_prods_to_sum_in_denom: []
+        - surf_id_subtracted: 22 # (1,4,5)
+          loop_indices_this_ct_is_solved_in: [0, 2]
+          enabled: true
+          mc_factor:
+            e_surf_ids_prod_in_num: []
+            e_surf_ids_prods_to_sum_in_denom: []
+- sector_signature: [1, 1, -2, -2, -2, 1, -2, -2, -2]
+  # Cuts not specified will receive the usual procedure
+  rules_for_cut:
+    - cut_id: 1 # cut (2,3)
+      # *all* CTs that could be generated under the run conditions must be specified here
+      rules_for_ct:
+        - surf_id_subtracted: 18 # (5,6)
+          loop_indices_this_ct_is_solved_in: [0, 2]
+          enabled: true
+          mc_factor: # Should always evaluate to exactly one
+            e_surf_ids_prod_in_num: [[10, 11]]
+            e_surf_ids_prods_to_sum_in_denom: [[[10, 11]], [[10, 18]]]
+        - surf_id_subtracted: 18 # (5,6)
+          loop_indices_this_ct_is_solved_in: [2]
+          enabled: false
+          mc_factor:
+            e_surf_ids_prod_in_num: []
+            e_surf_ids_prods_to_sum_in_denom: []
+        - surf_id_subtracted: 22 # (1,4,5)
+          loop_indices_this_ct_is_solved_in: [0, 2]
+          enabled: true
+          mc_factor:
+            e_surf_ids_prod_in_num: [[10, 11]]
+            e_surf_ids_prods_to_sum_in_denom: [[[10, 11]], [[10, 18]]]
+        - surf_id_subtracted: 22 # (1,4,5)
+          loop_indices_this_ct_is_solved_in: [0]
+          enabled: true
+          mc_factor:
+            e_surf_ids_prod_in_num: [[10, 18]]
+            e_surf_ids_prods_to_sum_in_denom: [[[10, 11]], [[10, 18]]]
