@@ -2736,7 +2736,7 @@ impl TriBoxTriCFFSectoredIntegrand {
                                                         n_terms += 1;
                                                     }
                                                 }
-                                                if n_terms > 2 && found_one_factor_in_num {
+                                                if n_terms > 1 && found_one_factor_in_num {
                                                     if self.settings.general.debug > 5 {
                                                         println!("     | E-surface evaluations for the computation of the MC factor specified as {:?}:\n{}",hc_rule.mc_factor,
                                                             ct.e_surface_evals[0].iter().enumerate().map(|(i,sc)| format!("     |   E-surface #{:-2}: {:+.16e}",i,sc.cached_eval())).collect::<Vec<_>>().join("\n")
@@ -2750,7 +2750,7 @@ impl TriBoxTriCFFSectoredIntegrand {
                                                         println!("     | MC factor specified as {:?} yielded no mc_factor (therefore set to one) since not enough e-surfaces of this factor are present in this cFF term.",hc_rule.mc_factor);
                                                     }
                                                 }
-                                                if n_terms > 2 && found_one_factor_in_num {
+                                                if n_terms > 1 && found_one_factor_in_num {
                                                     mc_factor_num / mc_factor_den
                                                 } else {
                                                     T::one()
