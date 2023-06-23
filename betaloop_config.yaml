@@ -36,6 +36,7 @@ HardCodedIntegrand:
       correlate_event_sector_with_ct_sector: false
       apply_hard_coded_rules: true
       check_for_absent_e_surfaces_when_building_mc_factor: true
+      mc_factor_power: -1.0
       hard_coded_rules_file: ./data/auto_sectoring_rules_TriBoxTri.yaml #./data/sectoring_rules_TriBoxTri.yaml
     local_ct_h_function:
       function: exponential_ct # Options in this case is just exponential_ct

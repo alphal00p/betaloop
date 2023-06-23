@@ -244,6 +244,112 @@ def generate_file(filename):
         # }
         sector_rule = {'sector_signature': list(sig), 'rules_for_cut': []}
 
+        # Soft sectors
+        soft_sector_info = {}
+        if sig[CUT_01] == CUT_ACTIVE and (sig[CUT_145] == CUT_ACTIVE or sig[CUT_046] == CUT_ACTIVE) and sig[CUT_56] == CUT_ACTIVE:
+            soft_sector_info = {
+                'active_VV_cut': CUT_01,
+                'other_VV_cut': CUT_23,
+                'active_RV_cut': CUT_145 if sig[CUT_145] == CUT_ACTIVE else CUT_046,
+            }
+        if sig[CUT_23] == CUT_ACTIVE and (sig[CUT_375] == CUT_ACTIVE or sig[CUT_672] == CUT_ACTIVE) and sig[CUT_56] == CUT_ACTIVE:
+            soft_sector_info = {
+                'active_VV_cut': CUT_23,
+                'other_VV_cut': CUT_01,
+                'active_RV_cut': CUT_375 if sig[CUT_375] == CUT_ACTIVE else CUT_672,
+            }
+
+        if soft_sector_info != {}:
+            # TODO
+            continue
+
+            rules_for_ct = []
+            for intersecting_cut, intersecting_cut_info in THRESHOLD_INTERSECTION_INFO[soft_sector_info['active_VV_cut']].items():
+                for loop_indices in intersecting_cut_info['loop_indices_solved']:
+                    # Anti-observable
+                    if sig[intersecting_cut] == CUT_ACTIVE:
+                        is_enabled = False
+                        mc_factor = NO_MC_FACTOR
+                    else:
+                        is_enabled = True
+                        mc_factor = NO_MC_FACTOR
+                    rules_for_ct.append({
+                        'surf_id_subtracted': E_SURF_MAP[intersecting_cut],
+                        'loop_indices_this_ct_is_solved_in': loop_indices,
+                        'enabled': is_enabled,
+                        'mc_factor': mc_factor
+                    })
+            sector_rule['rules_for_cut'].append({
+                'cut_id': soft_sector_info['active_VV_cut'],
+                'rules_for_ct': rules_for_ct
+            })
+
+            rules_for_ct = []
+            for intersecting_cut, intersecting_cut_info in THRESHOLD_INTERSECTION_INFO[soft_sector_info['active_RV_cut']].items():
+                for loop_indices in intersecting_cut_info['loop_indices_solved']:
+                    # Anti-observable
+                    if sig[intersecting_cut] == CUT_ACTIVE:
+                        is_enabled = False
+                        mc_factor = NO_MC_FACTOR
+                    else:
+                        is_enabled = True
+                        mc_factor = NO_MC_FACTOR
+                    rules_for_ct.append({
+                        'surf_id_subtracted': E_SURF_MAP[intersecting_cut],
+                        'loop_indices_this_ct_is_solved_in': loop_indices,
+                        'enabled': is_enabled,
+                        'mc_factor': mc_factor
+                    })
+            sector_rule['rules_for_cut'].append({
+                'cut_id': soft_sector_info['active_RV_cut'],
+                'rules_for_ct': rules_for_ct
+            })
+
+            rules_for_ct = []
+            for intersecting_cut, intersecting_cut_info in THRESHOLD_INTERSECTION_INFO[CUT_56].items():
+                for loop_indices in intersecting_cut_info['loop_indices_solved']:
+                    # Anti-observable
+                    if sig[intersecting_cut] == CUT_ACTIVE:
+                        is_enabled = False
+                        mc_factor = NO_MC_FACTOR
+                    else:
+                        is_enabled = True
+                        mc_factor = NO_MC_FACTOR
+                    rules_for_ct.append({
+                        'surf_id_subtracted': E_SURF_MAP[intersecting_cut],
+                        'loop_indices_this_ct_is_solved_in': loop_indices,
+                        'enabled': is_enabled,
+                        'mc_factor': mc_factor
+                    })
+            sector_rule['rules_for_cut'].append({
+                'cut_id': CUT_56,
+                'rules_for_ct': rules_for_ct
+            })
+
+            for cut_to_add in [i_s for i_s, s in enumerate(sig) if s == CUT_ACTIVE]:
+                if cut_to_add in [soft_sector_info['active_VV_cut'], soft_sector_info['active_RV_cut'], CUT_56]:
+                    continue
+                rules_for_ct = []
+                for intersecting_cut, intersecting_cut_info in THRESHOLD_INTERSECTION_INFO[cut_to_add].items():
+                    for loop_indices in intersecting_cut_info['loop_indices_solved']:
+                        # Anti-observable
+                        if sig[intersecting_cut] == CUT_ACTIVE:
+                            is_enabled = False
+                            mc_factor = NO_MC_FACTOR
+                        else:
+                            is_enabled = True
+                            mc_factor = NO_MC_FACTOR
+                        rules_for_ct.append({
+                            'surf_id_subtracted': E_SURF_MAP[intersecting_cut],
+                            'loop_indices_this_ct_is_solved_in': loop_indices,
+                            'enabled': is_enabled,
+                            'mc_factor': mc_factor
+                        })
+                sector_rule['rules_for_cut'].append({
+                    'cut_id': cut_to_add,
+                    'rules_for_ct': rules_for_ct
+                })
+
         if sig[CUT_01] == CUT_ACTIVE and (sig[CUT_145] == CUT_ACTIVE or sig[CUT_046] == CUT_ACTIVE) and sig[CUT_56] == CUT_INACTIVE and (sig[CUT_375] == CUT_ACTIVE or sig[CUT_672] == CUT_ACTIVE):
             # TODO handle special "lone56" sector
             continue

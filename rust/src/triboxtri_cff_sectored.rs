@@ -50,6 +50,7 @@ pub struct SectoringSettings {
     pub correlate_event_sector_with_ct_sector: bool,
     pub apply_hard_coded_rules: bool,
     pub check_for_absent_e_surfaces_when_building_mc_factor: bool,
+    pub mc_factor_power: f64, // negative means using min()
     pub hard_coded_rules_file: Option<String>,
 }
 
@@ -143,6 +144,7 @@ pub struct TriBoxTriCFFSectoredComputationCache<T: FloatLike> {
     pub external_momenta: Vec<LorentzVector<T>>,
     pub cut_caches: Vec<TriBoxTriCFFSectoredComputationCachePerCut<T>>,
     pub sector_signature: Vec<isize>,
+    pub sampling_xs: Vec<f64>,
 }
 
 impl<T: FloatLike> TriBoxTriCFFSectoredComputationCache<T> {
@@ -151,6 +153,7 @@ impl<T: FloatLike> TriBoxTriCFFSectoredComputationCache<T> {
             external_momenta: vec![],
             cut_caches: vec![],
             sector_signature: vec![],
+            sampling_xs: vec![],
         }
     }
 }
@@ -1339,14 +1342,14 @@ impl TriBoxTriCFFSectoredIntegrand {
                         > Into::<T>::into(_THRESHOLD * self.settings.kinematics.e_cm as f64)
                     {
                         panic!(
-                            "Unexpected positive t-scaling for negative solution: {:+.e} for e_surf:\n{:?}",
-                            subtracted_e_surface.t_scaling[MINUS], subtracted_e_surface
+                            "Unexpected positive t-scaling for negative solution: {:+.e} arising from sample {:?} and for e_surf:\n{:?}",
+                            subtracted_e_surface.t_scaling[MINUS], cache.sampling_xs, subtracted_e_surface
                         );
                     }
                     if self.settings.general.debug > 0 {
                         println!("{}",format!(
-                            "WARNING:: Unexpected positive t-scaling for negative solution: {:+.e} for e_surf:\n{:?}",
-                            subtracted_e_surface.t_scaling[MINUS],subtracted_e_surface
+                            "WARNING:: Unexpected positive t-scaling for negative solution: {:+.e} arising from sample {:?} and for e_surf:\n{:?}",
+                            subtracted_e_surface.t_scaling[MINUS], cache.sampling_xs,subtracted_e_surface
                         ).bold().red());
                     }
                     subtracted_e_surface.t_scaling[MINUS] =
@@ -1357,14 +1360,14 @@ impl TriBoxTriCFFSectoredIntegrand {
                         < -Into::<T>::into(_THRESHOLD * self.settings.kinematics.e_cm as f64)
                     {
                         panic!(
-                            "Unexpected negative t-scaling for positive solution: {:+.e} for e_surf:\n{:?}",
-                            subtracted_e_surface.t_scaling[PLUS], subtracted_e_surface
+                            "Unexpected negative t-scaling for positive solution: {:+.e} arising from sample {:?} and for e_surf:\n{:?}",
+                            subtracted_e_surface.t_scaling[PLUS], cache.sampling_xs, subtracted_e_surface
                         );
                     }
                     if self.settings.general.debug > 0 {
                         println!("{}",format!(
-                            "WARNING: Unexpected negative t-scaling for positive solution: {:+.e} for e_surf:\n{:?}",
-                            subtracted_e_surface.t_scaling[PLUS],subtracted_e_surface).bold().red()
+                            "WARNING: Unexpected negative t-scaling for positive solution: {:+.e} arising from sample {:?} and for e_surf:\n{:?}",
+                            subtracted_e_surface.t_scaling[PLUS], cache.sampling_xs,subtracted_e_surface).bold().red()
                         );
                     }
                     subtracted_e_surface.t_scaling[PLUS] =
@@ -2648,17 +2651,28 @@ impl TriBoxTriCFFSectoredIntegrand {
                                                 //                 .cached_eval()
                                                 //     })
                                                 //     .product::<T>();
-                                                let mut mc_factor_num = T::one();
-                                                let mut found_one_factor_in_num = false;
+                                                let mc_factor_power = Into::<T>::into(
+                                                    self.integrand_settings
+                                                        .threshold_ct_settings
+                                                        .sectoring_settings
+                                                        .mc_factor_power,
+                                                );
                                                 let check_for_absent_e_surfaces_when_building_mc_factor = self
-                                                    .integrand_settings
-                                                    .threshold_ct_settings
-                                                    .sectoring_settings
-                                                    .check_for_absent_e_surfaces_when_building_mc_factor;
-                                                for (e_surf_id_a, e_surf_id_b) in
-                                                    hc_rule.mc_factor.e_surf_ids_prod_in_num.iter()
-                                                {
-                                                    if check_for_absent_e_surfaces_when_building_mc_factor
+                                                .integrand_settings
+                                                .threshold_ct_settings
+                                                .sectoring_settings
+                                                .check_for_absent_e_surfaces_when_building_mc_factor;
+
+                                                if mc_factor_power > T::zero() {
+                                                    let mut mc_factor_num = T::one();
+                                                    let mut found_one_factor_in_num = false;
+
+                                                    for (e_surf_id_a, e_surf_id_b) in hc_rule
+                                                        .mc_factor
+                                                        .e_surf_ids_prod_in_num
+                                                        .iter()
+                                                    {
+                                                        if check_for_absent_e_surfaces_when_building_mc_factor
                                                         && (!self
                                                             .supergraph
                                                             .supergraph_cff
@@ -2674,33 +2688,33 @@ impl TriBoxTriCFFSectoredIntegrand {
                                                     {
                                                         continue;
                                                     }
-                                                    found_one_factor_in_num = true;
-                                                    mc_factor_num *= (ct.e_surface_evals[0]
-                                                        [*e_surf_id_a]
-                                                        .cached_eval()
-                                                        - ct.e_surface_evals[0][*e_surf_id_b]
-                                                            .cached_eval())
-                                                        * (ct.e_surface_evals[0][*e_surf_id_a]
+                                                        found_one_factor_in_num = true;
+                                                        mc_factor_num *= ((ct.e_surface_evals[0]
+                                                            [*e_surf_id_a]
                                                             .cached_eval()
                                                             - ct.e_surface_evals[0][*e_surf_id_b]
                                                                 .cached_eval())
-                                                        / Into::<T>::into(
-                                                            self.settings.kinematics.e_cm
-                                                                * self.settings.kinematics.e_cm
-                                                                    as f64,
-                                                        );
-                                                }
-                                                let mut mc_factor_den = T::zero();
-                                                let mut n_terms = 0_usize;
-                                                for term in hc_rule
-                                                    .mc_factor
-                                                    .e_surf_ids_prods_to_sum_in_denom
-                                                    .iter()
-                                                {
-                                                    let mut mc_factor_den_term = T::one();
-                                                    let mut found_one_factor = false;
-                                                    for (e_surf_id_a, e_surf_id_b) in term.iter() {
-                                                        if check_for_absent_e_surfaces_when_building_mc_factor
+                                                            / Into::<T>::into(
+                                                                self.settings.kinematics.e_cm
+                                                                    * self.settings.kinematics.e_cm
+                                                                        as f64,
+                                                            ))
+                                                        .abs()
+                                                        .powf(mc_factor_power);
+                                                    }
+                                                    let mut mc_factor_den = T::zero();
+                                                    let mut n_terms = 0_usize;
+                                                    for term in hc_rule
+                                                        .mc_factor
+                                                        .e_surf_ids_prods_to_sum_in_denom
+                                                        .iter()
+                                                    {
+                                                        let mut mc_factor_den_term = T::one();
+                                                        let mut found_one_factor = false;
+                                                        for (e_surf_id_a, e_surf_id_b) in
+                                                            term.iter()
+                                                        {
+                                                            if check_for_absent_e_surfaces_when_building_mc_factor
                                                             && (!self
                                                                 .supergraph
                                                                 .supergraph_cff
@@ -2718,46 +2732,169 @@ impl TriBoxTriCFFSectoredIntegrand {
                                                         {
                                                             continue;
                                                         }
-                                                        found_one_factor = true;
-                                                        mc_factor_den_term *= (ct.e_surface_evals
-                                                            [0][*e_surf_id_a]
-                                                            .cached_eval()
-                                                            - ct.e_surface_evals[0][*e_surf_id_b]
-                                                                .cached_eval())
-                                                            * (ct.e_surface_evals[0][*e_surf_id_a]
+                                                            found_one_factor = true;
+                                                            mc_factor_den_term *= ((ct
+                                                                .e_surface_evals[0][*e_surf_id_a]
                                                                 .cached_eval()
                                                                 - ct.e_surface_evals[0]
                                                                     [*e_surf_id_b]
                                                                     .cached_eval())
-                                                            / Into::<T>::into(
-                                                                self.settings.kinematics.e_cm
-                                                                    * self.settings.kinematics.e_cm
-                                                                        as f64,
-                                                            );
+                                                                / Into::<T>::into(
+                                                                    self.settings.kinematics.e_cm
+                                                                        * self
+                                                                            .settings
+                                                                            .kinematics
+                                                                            .e_cm
+                                                                            as f64,
+                                                                ))
+                                                            .abs()
+                                                            .powf(mc_factor_power);
+                                                        }
+                                                        if found_one_factor {
+                                                            mc_factor_den += mc_factor_den_term;
+                                                            n_terms += 1;
+                                                        }
                                                     }
-                                                    if found_one_factor {
-                                                        mc_factor_den += mc_factor_den_term;
-                                                        n_terms += 1;
-                                                    }
-                                                }
-                                                if n_terms > 1 && found_one_factor_in_num {
-                                                    if self.settings.general.debug > 5 {
-                                                        println!("     | E-surface evaluations for the computation of the MC factor specified as {:?}:\n{}",hc_rule.mc_factor,
+                                                    if n_terms > 1 && found_one_factor_in_num {
+                                                        if self.settings.general.debug > 5 {
+                                                            println!("     | E-surface evaluations for the computation of the MC factor specified as {:?}:\n{}",hc_rule.mc_factor,
                                                             ct.e_surface_evals[0].iter().enumerate().map(|(i,sc)| format!("     |   E-surface #{:-2}: {:+.16e}",i,sc.cached_eval())).collect::<Vec<_>>().join("\n")
                                                         );
+                                                        }
+                                                        if self.settings.general.debug > 4 {
+                                                            println!("     | MC factor specified as {:?} yielded the following mc_factor weight: {:+.16e}",hc_rule.mc_factor, mc_factor_num / mc_factor_den);
+                                                        }
+                                                    } else {
+                                                        if self.settings.general.debug > 4 {
+                                                            println!("     | MC factor specified as {:?} yielded no mc_factor (therefore set to one) since not enough e-surfaces of this factor are present in this cFF term.",hc_rule.mc_factor);
+                                                        }
                                                     }
-                                                    if self.settings.general.debug > 4 {
-                                                        println!("     | MC factor specified as {:?} yielded the following mc_factor weight: {:+.16e}",hc_rule.mc_factor, mc_factor_num / mc_factor_den);
+                                                    if n_terms > 1 && found_one_factor_in_num {
+                                                        mc_factor_num / mc_factor_den
+                                                    } else {
+                                                        T::one()
                                                     }
                                                 } else {
-                                                    if self.settings.general.debug > 4 {
-                                                        println!("     | MC factor specified as {:?} yielded no mc_factor (therefore set to one) since not enough e-surfaces of this factor are present in this cFF term.",hc_rule.mc_factor);
+                                                    // Use the min of e_surf_evals, this only make sense if we're comparing only two entities
+                                                    assert!(
+                                                        hc_rule
+                                                            .mc_factor
+                                                            .e_surf_ids_prods_to_sum_in_denom
+                                                            .len()
+                                                            == 2
+                                                    );
+                                                    let mut min_eval_num = None;
+                                                    for (e_surf_id_a, e_surf_id_b) in hc_rule
+                                                        .mc_factor
+                                                        .e_surf_ids_prod_in_num
+                                                        .iter()
+                                                    {
+                                                        if check_for_absent_e_surfaces_when_building_mc_factor
+                                                        && (!self
+                                                            .supergraph
+                                                            .supergraph_cff
+                                                            .cff_expression
+                                                            .terms[i_cff]
+                                                            .contains_e_surf_id(*e_surf_id_a)
+                                                            || !self
+                                                                .supergraph
+                                                                .supergraph_cff
+                                                                .cff_expression
+                                                                .terms[i_cff]
+                                                                .contains_e_surf_id(*e_surf_id_b))
+                                                    {
+                                                        continue;
                                                     }
-                                                }
-                                                if n_terms > 1 && found_one_factor_in_num {
-                                                    mc_factor_num / mc_factor_den
-                                                } else {
-                                                    T::one()
+                                                        let t = (ct.e_surface_evals[0]
+                                                            [*e_surf_id_a]
+                                                            .cached_eval()
+                                                            - ct.e_surface_evals[0][*e_surf_id_b]
+                                                                .cached_eval())
+                                                        .abs();
+                                                        if let Some(min_eval) = min_eval_num {
+                                                            if t < min_eval {
+                                                                min_eval_num = Some(t);
+                                                            }
+                                                        } else {
+                                                            min_eval_num = Some(t);
+                                                        }
+                                                    }
+
+                                                    if min_eval_num.is_none() {
+                                                        if self.settings.general.debug > 4 {
+                                                            println!("     | MC factor specified as {:?} yielded no mc_factor (therefore set to one) since not enough e-surfaces of this factor are present in this cFF term.",hc_rule.mc_factor);
+                                                        }
+                                                        T::one()
+                                                    } else {
+                                                        let mut min_eval_denom = None;
+                                                        for term in hc_rule
+                                                            .mc_factor
+                                                            .e_surf_ids_prods_to_sum_in_denom
+                                                            .iter()
+                                                        {
+                                                            for (e_surf_id_a, e_surf_id_b) in
+                                                                term.iter()
+                                                            {
+                                                                if check_for_absent_e_surfaces_when_building_mc_factor
+                                                                && (!self
+                                                                    .supergraph
+                                                                    .supergraph_cff
+                                                                    .cff_expression
+                                                                    .terms[i_cff]
+                                                                    .contains_e_surf_id(*e_surf_id_a)
+                                                                    || !self
+                                                                        .supergraph
+                                                                        .supergraph_cff
+                                                                        .cff_expression
+                                                                        .terms[i_cff]
+                                                                        .contains_e_surf_id(
+                                                                            *e_surf_id_b,
+                                                                        ))
+                                                                {
+                                                                    continue;
+                                                                }
+                                                                let t = (ct.e_surface_evals[0]
+                                                                    [*e_surf_id_a]
+                                                                    .cached_eval()
+                                                                    - ct.e_surface_evals[0]
+                                                                        [*e_surf_id_b]
+                                                                        .cached_eval())
+                                                                .abs();
+                                                                if let Some(min_eval) =
+                                                                    min_eval_denom
+                                                                {
+                                                                    if t < min_eval {
+                                                                        min_eval_denom = Some(t);
+                                                                    }
+                                                                } else {
+                                                                    min_eval_denom = Some(t);
+                                                                }
+                                                            }
+                                                        }
+
+                                                        if min_eval_denom.is_none() {
+                                                            if self.settings.general.debug > 4 {
+                                                                println!("     | MC factor specified as {:?} yielded no mc_factor (therefore set to one) since not enough e-surfaces of this factor are present in this cFF term.",hc_rule.mc_factor);
+                                                            }
+                                                            T::one()
+                                                        } else {
+                                                            if self.settings.general.debug > 5 {
+                                                                println!("     | E-surface evaluations for the computation of the MC factor specified as {:?}:\n{}",hc_rule.mc_factor,
+                                                                ct.e_surface_evals[0].iter().enumerate().map(|(i,sc)| format!("     |   E-surface #{:-2}: {:+.16e}",i,sc.cached_eval())).collect::<Vec<_>>().join("\n")
+                                                            );
+                                                            }
+                                                            if self.settings.general.debug > 4 {
+                                                                println!("     | MC factor specified as {:?} yielded the following mc_factor weight: {:+.16e}",hc_rule.mc_factor, min_eval_num.unwrap() / min_eval_denom.unwrap());
+                                                            }
+                                                            if min_eval_denom.unwrap()
+                                                                < min_eval_num.unwrap()
+                                                            {
+                                                                T::one()
+                                                            } else {
+                                                                T::zero()
+                                                            }
+                                                        }
+                                                    }
                                                 }
                                             } else {
                                                 // MC factor is absent then here
@@ -4179,6 +4316,8 @@ impl TriBoxTriCFFSectoredIntegrand {
                     Into::<T>::into(self.integrand_settings.q[3]),
                 ));
         }
+        computational_cache.sampling_xs =
+            xs.iter().map(|x| T::to_f64(x).unwrap()).collect::<Vec<_>>();
 
         let mut final_wgt = Complex::new(T::zero(), T::zero());
         let mut final_wgt_cts = Complex::new(T::zero(), T::zero());
