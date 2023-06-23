@@ -46,11 +46,14 @@
         - - [10, 17]
         - - [10, 18]
       surf_id_subtracted: 19
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [10, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [10, 17]
+        - - [10, 18]
       surf_id_subtracted: 19
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0, 2]
@@ -61,20 +64,20 @@
         - - [10, 17]
         - - [10, 18]
       surf_id_subtracted: 22
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [10, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [10, 17]
+        - - [10, 18]
       surf_id_subtracted: 22
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0, 2]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [10, 17]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [10, 17]
-        - - [10, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 18
     - enabled: false
       loop_indices_this_ct_is_solved_in: [2]
@@ -87,11 +90,8 @@
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [10, 18]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [10, 17]
-        - - [10, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 21
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
@@ -130,11 +130,14 @@
         - - [10, 11]
         - - [10, 18]
       surf_id_subtracted: 19
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [10, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [10, 11]
+        - - [10, 18]
       surf_id_subtracted: 19
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0, 2]
@@ -145,20 +148,20 @@
         - - [10, 11]
         - - [10, 18]
       surf_id_subtracted: 22
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [10, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [10, 11]
+        - - [10, 18]
       surf_id_subtracted: 22
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0, 2]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [10, 11]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [10, 11]
-        - - [10, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 18
     - enabled: false
       loop_indices_this_ct_is_solved_in: [2]
@@ -171,11 +174,8 @@
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [10, 18]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [10, 11]
-        - - [10, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 21
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
@@ -214,11 +214,14 @@
         - - [10, 17]
         - - [10, 18]
       surf_id_subtracted: 19
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [10, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [10, 17]
+        - - [10, 18]
       surf_id_subtracted: 19
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0, 2]
@@ -229,20 +232,20 @@
         - - [10, 17]
         - - [10, 18]
       surf_id_subtracted: 22
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [10, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [10, 17]
+        - - [10, 18]
       surf_id_subtracted: 22
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0, 2]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [10, 17]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [10, 17]
-        - - [10, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 18
     - enabled: false
       loop_indices_this_ct_is_solved_in: [2]
@@ -255,11 +258,8 @@
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [10, 18]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [10, 17]
-        - - [10, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 21
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
@@ -298,11 +298,14 @@
         - - [10, 17]
         - - [10, 18]
       surf_id_subtracted: 19
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [10, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [10, 17]
+        - - [10, 18]
       surf_id_subtracted: 19
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0, 2]
@@ -313,20 +316,20 @@
         - - [10, 17]
         - - [10, 18]
       surf_id_subtracted: 22
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [10, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [10, 17]
+        - - [10, 18]
       surf_id_subtracted: 22
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0, 2]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [10, 17]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [10, 17]
-        - - [10, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 18
     - enabled: false
       loop_indices_this_ct_is_solved_in: [2]
@@ -339,11 +342,8 @@
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [10, 18]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [10, 17]
-        - - [10, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 21
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
@@ -390,11 +390,14 @@
         - - [10, 11]
         - - [10, 18]
       surf_id_subtracted: 19
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [10, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [10, 11]
+        - - [10, 18]
       surf_id_subtracted: 19
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0, 2]
@@ -405,20 +408,20 @@
         - - [10, 11]
         - - [10, 18]
       surf_id_subtracted: 22
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [10, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [10, 11]
+        - - [10, 18]
       surf_id_subtracted: 22
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0, 2]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [10, 11]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [10, 11]
-        - - [10, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 18
     - enabled: false
       loop_indices_this_ct_is_solved_in: [2]
@@ -431,11 +434,8 @@
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [10, 18]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [10, 11]
-        - - [10, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 21
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
@@ -474,11 +474,14 @@
         - - [10, 11]
         - - [10, 18]
       surf_id_subtracted: 19
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [10, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [10, 11]
+        - - [10, 18]
       surf_id_subtracted: 19
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0, 2]
@@ -489,20 +492,20 @@
         - - [10, 11]
         - - [10, 18]
       surf_id_subtracted: 22
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [10, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [10, 11]
+        - - [10, 18]
       surf_id_subtracted: 22
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0, 2]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [10, 11]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [10, 11]
-        - - [10, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 18
     - enabled: false
       loop_indices_this_ct_is_solved_in: [2]
@@ -515,11 +518,8 @@
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [10, 18]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [10, 11]
-        - - [10, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 21
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
@@ -560,11 +560,14 @@
         - - [10, 11]
         - - [10, 18]
       surf_id_subtracted: 19
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [10, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [10, 11]
+        - - [10, 18]
       surf_id_subtracted: 19
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0, 2]
@@ -575,20 +578,20 @@
         - - [10, 11]
         - - [10, 18]
       surf_id_subtracted: 22
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [10, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [10, 11]
+        - - [10, 18]
       surf_id_subtracted: 22
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0, 2]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [10, 11]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [10, 11]
-        - - [10, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 18
     - enabled: false
       loop_indices_this_ct_is_solved_in: [2]
@@ -601,11 +604,8 @@
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [10, 18]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [10, 11]
-        - - [10, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 21
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
@@ -652,11 +652,14 @@
         - - [10, 11]
         - - [10, 18]
       surf_id_subtracted: 19
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [10, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [10, 11]
+        - - [10, 18]
       surf_id_subtracted: 19
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0, 2]
@@ -667,20 +670,20 @@
         - - [10, 11]
         - - [10, 18]
       surf_id_subtracted: 22
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [10, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [10, 11]
+        - - [10, 18]
       surf_id_subtracted: 22
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0, 2]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [10, 11]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [10, 11]
-        - - [10, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 18
     - enabled: false
       loop_indices_this_ct_is_solved_in: [2]
@@ -693,11 +696,8 @@
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [10, 18]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [10, 11]
-        - - [10, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 21
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
@@ -746,11 +746,14 @@
         - - [21, 22]
         - - [21, 18]
       surf_id_subtracted: 17
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [21, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [21, 22]
+        - - [21, 18]
       surf_id_subtracted: 17
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1, 2]
@@ -761,20 +764,20 @@
         - - [21, 22]
         - - [21, 18]
       surf_id_subtracted: 11
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [21, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [21, 22]
+        - - [21, 18]
       surf_id_subtracted: 11
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1, 2]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [21, 22]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [21, 22]
-        - - [21, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 18
     - enabled: false
       loop_indices_this_ct_is_solved_in: [2]
@@ -787,11 +790,8 @@
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [21, 18]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [21, 22]
-        - - [21, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 10
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
@@ -830,11 +830,14 @@
         - - [21, 22]
         - - [21, 18]
       surf_id_subtracted: 17
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [21, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [21, 22]
+        - - [21, 18]
       surf_id_subtracted: 17
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1, 2]
@@ -845,20 +848,20 @@
         - - [21, 22]
         - - [21, 18]
       surf_id_subtracted: 11
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [21, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [21, 22]
+        - - [21, 18]
       surf_id_subtracted: 11
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1, 2]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [21, 22]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [21, 22]
-        - - [21, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 18
     - enabled: false
       loop_indices_this_ct_is_solved_in: [2]
@@ -871,11 +874,8 @@
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [21, 18]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [21, 22]
-        - - [21, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 10
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
@@ -916,11 +916,14 @@
         - - [21, 22]
         - - [21, 18]
       surf_id_subtracted: 17
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [21, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [21, 22]
+        - - [21, 18]
       surf_id_subtracted: 17
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1, 2]
@@ -931,20 +934,20 @@
         - - [21, 22]
         - - [21, 18]
       surf_id_subtracted: 11
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [21, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [21, 22]
+        - - [21, 18]
       surf_id_subtracted: 11
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1, 2]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [21, 22]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [21, 22]
-        - - [21, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 18
     - enabled: false
       loop_indices_this_ct_is_solved_in: [2]
@@ -957,11 +960,8 @@
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [21, 18]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [21, 22]
-        - - [21, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 10
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
@@ -1000,11 +1000,14 @@
         - - [10, 17]
         - - [10, 18]
       surf_id_subtracted: 19
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [10, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [10, 17]
+        - - [10, 18]
       surf_id_subtracted: 19
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0, 2]
@@ -1015,20 +1018,20 @@
         - - [10, 17]
         - - [10, 18]
       surf_id_subtracted: 22
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [10, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [10, 17]
+        - - [10, 18]
       surf_id_subtracted: 22
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0, 2]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [10, 17]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [10, 17]
-        - - [10, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 18
     - enabled: false
       loop_indices_this_ct_is_solved_in: [2]
@@ -1041,11 +1044,8 @@
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [10, 18]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [10, 17]
-        - - [10, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 21
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
@@ -1084,11 +1084,14 @@
         - - [10, 17]
         - - [10, 18]
       surf_id_subtracted: 19
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [10, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [10, 17]
+        - - [10, 18]
       surf_id_subtracted: 19
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0, 2]
@@ -1099,20 +1102,20 @@
         - - [10, 17]
         - - [10, 18]
       surf_id_subtracted: 22
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [10, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [10, 17]
+        - - [10, 18]
       surf_id_subtracted: 22
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0, 2]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [10, 17]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [10, 17]
-        - - [10, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 18
     - enabled: false
       loop_indices_this_ct_is_solved_in: [2]
@@ -1125,11 +1128,8 @@
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [10, 18]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [10, 17]
-        - - [10, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 21
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
@@ -1170,11 +1170,14 @@
         - - [10, 17]
         - - [10, 18]
       surf_id_subtracted: 19
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [10, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [10, 17]
+        - - [10, 18]
       surf_id_subtracted: 19
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0, 2]
@@ -1185,20 +1188,20 @@
         - - [10, 17]
         - - [10, 18]
       surf_id_subtracted: 22
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [10, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [10, 17]
+        - - [10, 18]
       surf_id_subtracted: 22
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0, 2]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [10, 17]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [10, 17]
-        - - [10, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 18
     - enabled: false
       loop_indices_this_ct_is_solved_in: [2]
@@ -1211,11 +1214,8 @@
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [10, 18]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [10, 17]
-        - - [10, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 21
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
@@ -1262,11 +1262,14 @@
         - - [10, 17]
         - - [10, 18]
       surf_id_subtracted: 19
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [10, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [10, 17]
+        - - [10, 18]
       surf_id_subtracted: 19
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0, 2]
@@ -1277,20 +1280,20 @@
         - - [10, 17]
         - - [10, 18]
       surf_id_subtracted: 22
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [10, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [10, 17]
+        - - [10, 18]
       surf_id_subtracted: 22
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0, 2]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [10, 17]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [10, 17]
-        - - [10, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 18
     - enabled: false
       loop_indices_this_ct_is_solved_in: [2]
@@ -1303,11 +1306,8 @@
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [10, 18]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [10, 17]
-        - - [10, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 21
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
@@ -1356,11 +1356,14 @@
         - - [21, 22]
         - - [21, 18]
       surf_id_subtracted: 17
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [21, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [21, 22]
+        - - [21, 18]
       surf_id_subtracted: 17
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1, 2]
@@ -1371,20 +1374,20 @@
         - - [21, 22]
         - - [21, 18]
       surf_id_subtracted: 11
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [21, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [21, 22]
+        - - [21, 18]
       surf_id_subtracted: 11
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1, 2]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [21, 22]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [21, 22]
-        - - [21, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 18
     - enabled: false
       loop_indices_this_ct_is_solved_in: [2]
@@ -1397,11 +1400,8 @@
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [21, 18]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [21, 22]
-        - - [21, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 10
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
@@ -1440,11 +1440,14 @@
         - - [21, 22]
         - - [21, 18]
       surf_id_subtracted: 17
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [21, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [21, 22]
+        - - [21, 18]
       surf_id_subtracted: 17
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1, 2]
@@ -1455,20 +1458,20 @@
         - - [21, 22]
         - - [21, 18]
       surf_id_subtracted: 11
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [21, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [21, 22]
+        - - [21, 18]
       surf_id_subtracted: 11
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1, 2]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [21, 22]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [21, 22]
-        - - [21, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 18
     - enabled: false
       loop_indices_this_ct_is_solved_in: [2]
@@ -1481,11 +1484,8 @@
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [21, 18]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [21, 22]
-        - - [21, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 10
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
@@ -1526,11 +1526,14 @@
         - - [10, 17]
         - - [10, 18]
       surf_id_subtracted: 19
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [10, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [10, 17]
+        - - [10, 18]
       surf_id_subtracted: 19
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0, 2]
@@ -1541,22 +1544,22 @@
         - - [10, 17]
         - - [10, 18]
       surf_id_subtracted: 22
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
-      surf_id_subtracted: 22
-    - enabled: true
-      loop_indices_this_ct_is_solved_in: [0, 2]
-      mc_factor:
         e_surf_ids_prod_in_num:
-        - [10, 17]
+        - [10, 18]
         e_surf_ids_prods_to_sum_in_denom:
         - - [10, 17]
         - - [10, 18]
-      surf_id_subtracted: 18
+      surf_id_subtracted: 22
     - enabled: false
+      loop_indices_this_ct_is_solved_in: [0, 2]
+      mc_factor:
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
+      surf_id_subtracted: 18
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [2]
       mc_factor:
         e_surf_ids_prod_in_num: []
@@ -1567,11 +1570,8 @@
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [10, 18]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [10, 17]
-        - - [10, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 21
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
@@ -1636,11 +1636,14 @@
         - - [10, 17]
         - - [10, 18]
       surf_id_subtracted: 19
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [10, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [10, 17]
+        - - [10, 18]
       surf_id_subtracted: 19
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0, 2]
@@ -1651,22 +1654,22 @@
         - - [10, 17]
         - - [10, 18]
       surf_id_subtracted: 22
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
-      surf_id_subtracted: 22
-    - enabled: true
-      loop_indices_this_ct_is_solved_in: [0, 2]
-      mc_factor:
         e_surf_ids_prod_in_num:
-        - [10, 17]
+        - [10, 18]
         e_surf_ids_prods_to_sum_in_denom:
         - - [10, 17]
         - - [10, 18]
-      surf_id_subtracted: 18
+      surf_id_subtracted: 22
     - enabled: false
+      loop_indices_this_ct_is_solved_in: [0, 2]
+      mc_factor:
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
+      surf_id_subtracted: 18
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [2]
       mc_factor:
         e_surf_ids_prod_in_num: []
@@ -1677,11 +1680,8 @@
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [10, 18]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [10, 17]
-        - - [10, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 21
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
@@ -1748,11 +1748,14 @@
         - - [21, 22]
         - - [21, 18]
       surf_id_subtracted: 17
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [21, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [21, 22]
+        - - [21, 18]
       surf_id_subtracted: 17
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1, 2]
@@ -1763,22 +1766,22 @@
         - - [21, 22]
         - - [21, 18]
       surf_id_subtracted: 11
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
-      surf_id_subtracted: 11
-    - enabled: true
-      loop_indices_this_ct_is_solved_in: [1, 2]
-      mc_factor:
         e_surf_ids_prod_in_num:
-        - [21, 22]
+        - [21, 18]
         e_surf_ids_prods_to_sum_in_denom:
         - - [21, 22]
         - - [21, 18]
-      surf_id_subtracted: 18
+      surf_id_subtracted: 11
     - enabled: false
+      loop_indices_this_ct_is_solved_in: [1, 2]
+      mc_factor:
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
+      surf_id_subtracted: 18
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [2]
       mc_factor:
         e_surf_ids_prod_in_num: []
@@ -1789,11 +1792,8 @@
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [21, 18]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [21, 22]
-        - - [21, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 10
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
@@ -1858,11 +1858,14 @@
         - - [21, 22]
         - - [21, 18]
       surf_id_subtracted: 17
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [21, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [21, 22]
+        - - [21, 18]
       surf_id_subtracted: 17
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1, 2]
@@ -1873,22 +1876,22 @@
         - - [21, 22]
         - - [21, 18]
       surf_id_subtracted: 11
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
-      surf_id_subtracted: 11
-    - enabled: true
-      loop_indices_this_ct_is_solved_in: [1, 2]
-      mc_factor:
         e_surf_ids_prod_in_num:
-        - [21, 22]
+        - [21, 18]
         e_surf_ids_prods_to_sum_in_denom:
         - - [21, 22]
         - - [21, 18]
-      surf_id_subtracted: 18
+      surf_id_subtracted: 11
     - enabled: false
+      loop_indices_this_ct_is_solved_in: [1, 2]
+      mc_factor:
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
+      surf_id_subtracted: 18
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [2]
       mc_factor:
         e_surf_ids_prod_in_num: []
@@ -1899,11 +1902,8 @@
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [21, 18]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [21, 22]
-        - - [21, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 10
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
@@ -1970,11 +1970,14 @@
         - - [10, 17]
         - - [10, 18]
       surf_id_subtracted: 19
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [10, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [10, 17]
+        - - [10, 18]
       surf_id_subtracted: 19
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0, 2]
@@ -1985,20 +1988,20 @@
         - - [10, 17]
         - - [10, 18]
       surf_id_subtracted: 22
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [10, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [10, 17]
+        - - [10, 18]
       surf_id_subtracted: 22
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0, 2]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [10, 17]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [10, 17]
-        - - [10, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 18
     - enabled: false
       loop_indices_this_ct_is_solved_in: [2]
@@ -2011,11 +2014,8 @@
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [10, 18]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [10, 17]
-        - - [10, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 21
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
@@ -2054,11 +2054,14 @@
         - - [10, 17]
         - - [10, 18]
       surf_id_subtracted: 19
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [10, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [10, 17]
+        - - [10, 18]
       surf_id_subtracted: 19
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0, 2]
@@ -2069,20 +2072,20 @@
         - - [10, 17]
         - - [10, 18]
       surf_id_subtracted: 22
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [10, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [10, 17]
+        - - [10, 18]
       surf_id_subtracted: 22
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0, 2]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [10, 17]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [10, 17]
-        - - [10, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 18
     - enabled: false
       loop_indices_this_ct_is_solved_in: [2]
@@ -2095,11 +2098,8 @@
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [10, 18]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [10, 17]
-        - - [10, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 21
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
@@ -2140,11 +2140,14 @@
         - - [10, 17]
         - - [10, 18]
       surf_id_subtracted: 19
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [10, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [10, 17]
+        - - [10, 18]
       surf_id_subtracted: 19
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0, 2]
@@ -2155,20 +2158,20 @@
         - - [10, 17]
         - - [10, 18]
       surf_id_subtracted: 22
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [10, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [10, 17]
+        - - [10, 18]
       surf_id_subtracted: 22
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0, 2]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [10, 17]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [10, 17]
-        - - [10, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 18
     - enabled: false
       loop_indices_this_ct_is_solved_in: [2]
@@ -2181,11 +2184,8 @@
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [10, 18]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [10, 17]
-        - - [10, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 21
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
@@ -2232,11 +2232,14 @@
         - - [10, 17]
         - - [10, 18]
       surf_id_subtracted: 19
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [10, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [10, 17]
+        - - [10, 18]
       surf_id_subtracted: 19
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0, 2]
@@ -2247,20 +2250,20 @@
         - - [10, 17]
         - - [10, 18]
       surf_id_subtracted: 22
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [10, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [10, 17]
+        - - [10, 18]
       surf_id_subtracted: 22
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0, 2]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [10, 17]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [10, 17]
-        - - [10, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 18
     - enabled: false
       loop_indices_this_ct_is_solved_in: [2]
@@ -2273,11 +2276,8 @@
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [10, 18]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [10, 17]
-        - - [10, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 21
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
@@ -2326,11 +2326,14 @@
         - - [10, 11]
         - - [10, 18]
       surf_id_subtracted: 19
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [10, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [10, 11]
+        - - [10, 18]
       surf_id_subtracted: 19
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0, 2]
@@ -2341,20 +2344,20 @@
         - - [10, 11]
         - - [10, 18]
       surf_id_subtracted: 22
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [10, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [10, 11]
+        - - [10, 18]
       surf_id_subtracted: 22
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0, 2]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [10, 11]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [10, 11]
-        - - [10, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 18
     - enabled: false
       loop_indices_this_ct_is_solved_in: [2]
@@ -2367,11 +2370,8 @@
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [10, 18]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [10, 11]
-        - - [10, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 21
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
@@ -2410,11 +2410,14 @@
         - - [10, 11]
         - - [10, 18]
       surf_id_subtracted: 19
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [10, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [10, 11]
+        - - [10, 18]
       surf_id_subtracted: 19
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0, 2]
@@ -2425,20 +2428,20 @@
         - - [10, 11]
         - - [10, 18]
       surf_id_subtracted: 22
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [10, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [10, 11]
+        - - [10, 18]
       surf_id_subtracted: 22
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0, 2]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [10, 11]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [10, 11]
-        - - [10, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 18
     - enabled: false
       loop_indices_this_ct_is_solved_in: [2]
@@ -2451,11 +2454,8 @@
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [10, 18]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [10, 11]
-        - - [10, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 21
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
@@ -2502,11 +2502,14 @@
         - - [21, 22]
         - - [21, 18]
       surf_id_subtracted: 17
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [21, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [21, 22]
+        - - [21, 18]
       surf_id_subtracted: 17
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1, 2]
@@ -2517,20 +2520,20 @@
         - - [21, 22]
         - - [21, 18]
       surf_id_subtracted: 11
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [21, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [21, 22]
+        - - [21, 18]
       surf_id_subtracted: 11
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1, 2]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [21, 22]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [21, 22]
-        - - [21, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 18
     - enabled: false
       loop_indices_this_ct_is_solved_in: [2]
@@ -2543,11 +2546,8 @@
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [21, 18]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [21, 22]
-        - - [21, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 10
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
@@ -2586,11 +2586,14 @@
         - - [10, 11]
         - - [10, 18]
       surf_id_subtracted: 19
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [10, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [10, 11]
+        - - [10, 18]
       surf_id_subtracted: 19
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0, 2]
@@ -2601,22 +2604,22 @@
         - - [10, 11]
         - - [10, 18]
       surf_id_subtracted: 22
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
-      surf_id_subtracted: 22
-    - enabled: true
-      loop_indices_this_ct_is_solved_in: [0, 2]
-      mc_factor:
         e_surf_ids_prod_in_num:
-        - [10, 11]
+        - [10, 18]
         e_surf_ids_prods_to_sum_in_denom:
         - - [10, 11]
         - - [10, 18]
-      surf_id_subtracted: 18
+      surf_id_subtracted: 22
     - enabled: false
+      loop_indices_this_ct_is_solved_in: [0, 2]
+      mc_factor:
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
+      surf_id_subtracted: 18
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [2]
       mc_factor:
         e_surf_ids_prod_in_num: []
@@ -2627,11 +2630,8 @@
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [10, 18]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [10, 11]
-        - - [10, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 21
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
@@ -2696,11 +2696,14 @@
         - - [21, 22]
         - - [21, 18]
       surf_id_subtracted: 17
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [21, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [21, 22]
+        - - [21, 18]
       surf_id_subtracted: 17
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1, 2]
@@ -2711,22 +2714,22 @@
         - - [21, 22]
         - - [21, 18]
       surf_id_subtracted: 11
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
-      surf_id_subtracted: 11
-    - enabled: true
-      loop_indices_this_ct_is_solved_in: [1, 2]
-      mc_factor:
         e_surf_ids_prod_in_num:
-        - [21, 22]
+        - [21, 18]
         e_surf_ids_prods_to_sum_in_denom:
         - - [21, 22]
         - - [21, 18]
-      surf_id_subtracted: 18
+      surf_id_subtracted: 11
     - enabled: false
+      loop_indices_this_ct_is_solved_in: [1, 2]
+      mc_factor:
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
+      surf_id_subtracted: 18
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [2]
       mc_factor:
         e_surf_ids_prod_in_num: []
@@ -2737,11 +2740,8 @@
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [21, 18]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [21, 22]
-        - - [21, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 10
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
@@ -2806,11 +2806,14 @@
         - - [10, 11]
         - - [10, 18]
       surf_id_subtracted: 19
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [10, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [10, 11]
+        - - [10, 18]
       surf_id_subtracted: 19
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0, 2]
@@ -2821,20 +2824,20 @@
         - - [10, 11]
         - - [10, 18]
       surf_id_subtracted: 22
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [10, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [10, 11]
+        - - [10, 18]
       surf_id_subtracted: 22
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0, 2]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [10, 11]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [10, 11]
-        - - [10, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 18
     - enabled: false
       loop_indices_this_ct_is_solved_in: [2]
@@ -2847,11 +2850,8 @@
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [10, 18]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [10, 11]
-        - - [10, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 21
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
@@ -2890,11 +2890,14 @@
         - - [10, 11]
         - - [10, 18]
       surf_id_subtracted: 19
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [10, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [10, 11]
+        - - [10, 18]
       surf_id_subtracted: 19
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0, 2]
@@ -2905,20 +2908,20 @@
         - - [10, 11]
         - - [10, 18]
       surf_id_subtracted: 22
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [10, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [10, 11]
+        - - [10, 18]
       surf_id_subtracted: 22
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0, 2]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [10, 11]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [10, 11]
-        - - [10, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 18
     - enabled: false
       loop_indices_this_ct_is_solved_in: [2]
@@ -2931,11 +2934,8 @@
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [10, 18]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [10, 11]
-        - - [10, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 21
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
@@ -2982,11 +2982,14 @@
         - - [21, 22]
         - - [21, 18]
       surf_id_subtracted: 17
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [21, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [21, 22]
+        - - [21, 18]
       surf_id_subtracted: 17
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1, 2]
@@ -2997,20 +3000,20 @@
         - - [21, 22]
         - - [21, 18]
       surf_id_subtracted: 11
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [21, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [21, 22]
+        - - [21, 18]
       surf_id_subtracted: 11
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1, 2]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [21, 22]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [21, 22]
-        - - [21, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 18
     - enabled: false
       loop_indices_this_ct_is_solved_in: [2]
@@ -3023,11 +3026,8 @@
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [21, 18]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [21, 22]
-        - - [21, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 10
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
@@ -3066,11 +3066,14 @@
         - - [21, 19]
         - - [21, 18]
       surf_id_subtracted: 17
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [21, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [21, 19]
+        - - [21, 18]
       surf_id_subtracted: 17
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1, 2]
@@ -3081,20 +3084,20 @@
         - - [21, 19]
         - - [21, 18]
       surf_id_subtracted: 11
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [21, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [21, 19]
+        - - [21, 18]
       surf_id_subtracted: 11
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1, 2]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [21, 19]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [21, 19]
-        - - [21, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 18
     - enabled: false
       loop_indices_this_ct_is_solved_in: [2]
@@ -3107,11 +3110,8 @@
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [21, 18]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [21, 19]
-        - - [21, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 10
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
@@ -3150,11 +3150,14 @@
         - - [21, 19]
         - - [21, 18]
       surf_id_subtracted: 17
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [21, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [21, 19]
+        - - [21, 18]
       surf_id_subtracted: 17
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1, 2]
@@ -3165,20 +3168,20 @@
         - - [21, 19]
         - - [21, 18]
       surf_id_subtracted: 11
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [21, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [21, 19]
+        - - [21, 18]
       surf_id_subtracted: 11
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1, 2]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [21, 19]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [21, 19]
-        - - [21, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 18
     - enabled: false
       loop_indices_this_ct_is_solved_in: [2]
@@ -3191,11 +3194,8 @@
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [21, 18]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [21, 19]
-        - - [21, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 10
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
@@ -3234,11 +3234,14 @@
         - - [10, 17]
         - - [10, 18]
       surf_id_subtracted: 19
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [10, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [10, 17]
+        - - [10, 18]
       surf_id_subtracted: 19
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0, 2]
@@ -3249,20 +3252,20 @@
         - - [10, 17]
         - - [10, 18]
       surf_id_subtracted: 22
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [10, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [10, 17]
+        - - [10, 18]
       surf_id_subtracted: 22
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0, 2]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [10, 17]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [10, 17]
-        - - [10, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 18
     - enabled: false
       loop_indices_this_ct_is_solved_in: [2]
@@ -3275,11 +3278,8 @@
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [10, 18]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [10, 17]
-        - - [10, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 21
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
@@ -3318,11 +3318,14 @@
         - - [10, 17]
         - - [10, 18]
       surf_id_subtracted: 19
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [10, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [10, 17]
+        - - [10, 18]
       surf_id_subtracted: 19
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0, 2]
@@ -3333,20 +3336,20 @@
         - - [10, 17]
         - - [10, 18]
       surf_id_subtracted: 22
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [10, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [10, 17]
+        - - [10, 18]
       surf_id_subtracted: 22
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0, 2]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [10, 17]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [10, 17]
-        - - [10, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 18
     - enabled: false
       loop_indices_this_ct_is_solved_in: [2]
@@ -3359,11 +3362,8 @@
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [10, 18]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [10, 17]
-        - - [10, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 21
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
@@ -3410,11 +3410,14 @@
         - - [21, 19]
         - - [21, 18]
       surf_id_subtracted: 17
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [21, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [21, 19]
+        - - [21, 18]
       surf_id_subtracted: 17
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1, 2]
@@ -3425,20 +3428,20 @@
         - - [21, 19]
         - - [21, 18]
       surf_id_subtracted: 11
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [21, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [21, 19]
+        - - [21, 18]
       surf_id_subtracted: 11
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1, 2]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [21, 19]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [21, 19]
-        - - [21, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 18
     - enabled: false
       loop_indices_this_ct_is_solved_in: [2]
@@ -3451,11 +3454,8 @@
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [21, 18]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [21, 19]
-        - - [21, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 10
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
@@ -3494,11 +3494,14 @@
         - - [10, 17]
         - - [10, 18]
       surf_id_subtracted: 19
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [10, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [10, 17]
+        - - [10, 18]
       surf_id_subtracted: 19
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0, 2]
@@ -3509,22 +3512,22 @@
         - - [10, 17]
         - - [10, 18]
       surf_id_subtracted: 22
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
-      surf_id_subtracted: 22
-    - enabled: true
-      loop_indices_this_ct_is_solved_in: [0, 2]
-      mc_factor:
         e_surf_ids_prod_in_num:
-        - [10, 17]
+        - [10, 18]
         e_surf_ids_prods_to_sum_in_denom:
         - - [10, 17]
         - - [10, 18]
-      surf_id_subtracted: 18
+      surf_id_subtracted: 22
     - enabled: false
+      loop_indices_this_ct_is_solved_in: [0, 2]
+      mc_factor:
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
+      surf_id_subtracted: 18
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [2]
       mc_factor:
         e_surf_ids_prod_in_num: []
@@ -3535,11 +3538,8 @@
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [10, 18]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [10, 17]
-        - - [10, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 21
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
@@ -3604,11 +3604,14 @@
         - - [21, 19]
         - - [21, 18]
       surf_id_subtracted: 17
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [21, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [21, 19]
+        - - [21, 18]
       surf_id_subtracted: 17
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1, 2]
@@ -3619,22 +3622,22 @@
         - - [21, 19]
         - - [21, 18]
       surf_id_subtracted: 11
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
-      surf_id_subtracted: 11
-    - enabled: true
-      loop_indices_this_ct_is_solved_in: [1, 2]
-      mc_factor:
         e_surf_ids_prod_in_num:
-        - [21, 19]
+        - [21, 18]
         e_surf_ids_prods_to_sum_in_denom:
         - - [21, 19]
         - - [21, 18]
-      surf_id_subtracted: 18
+      surf_id_subtracted: 11
     - enabled: false
+      loop_indices_this_ct_is_solved_in: [1, 2]
+      mc_factor:
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
+      surf_id_subtracted: 18
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [2]
       mc_factor:
         e_surf_ids_prod_in_num: []
@@ -3645,11 +3648,8 @@
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [21, 18]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [21, 19]
-        - - [21, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 10
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
@@ -3714,11 +3714,14 @@
         - - [10, 11]
         - - [10, 18]
       surf_id_subtracted: 19
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [10, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [10, 11]
+        - - [10, 18]
       surf_id_subtracted: 19
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0, 2]
@@ -3729,20 +3732,20 @@
         - - [10, 11]
         - - [10, 18]
       surf_id_subtracted: 22
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [10, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [10, 11]
+        - - [10, 18]
       surf_id_subtracted: 22
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0, 2]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [10, 11]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [10, 11]
-        - - [10, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 18
     - enabled: false
       loop_indices_this_ct_is_solved_in: [2]
@@ -3755,11 +3758,8 @@
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [10, 18]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [10, 11]
-        - - [10, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 21
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
@@ -3798,11 +3798,14 @@
         - - [10, 11]
         - - [10, 18]
       surf_id_subtracted: 19
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [10, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [10, 11]
+        - - [10, 18]
       surf_id_subtracted: 19
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0, 2]
@@ -3813,20 +3816,20 @@
         - - [10, 11]
         - - [10, 18]
       surf_id_subtracted: 22
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [10, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [10, 11]
+        - - [10, 18]
       surf_id_subtracted: 22
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0, 2]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [10, 11]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [10, 11]
-        - - [10, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 18
     - enabled: false
       loop_indices_this_ct_is_solved_in: [2]
@@ -3839,11 +3842,8 @@
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [10, 18]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [10, 11]
-        - - [10, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 21
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
@@ -3884,11 +3884,14 @@
         - - [10, 11]
         - - [10, 18]
       surf_id_subtracted: 19
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [10, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [10, 11]
+        - - [10, 18]
       surf_id_subtracted: 19
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0, 2]
@@ -3899,20 +3902,20 @@
         - - [10, 11]
         - - [10, 18]
       surf_id_subtracted: 22
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [10, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [10, 11]
+        - - [10, 18]
       surf_id_subtracted: 22
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0, 2]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [10, 11]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [10, 11]
-        - - [10, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 18
     - enabled: false
       loop_indices_this_ct_is_solved_in: [2]
@@ -3925,11 +3928,8 @@
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [10, 18]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [10, 11]
-        - - [10, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 21
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
@@ -3976,11 +3976,14 @@
         - - [10, 11]
         - - [10, 18]
       surf_id_subtracted: 19
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [10, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [10, 11]
+        - - [10, 18]
       surf_id_subtracted: 19
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0, 2]
@@ -3991,20 +3994,20 @@
         - - [10, 11]
         - - [10, 18]
       surf_id_subtracted: 22
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [10, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [10, 11]
+        - - [10, 18]
       surf_id_subtracted: 22
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0, 2]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [10, 11]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [10, 11]
-        - - [10, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 18
     - enabled: false
       loop_indices_this_ct_is_solved_in: [2]
@@ -4017,11 +4020,8 @@
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [10, 18]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [10, 11]
-        - - [10, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 21
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
@@ -4070,11 +4070,14 @@
         - - [21, 19]
         - - [21, 18]
       surf_id_subtracted: 17
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [21, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [21, 19]
+        - - [21, 18]
       surf_id_subtracted: 17
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1, 2]
@@ -4085,20 +4088,20 @@
         - - [21, 19]
         - - [21, 18]
       surf_id_subtracted: 11
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [21, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [21, 19]
+        - - [21, 18]
       surf_id_subtracted: 11
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1, 2]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [21, 19]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [21, 19]
-        - - [21, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 18
     - enabled: false
       loop_indices_this_ct_is_solved_in: [2]
@@ -4111,11 +4114,8 @@
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [21, 18]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [21, 19]
-        - - [21, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 10
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
@@ -4154,11 +4154,14 @@
         - - [21, 19]
         - - [21, 18]
       surf_id_subtracted: 17
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [21, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [21, 19]
+        - - [21, 18]
       surf_id_subtracted: 17
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1, 2]
@@ -4169,20 +4172,20 @@
         - - [21, 19]
         - - [21, 18]
       surf_id_subtracted: 11
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [21, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [21, 19]
+        - - [21, 18]
       surf_id_subtracted: 11
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1, 2]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [21, 19]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [21, 19]
-        - - [21, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 18
     - enabled: false
       loop_indices_this_ct_is_solved_in: [2]
@@ -4195,11 +4198,8 @@
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [21, 18]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [21, 19]
-        - - [21, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 10
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
@@ -4240,11 +4240,14 @@
         - - [10, 11]
         - - [10, 18]
       surf_id_subtracted: 19
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [10, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [10, 11]
+        - - [10, 18]
       surf_id_subtracted: 19
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0, 2]
@@ -4255,22 +4258,22 @@
         - - [10, 11]
         - - [10, 18]
       surf_id_subtracted: 22
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
-      surf_id_subtracted: 22
-    - enabled: true
-      loop_indices_this_ct_is_solved_in: [0, 2]
-      mc_factor:
         e_surf_ids_prod_in_num:
-        - [10, 11]
+        - [10, 18]
         e_surf_ids_prods_to_sum_in_denom:
         - - [10, 11]
         - - [10, 18]
-      surf_id_subtracted: 18
+      surf_id_subtracted: 22
     - enabled: false
+      loop_indices_this_ct_is_solved_in: [0, 2]
+      mc_factor:
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
+      surf_id_subtracted: 18
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [2]
       mc_factor:
         e_surf_ids_prod_in_num: []
@@ -4281,11 +4284,8 @@
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [10, 18]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [10, 11]
-        - - [10, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 21
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
@@ -4350,11 +4350,14 @@
         - - [10, 11]
         - - [10, 18]
       surf_id_subtracted: 19
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [10, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [10, 11]
+        - - [10, 18]
       surf_id_subtracted: 19
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0, 2]
@@ -4365,22 +4368,22 @@
         - - [10, 11]
         - - [10, 18]
       surf_id_subtracted: 22
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
-      surf_id_subtracted: 22
-    - enabled: true
-      loop_indices_this_ct_is_solved_in: [0, 2]
-      mc_factor:
         e_surf_ids_prod_in_num:
-        - [10, 11]
+        - [10, 18]
         e_surf_ids_prods_to_sum_in_denom:
         - - [10, 11]
         - - [10, 18]
-      surf_id_subtracted: 18
+      surf_id_subtracted: 22
     - enabled: false
+      loop_indices_this_ct_is_solved_in: [0, 2]
+      mc_factor:
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
+      surf_id_subtracted: 18
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [2]
       mc_factor:
         e_surf_ids_prod_in_num: []
@@ -4391,11 +4394,8 @@
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [10, 18]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [10, 11]
-        - - [10, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 21
     - enabled: true
       loop_indices_this_ct_is_solved_in: [0]
@@ -4462,11 +4462,14 @@
         - - [21, 19]
         - - [21, 18]
       surf_id_subtracted: 17
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [21, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [21, 19]
+        - - [21, 18]
       surf_id_subtracted: 17
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1, 2]
@@ -4477,22 +4480,22 @@
         - - [21, 19]
         - - [21, 18]
       surf_id_subtracted: 11
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
-      surf_id_subtracted: 11
-    - enabled: true
-      loop_indices_this_ct_is_solved_in: [1, 2]
-      mc_factor:
         e_surf_ids_prod_in_num:
-        - [21, 19]
+        - [21, 18]
         e_surf_ids_prods_to_sum_in_denom:
         - - [21, 19]
         - - [21, 18]
-      surf_id_subtracted: 18
+      surf_id_subtracted: 11
     - enabled: false
+      loop_indices_this_ct_is_solved_in: [1, 2]
+      mc_factor:
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
+      surf_id_subtracted: 18
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [2]
       mc_factor:
         e_surf_ids_prod_in_num: []
@@ -4503,11 +4506,8 @@
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [21, 18]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [21, 19]
-        - - [21, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 10
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
@@ -4572,11 +4572,14 @@
         - - [21, 19]
         - - [21, 18]
       surf_id_subtracted: 17
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [21, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [21, 19]
+        - - [21, 18]
       surf_id_subtracted: 17
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1, 2]
@@ -4587,22 +4590,22 @@
         - - [21, 19]
         - - [21, 18]
       surf_id_subtracted: 11
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
-      surf_id_subtracted: 11
-    - enabled: true
-      loop_indices_this_ct_is_solved_in: [1, 2]
-      mc_factor:
         e_surf_ids_prod_in_num:
-        - [21, 19]
+        - [21, 18]
         e_surf_ids_prods_to_sum_in_denom:
         - - [21, 19]
         - - [21, 18]
-      surf_id_subtracted: 18
+      surf_id_subtracted: 11
     - enabled: false
+      loop_indices_this_ct_is_solved_in: [1, 2]
+      mc_factor:
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
+      surf_id_subtracted: 18
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [2]
       mc_factor:
         e_surf_ids_prod_in_num: []
@@ -4613,11 +4616,8 @@
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [21, 18]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [21, 19]
-        - - [21, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 10
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
@@ -4684,11 +4684,14 @@
         - - [21, 19]
         - - [21, 18]
       surf_id_subtracted: 17
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [21, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [21, 19]
+        - - [21, 18]
       surf_id_subtracted: 17
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1, 2]
@@ -4699,20 +4702,20 @@
         - - [21, 19]
         - - [21, 18]
       surf_id_subtracted: 11
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [21, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [21, 19]
+        - - [21, 18]
       surf_id_subtracted: 11
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1, 2]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [21, 19]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [21, 19]
-        - - [21, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 18
     - enabled: false
       loop_indices_this_ct_is_solved_in: [2]
@@ -4725,11 +4728,8 @@
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [21, 18]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [21, 19]
-        - - [21, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 10
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
@@ -4768,11 +4768,14 @@
         - - [21, 19]
         - - [21, 18]
       surf_id_subtracted: 17
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [21, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [21, 19]
+        - - [21, 18]
       surf_id_subtracted: 17
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1, 2]
@@ -4783,20 +4786,20 @@
         - - [21, 19]
         - - [21, 18]
       surf_id_subtracted: 11
-    - enabled: false
+    - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
       mc_factor:
-        e_surf_ids_prod_in_num: []
-        e_surf_ids_prods_to_sum_in_denom: []
+        e_surf_ids_prod_in_num:
+        - [21, 18]
+        e_surf_ids_prods_to_sum_in_denom:
+        - - [21, 19]
+        - - [21, 18]
       surf_id_subtracted: 11
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1, 2]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [21, 19]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [21, 19]
-        - - [21, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 18
     - enabled: false
       loop_indices_this_ct_is_solved_in: [2]
@@ -4809,11 +4812,8 @@
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1]
       mc_factor:
-        e_surf_ids_prod_in_num:
-        - [21, 18]
-        e_surf_ids_prods_to_sum_in_denom:
-        - - [21, 19]
-        - - [21, 18]
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 10
     - enabled: true
       loop_indices_this_ct_is_solved_in: [1]

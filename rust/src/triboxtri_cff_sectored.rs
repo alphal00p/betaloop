@@ -1333,7 +1333,7 @@ impl TriBoxTriCFFSectoredIntegrand {
 
                 subtracted_e_surface.t_scaling =
                     subtracted_e_surface.compute_t_scaling(&loop_momenta_in_e_surf_basis);
-                const _THRESHOLD: f64 = 1.0e-3;
+                const _THRESHOLD: f64 = 1.0e-8;
                 if subtracted_e_surface.t_scaling[MINUS] > T::zero() {
                     if subtracted_e_surface.t_scaling[MINUS]
                         > Into::<T>::into(_THRESHOLD * self.settings.kinematics.e_cm as f64)
@@ -1343,10 +1343,12 @@ impl TriBoxTriCFFSectoredIntegrand {
                             subtracted_e_surface.t_scaling[MINUS], subtracted_e_surface
                         );
                     }
-                    println!("{}",format!(
-                        "WARNING:: Unexpected positive t-scaling for negative solution: {:+.e} for e_surf:\n{:?}",
-                        subtracted_e_surface.t_scaling[MINUS],subtracted_e_surface
-                    ).bold().red());
+                    if self.settings.general.debug > 0 {
+                        println!("{}",format!(
+                            "WARNING:: Unexpected positive t-scaling for negative solution: {:+.e} for e_surf:\n{:?}",
+                            subtracted_e_surface.t_scaling[MINUS],subtracted_e_surface
+                        ).bold().red());
+                    }
                     subtracted_e_surface.t_scaling[MINUS] =
                         -Into::<T>::into(_THRESHOLD * self.settings.kinematics.e_cm as f64);
                 }
@@ -1359,10 +1361,12 @@ impl TriBoxTriCFFSectoredIntegrand {
                             subtracted_e_surface.t_scaling[PLUS], subtracted_e_surface
                         );
                     }
-                    println!("{}",format!(
-                        "WARNING: Unexpected negative t-scaling for positive solution: {:+.e} for e_surf:\n{:?}",
-                        subtracted_e_surface.t_scaling[PLUS],subtracted_e_surface).bold().red()
-                    );
+                    if self.settings.general.debug > 0 {
+                        println!("{}",format!(
+                            "WARNING: Unexpected negative t-scaling for positive solution: {:+.e} for e_surf:\n{:?}",
+                            subtracted_e_surface.t_scaling[PLUS],subtracted_e_surface).bold().red()
+                        );
+                    }
                     subtracted_e_surface.t_scaling[PLUS] =
                         Into::<T>::into(_THRESHOLD * self.settings.kinematics.e_cm as f64);
                 }

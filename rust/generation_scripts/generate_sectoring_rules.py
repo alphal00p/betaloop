@@ -253,11 +253,13 @@ def generate_file(filename):
         if sig[CUT_01] == CUT_ACTIVE and (sig[CUT_145] == CUT_ACTIVE or sig[CUT_046] == CUT_ACTIVE) and sig[CUT_56] == CUT_INACTIVE:
             broken_soft_sector_info = {
                 'active_VV_cut': CUT_01,
+                'other_VV_cut': CUT_23,
                 'active_RV_cut': CUT_145 if sig[CUT_145] == CUT_ACTIVE else CUT_046,
             }
         if sig[CUT_23] == CUT_ACTIVE and (sig[CUT_375] == CUT_ACTIVE or sig[CUT_672] == CUT_ACTIVE) and sig[CUT_56] == CUT_INACTIVE:
             broken_soft_sector_info = {
                 'active_VV_cut': CUT_23,
+                'other_VV_cut': CUT_01,
                 'active_RV_cut': CUT_375 if sig[CUT_375] == CUT_ACTIVE else CUT_672,
             }
         if broken_soft_sector_info != {}:
@@ -268,9 +270,21 @@ def generate_file(filename):
                         continue
                     for loop_indices in intersecting_cut_info['loop_indices_solved']:
                         if cut_to_add == broken_soft_sector_info['active_VV_cut']:
-                            if intersecting_cut == CUT_56 and len(loop_indices) == 1:
-                                is_enabled = False
-                                mc_factor = NO_MC_FACTOR
+                            if intersecting_cut == CUT_56:
+                                if len(loop_indices) == 1:
+                                    if sig[broken_soft_sector_info['other_VV_cut']] == CUT_ACTIVE:
+                                        is_enabled = True
+                                        mc_factor = NO_MC_FACTOR
+                                    else:
+                                        is_enabled = False
+                                        mc_factor = NO_MC_FACTOR
+                                else:
+                                    if sig[broken_soft_sector_info['other_VV_cut']] == CUT_ACTIVE:
+                                        is_enabled = False
+                                        mc_factor = NO_MC_FACTOR
+                                    else:
+                                        is_enabled = True
+                                        mc_factor = NO_MC_FACTOR
                             elif len(loop_indices) == 2:
                                 is_enabled = True
                                 mc_factor = {
@@ -284,7 +298,7 @@ def generate_file(filename):
                                                 E_SURF_MAP[CUT_56]]]
                                         ]
                                 }
-                            elif len(loop_indices) == 1 and len(intersecting_cut_info['edges']) == 2:
+                            elif len(loop_indices) == 1:
                                 is_enabled = True
                                 mc_factor = {
                                     'e_surf_ids_prod_in_num':
@@ -297,26 +311,25 @@ def generate_file(filename):
                                                 E_SURF_MAP[CUT_56]]]
                                         ]
                                 }
-                            elif len(loop_indices) == 1 and len(intersecting_cut_info['edges']) > 2:
-                                is_enabled = False
-                                mc_factor = NO_MC_FACTOR
                         elif cut_to_add == broken_soft_sector_info['active_RV_cut']:
-                            if len(intersecting_cut_info['edges']) > 2:
-                                is_enabled = True
-                                mc_factor = NO_MC_FACTOR
-                            else:
-                                is_enabled = True
-                                mc_factor = {
-                                    'e_surf_ids_prod_in_num':
-                                        [[E_SURF_MAP[broken_soft_sector_info['active_VV_cut']],
-                                            E_SURF_MAP[CUT_56]]],
-                                        'e_surf_ids_prods_to_sum_in_denom': [
-                                            [[E_SURF_MAP[broken_soft_sector_info['active_VV_cut']],
-                                                E_SURF_MAP[broken_soft_sector_info['active_RV_cut']]]],
-                                            [[E_SURF_MAP[broken_soft_sector_info['active_VV_cut']],
-                                                E_SURF_MAP[CUT_56]]]
-                                        ]
-                                }
+                            is_enabled = True
+                            mc_factor = NO_MC_FACTOR
+                            # if len(intersecting_cut_info['edges']) > 2:
+                            #     is_enabled = True
+                            #     mc_factor = NO_MC_FACTOR
+                            # else:
+                            #     is_enabled = True
+                            #     mc_factor = {
+                            #         'e_surf_ids_prod_in_num':
+                            #             [[E_SURF_MAP[broken_soft_sector_info['active_VV_cut']],
+                            #                 E_SURF_MAP[CUT_56]]],
+                            #             'e_surf_ids_prods_to_sum_in_denom': [
+                            #                 [[E_SURF_MAP[broken_soft_sector_info['active_VV_cut']],
+                            #                     E_SURF_MAP[broken_soft_sector_info['active_RV_cut']]]],
+                            #                 [[E_SURF_MAP[broken_soft_sector_info['active_VV_cut']],
+                            #                     E_SURF_MAP[CUT_56]]]
+                            #             ]
+                            #     }
                         elif len(intersecting_cut_info['edges']) == 2:
                             if len(loop_indices) == 1:
                                 is_enabled = False
