@@ -55,9 +55,10 @@ L = 1
 M = 2
 
 
-def intersection_info(specified_info=None):
+def intersection_info(edges, specified_info=None):
     default = {
-        'loop_indices_solved': []
+        'loop_indices_solved': [],
+        'edges': edges
     }
     if specified_info is not None:
         default.update(specified_info)
@@ -66,105 +67,109 @@ def intersection_info(specified_info=None):
 
 THRESHOLD_INTERSECTION_INFO = {
     CUT_01: {
-        CUT_01: intersection_info(),
-        CUT_23: intersection_info({'loop_indices_solved': [[L, M], [L]]}),
-        CUT_046: intersection_info(),
-        CUT_145: intersection_info(),
-        CUT_672: intersection_info({'loop_indices_solved': [[L, M], [L]]}),
-        CUT_375: intersection_info({'loop_indices_solved': [[L, M], [L]]}),
-        CUT_0473: intersection_info(),
-        CUT_1472: intersection_info(),
-        CUT_56: intersection_info({'loop_indices_solved': [[L, M], [M]]}),
+        CUT_01: intersection_info([0, 1]),
+        CUT_23: intersection_info([2, 3], {'loop_indices_solved': [[L, M], [L]]}),
+        CUT_046: intersection_info([0, 4, 6]),
+        CUT_145: intersection_info([1, 4, 5]),
+        CUT_672: intersection_info([6, 7, 2], {'loop_indices_solved': [[L, M], [L]]}),
+        CUT_375: intersection_info([3, 7, 5], {'loop_indices_solved': [[L, M], [L]]}),
+        CUT_0473: intersection_info([0, 4, 7, 3]),
+        CUT_1472: intersection_info([1, 4, 7, 2]),
+        CUT_56: intersection_info([5, 6], {'loop_indices_solved': [[L, M], [M]]}),
     },
     CUT_23: {
-        CUT_01: intersection_info({'loop_indices_solved': [[K, M], [K]]}),
-        CUT_23: intersection_info(),
-        CUT_046: intersection_info({'loop_indices_solved': [[K, M], [K]]}),
-        CUT_145: intersection_info({'loop_indices_solved': [[K, M], [K]]}),
-        CUT_672: intersection_info(),
-        CUT_375: intersection_info(),
-        CUT_0473: intersection_info(),
-        CUT_1472: intersection_info(),
-        CUT_56: intersection_info({'loop_indices_solved': [[K, M], [M]]}),
+        CUT_01: intersection_info([0, 1], {'loop_indices_solved': [[K, M], [K]]}),
+        CUT_23: intersection_info([2, 3]),
+        CUT_046: intersection_info([0, 4, 6], {'loop_indices_solved': [[K, M], [K]]}),
+        CUT_145: intersection_info([1, 4, 5], {'loop_indices_solved': [[K, M], [K]]}),
+        CUT_672: intersection_info([6, 7, 2]),
+        CUT_375: intersection_info([3, 7, 5]),
+        CUT_0473: intersection_info([0, 4, 7, 3]),
+        CUT_1472: intersection_info([1, 4, 7, 2]),
+        CUT_56: intersection_info([5, 6], {'loop_indices_solved': [[K, M], [M]]}),
     },
     CUT_046: {
-        CUT_01: intersection_info(),
-        CUT_23: intersection_info({'loop_indices_solved': [[L]]}),
-        CUT_046: intersection_info(),
-        CUT_145: intersection_info(),
-        CUT_672: intersection_info({'loop_indices_solved': [[L]]}),
-        CUT_375: intersection_info(),
-        CUT_0473: intersection_info(),
-        CUT_1472: intersection_info(),
-        CUT_56: intersection_info(),
+        CUT_01: intersection_info([0, 1]),
+        CUT_23: intersection_info([2, 3], {'loop_indices_solved': [[L]]}),
+        CUT_046: intersection_info([0, 4, 6]),
+        CUT_145: intersection_info([1, 4, 5]),
+        CUT_672: intersection_info([6, 7, 2], {'loop_indices_solved': [[L]]}),
+        CUT_375: intersection_info([3, 7, 5]),
+        CUT_0473: intersection_info([0, 4, 7, 3]),
+        CUT_1472: intersection_info([1, 4, 7, 2]),
+        CUT_56: intersection_info([5, 6]),
     },
     CUT_145: {
-        CUT_01: intersection_info(),
-        CUT_23: intersection_info({'loop_indices_solved': [[L]]}),
-        CUT_046: intersection_info(),
-        CUT_145: intersection_info(),
-        CUT_672: intersection_info(),
-        CUT_375: intersection_info({'loop_indices_solved': [[L]]}),
-        CUT_0473: intersection_info(),
-        CUT_1472: intersection_info(),
-        CUT_56: intersection_info(),
+        CUT_01: intersection_info([0, 1]),
+        CUT_23: intersection_info([2, 3], {'loop_indices_solved': [[L]]}),
+        CUT_046: intersection_info([0, 4, 6]),
+        CUT_145: intersection_info([1, 4, 5]),
+        CUT_672: intersection_info([6, 7, 2]),
+        CUT_375: intersection_info([3, 7, 5], {'loop_indices_solved': [[L]]}),
+        CUT_0473: intersection_info([0, 4, 7, 3]),
+        CUT_1472: intersection_info([1, 4, 7, 2]),
+        CUT_56: intersection_info([5, 6]),
     },
     CUT_672: {
-        CUT_01: intersection_info({'loop_indices_solved': [[K]]}),
-        CUT_23: intersection_info(),
-        CUT_046: intersection_info({'loop_indices_solved': [[K]]}),
-        CUT_145: intersection_info(),
-        CUT_672: intersection_info(),
-        CUT_375: intersection_info(),
-        CUT_0473: intersection_info(),
-        CUT_1472: intersection_info(),
-        CUT_56: intersection_info(),
+        CUT_01: intersection_info([0, 1], {'loop_indices_solved': [[K]]}),
+        CUT_23: intersection_info([2, 3]),
+        CUT_046: intersection_info([0, 4, 6], {'loop_indices_solved': [[K]]}),
+        CUT_145: intersection_info([1, 4, 5]),
+        CUT_672: intersection_info([6, 7, 2]),
+        CUT_375: intersection_info([3, 7, 5]),
+        CUT_0473: intersection_info([0, 4, 7, 3]),
+        CUT_1472: intersection_info([1, 4, 7, 2]),
+        CUT_56: intersection_info([5, 6]),
     },
     CUT_375: {
-        CUT_01: intersection_info({'loop_indices_solved': [[K]]}),
-        CUT_23: intersection_info(),
-        CUT_046: intersection_info(),
-        CUT_145: intersection_info({'loop_indices_solved': [[K]]}),
-        CUT_672: intersection_info(),
-        CUT_375: intersection_info(),
-        CUT_0473: intersection_info(),
-        CUT_1472: intersection_info(),
-        CUT_56: intersection_info(),
+        CUT_01: intersection_info([0, 1], {'loop_indices_solved': [[K]]}),
+        CUT_23: intersection_info([2, 3]),
+        CUT_046: intersection_info([0, 4, 6]),
+        CUT_145: intersection_info([1, 4, 5], {'loop_indices_solved': [[K]]}),
+        CUT_672: intersection_info([6, 7, 2]),
+        CUT_375: intersection_info([3, 7, 5]),
+        CUT_0473: intersection_info([0, 4, 7, 3]),
+        CUT_1472: intersection_info([1, 4, 7, 2]),
+        CUT_56: intersection_info([5, 6]),
     },
     CUT_0473: {
-        CUT_01: intersection_info(),
-        CUT_23: intersection_info(),
-        CUT_046: intersection_info(),
-        CUT_145: intersection_info(),
-        CUT_672: intersection_info(),
-        CUT_375: intersection_info(),
-        CUT_0473: intersection_info(),
-        CUT_1472: intersection_info(),
-        CUT_56: intersection_info(),
+        CUT_01: intersection_info([0, 1],),
+        CUT_23: intersection_info([2, 3]),
+        CUT_046: intersection_info([0, 4, 6]),
+        CUT_145: intersection_info([1, 4, 5]),
+        CUT_672: intersection_info([6, 7, 2]),
+        CUT_375: intersection_info([3, 7, 5]),
+        CUT_0473: intersection_info([0, 4, 7, 3]),
+        CUT_1472: intersection_info([1, 4, 7, 2]),
+        CUT_56: intersection_info([5, 6]),
     },
     CUT_1472: {
-        CUT_01: intersection_info(),
-        CUT_23: intersection_info(),
-        CUT_046: intersection_info(),
-        CUT_145: intersection_info(),
-        CUT_672: intersection_info(),
-        CUT_375: intersection_info(),
-        CUT_0473: intersection_info(),
-        CUT_1472: intersection_info(),
-        CUT_56: intersection_info(),
+        CUT_01: intersection_info([0, 1]),
+        CUT_23: intersection_info([2, 3]),
+        CUT_046: intersection_info([0, 4, 6]),
+        CUT_145: intersection_info([1, 4, 5]),
+        CUT_672: intersection_info([6, 7, 2]),
+        CUT_375: intersection_info([3, 7, 5]),
+        CUT_0473: intersection_info([0, 4, 7, 3]),
+        CUT_1472: intersection_info([0, 4, 7, 3]),
+        CUT_56: intersection_info([5, 6]),
     },
     CUT_56: {
-        CUT_01: intersection_info({'loop_indices_solved': [[K]]}),
-        CUT_23: intersection_info({'loop_indices_solved': [[L]]}),
-        CUT_046: intersection_info(),
-        CUT_145: intersection_info(),
-        CUT_672: intersection_info(),
-        CUT_375: intersection_info(),
-        CUT_0473: intersection_info(),
-        CUT_1472: intersection_info(),
-        CUT_56: intersection_info(),
+        CUT_01: intersection_info([0, 1], {'loop_indices_solved': [[K]]}),
+        CUT_23: intersection_info([2, 3], {'loop_indices_solved': [[L]]}),
+        CUT_046: intersection_info([0, 4, 6]),
+        CUT_145: intersection_info([1, 4, 5]),
+        CUT_672: intersection_info([6, 7, 2]),
+        CUT_375: intersection_info([3, 7, 5]),
+        CUT_0473: intersection_info([0, 4, 7, 3]),
+        CUT_1472: intersection_info([0, 4, 7, 3]),
+        CUT_56: intersection_info([5, 6]),
     },
 }
+
+
+NO_MC_FACTOR = {'e_surf_ids_prod_in_num': [],
+                'e_surf_ids_prods_to_sum_in_denom': []}
 
 
 def does_e_surf_id_exist_in_cff_factor(e_surf_id, factor):
@@ -257,29 +262,71 @@ def generate_file(filename):
             }
         if broken_soft_sector_info != {}:
             for cut_to_add in [broken_soft_sector_info['active_VV_cut'], broken_soft_sector_info['active_RV_cut']]:
-                sector_rule['rules_for_cut'].append({
-                    'cut_id': cut_to_add,
-                    'rules_for_ct': [
-                        {
+                rules_for_ct = []
+                for intersecting_cut, intersecting_cut_info in THRESHOLD_INTERSECTION_INFO[cut_to_add].items():
+                    if len(intersecting_cut_info['loop_indices_solved']) == 0:
+                        continue
+                    for loop_indices in intersecting_cut_info['loop_indices_solved']:
+                        if cut_to_add == broken_soft_sector_info['active_VV_cut']:
+                            if intersecting_cut == CUT_56 and len(loop_indices) == 1:
+                                is_enabled = False
+                                mc_factor = NO_MC_FACTOR
+                            elif len(loop_indices) == 2:
+                                is_enabled = True
+                                mc_factor = {
+                                    'e_surf_ids_prod_in_num':
+                                        [[E_SURF_MAP[broken_soft_sector_info['active_VV_cut']],
+                                            E_SURF_MAP[broken_soft_sector_info['active_RV_cut']]]],
+                                        'e_surf_ids_prods_to_sum_in_denom': [
+                                            [[E_SURF_MAP[broken_soft_sector_info['active_VV_cut']],
+                                                E_SURF_MAP[broken_soft_sector_info['active_RV_cut']]]],
+                                            [[E_SURF_MAP[broken_soft_sector_info['active_VV_cut']],
+                                                E_SURF_MAP[CUT_56]]]
+                                        ]
+                                }
+                            elif len(loop_indices) == 1 and len(intersecting_cut_info['edges']) == 2:
+                                is_enabled = True
+                                mc_factor = {
+                                    'e_surf_ids_prod_in_num':
+                                        [[E_SURF_MAP[broken_soft_sector_info['active_VV_cut']],
+                                            E_SURF_MAP[CUT_56]]],
+                                        'e_surf_ids_prods_to_sum_in_denom': [
+                                            [[E_SURF_MAP[broken_soft_sector_info['active_VV_cut']],
+                                                E_SURF_MAP[broken_soft_sector_info['active_RV_cut']]]],
+                                            [[E_SURF_MAP[broken_soft_sector_info['active_VV_cut']],
+                                                E_SURF_MAP[CUT_56]]]
+                                        ]
+                                }
+                            elif len(loop_indices) == 1 and len(intersecting_cut_info['edges']) > 2:
+                                is_enabled = False
+                                mc_factor = NO_MC_FACTOR
+                        elif cut_to_add == broken_soft_sector_info['active_RV_cut']:
+                            if len(intersecting_cut_info['edges']) > 2:
+                                is_enabled = True
+                                mc_factor = NO_MC_FACTOR
+                            else:
+                                is_enabled = True
+                                mc_factor = {
+                                    'e_surf_ids_prod_in_num':
+                                        [[E_SURF_MAP[broken_soft_sector_info['active_VV_cut']],
+                                            E_SURF_MAP[CUT_56]]],
+                                        'e_surf_ids_prods_to_sum_in_denom': [
+                                            [[E_SURF_MAP[broken_soft_sector_info['active_VV_cut']],
+                                                E_SURF_MAP[broken_soft_sector_info['active_RV_cut']]]],
+                                            [[E_SURF_MAP[broken_soft_sector_info['active_VV_cut']],
+                                                E_SURF_MAP[CUT_56]]]
+                                        ]
+                                }
+
+                        rules_for_ct.append({
                             'surf_id_subtracted': E_SURF_MAP[intersecting_cut],
                             'loop_indices_this_ct_is_solved_in': loop_indices,
-                            'enabled': (intersecting_cut != CUT_56 or len(loop_indices) == 2),
-                            'mc_factor': {
-                                'e_surf_ids_prod_in_num':
-                                [[E_SURF_MAP[broken_soft_sector_info['active_VV_cut']],
-                                    E_SURF_MAP[broken_soft_sector_info['active_RV_cut']]]] if (len(loop_indices) == 2 or intersecting_cut == CUT_56) else
-                                [[E_SURF_MAP[broken_soft_sector_info['active_VV_cut']],
-                                    E_SURF_MAP[CUT_56]]],
-                                'e_surf_ids_prods_to_sum_in_denom': [
-                                    [[E_SURF_MAP[broken_soft_sector_info['active_VV_cut']],
-                                        E_SURF_MAP[broken_soft_sector_info['active_RV_cut']]]],
-                                    [[E_SURF_MAP[broken_soft_sector_info['active_VV_cut']],
-                                        E_SURF_MAP[CUT_56]]]
-                                ]
-                            }
-                        }
-                        for intersecting_cut, intersecting_cut_info in THRESHOLD_INTERSECTION_INFO[cut_to_add].items() if len(intersecting_cut_info['loop_indices_solved']) > 0 for loop_indices in intersecting_cut_info['loop_indices_solved']
-                    ]
+                            'enabled': is_enabled,
+                            'mc_factor': mc_factor
+                        })
+                sector_rule['rules_for_cut'].append({
+                    'cut_id': cut_to_add,
+                    'rules_for_ct': rules_for_ct
                 })
             rules.append(sector_rule)
             continue
