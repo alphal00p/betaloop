@@ -261,7 +261,7 @@ def generate_file(filename):
                 'active_RV_cut': CUT_375 if sig[CUT_375] == CUT_ACTIVE else CUT_672,
             }
         if broken_soft_sector_info != {}:
-            for cut_to_add in [broken_soft_sector_info['active_VV_cut'], broken_soft_sector_info['active_RV_cut']]:
+            for cut_to_add in [broken_soft_sector_info['active_VV_cut'], broken_soft_sector_info['active_RV_cut']]+[i_s for i_s, s in enumerate(sig) if s == CUT_ACTIVE if i_s not in [broken_soft_sector_info['active_VV_cut'], broken_soft_sector_info['active_RV_cut']]]:
                 rules_for_ct = []
                 for intersecting_cut, intersecting_cut_info in THRESHOLD_INTERSECTION_INFO[cut_to_add].items():
                     if len(intersecting_cut_info['loop_indices_solved']) == 0:
@@ -317,6 +317,16 @@ def generate_file(filename):
                                                 E_SURF_MAP[CUT_56]]]
                                         ]
                                 }
+                        elif len(intersecting_cut_info['edges']) == 2:
+                            if len(loop_indices) == 1:
+                                is_enabled = False
+                                mc_factor = NO_MC_FACTOR
+                            elif len(loop_indices) > 1:
+                                is_enabled = True
+                                mc_factor = NO_MC_FACTOR
+                        else:
+                            # Use default behaviour for other non-two-loop cuts
+                            continue
 
                         rules_for_ct.append({
                             'surf_id_subtracted': E_SURF_MAP[intersecting_cut],

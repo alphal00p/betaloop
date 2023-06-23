@@ -351,6 +351,14 @@
         e_surf_ids_prod_in_num: []
         e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 19
+  - cut_id: 2
+    rules_for_ct:
+    - enabled: false
+      loop_indices_this_ct_is_solved_in: [1]
+      mc_factor:
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
+      surf_id_subtracted: 10
   sector_signature: [-1, 1, 1, -1, 1, -1, -1, -1, 0]
 - rules_for_cut:
   - cut_id: 1
@@ -519,6 +527,8 @@
         e_surf_ids_prod_in_num: []
         e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 22
+  - cut_id: 6
+    rules_for_ct: []
   sector_signature: [-1, 1, 0, -1, -1, 1, 1, -1, 0]
 - rules_for_cut:
   - cut_id: 1
@@ -603,6 +613,14 @@
         e_surf_ids_prod_in_num: []
         e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 22
+  - cut_id: 2
+    rules_for_ct:
+    - enabled: false
+      loop_indices_this_ct_is_solved_in: [1]
+      mc_factor:
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
+      surf_id_subtracted: 10
   sector_signature: [-1, 1, 1, -1, -1, 1, 0, -1, 0]
 - rules_for_cut:
   - cut_id: 1
@@ -687,6 +705,16 @@
         e_surf_ids_prod_in_num: []
         e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 22
+  - cut_id: 2
+    rules_for_ct:
+    - enabled: false
+      loop_indices_this_ct_is_solved_in: [1]
+      mc_factor:
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
+      surf_id_subtracted: 10
+  - cut_id: 6
+    rules_for_ct: []
   sector_signature: [-1, 1, 1, -1, -1, 1, 1, -1, 0]
 - rules_for_cut:
   - cut_id: 0
@@ -855,6 +883,8 @@
         e_surf_ids_prod_in_num: []
         e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 11
+  - cut_id: 7
+    rules_for_ct: []
   sector_signature: [1, -1, -1, 1, 0, -1, -1, 1, 0]
 - rules_for_cut:
   - cut_id: 0
@@ -1107,6 +1137,8 @@
         e_surf_ids_prod_in_num: []
         e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 19
+  - cut_id: 7
+    rules_for_ct: []
   sector_signature: [0, 1, -1, 0, 1, -1, -1, 1, 0]
 - rules_for_cut:
   - cut_id: 1
@@ -1191,6 +1223,14 @@
         e_surf_ids_prod_in_num: []
         e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 19
+  - cut_id: 3
+    rules_for_ct:
+    - enabled: false
+      loop_indices_this_ct_is_solved_in: [1]
+      mc_factor:
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
+      surf_id_subtracted: 10
   sector_signature: [0, 1, -1, 1, 1, -1, -1, 0, 0]
 - rules_for_cut:
   - cut_id: 1
@@ -1275,6 +1315,16 @@
         e_surf_ids_prod_in_num: []
         e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 19
+  - cut_id: 3
+    rules_for_ct:
+    - enabled: false
+      loop_indices_this_ct_is_solved_in: [1]
+      mc_factor:
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
+      surf_id_subtracted: 10
+  - cut_id: 7
+    rules_for_ct: []
   sector_signature: [0, 1, -1, 1, 1, -1, -1, 1, 0]
 - rules_for_cut:
   - cut_id: 0
@@ -1443,6 +1493,8 @@
         e_surf_ids_prod_in_num: []
         e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 11
+  - cut_id: 7
+    rules_for_ct: []
   sector_signature: [1, 0, -1, 1, 0, -1, -1, 1, 0]
 - rules_for_cut:
   - cut_id: 1
@@ -1527,6 +1579,32 @@
         e_surf_ids_prod_in_num: []
         e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 19
+  - cut_id: 0
+    rules_for_ct:
+    - enabled: true
+      loop_indices_this_ct_is_solved_in: [1, 2]
+      mc_factor:
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
+      surf_id_subtracted: 10
+    - enabled: false
+      loop_indices_this_ct_is_solved_in: [1]
+      mc_factor:
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
+      surf_id_subtracted: 10
+    - enabled: true
+      loop_indices_this_ct_is_solved_in: [1, 2]
+      mc_factor:
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
+      surf_id_subtracted: 18
+    - enabled: false
+      loop_indices_this_ct_is_solved_in: [2]
+      mc_factor:
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
+      surf_id_subtracted: 18
   sector_signature: [1, 1, -1, 0, 1, -1, -1, 0, 0]
 - rules_for_cut:
   - cut_id: 1
@@ -1611,6 +1689,34 @@
         e_surf_ids_prod_in_num: []
         e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 19
+  - cut_id: 0
+    rules_for_ct:
+    - enabled: true
+      loop_indices_this_ct_is_solved_in: [1, 2]
+      mc_factor:
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
+      surf_id_subtracted: 10
+    - enabled: false
+      loop_indices_this_ct_is_solved_in: [1]
+      mc_factor:
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
+      surf_id_subtracted: 10
+    - enabled: true
+      loop_indices_this_ct_is_solved_in: [1, 2]
+      mc_factor:
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
+      surf_id_subtracted: 18
+    - enabled: false
+      loop_indices_this_ct_is_solved_in: [2]
+      mc_factor:
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
+      surf_id_subtracted: 18
+  - cut_id: 7
+    rules_for_ct: []
   sector_signature: [1, 1, -1, 0, 1, -1, -1, 1, 0]
 - rules_for_cut:
   - cut_id: 0
@@ -1695,6 +1801,32 @@
         e_surf_ids_prod_in_num: []
         e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 11
+  - cut_id: 1
+    rules_for_ct:
+    - enabled: true
+      loop_indices_this_ct_is_solved_in: [0, 2]
+      mc_factor:
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
+      surf_id_subtracted: 21
+    - enabled: false
+      loop_indices_this_ct_is_solved_in: [0]
+      mc_factor:
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
+      surf_id_subtracted: 21
+    - enabled: true
+      loop_indices_this_ct_is_solved_in: [0, 2]
+      mc_factor:
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
+      surf_id_subtracted: 18
+    - enabled: false
+      loop_indices_this_ct_is_solved_in: [2]
+      mc_factor:
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
+      surf_id_subtracted: 18
   sector_signature: [1, 1, -1, 1, 0, -1, -1, 0, 0]
 - rules_for_cut:
   - cut_id: 0
@@ -1779,6 +1911,34 @@
         e_surf_ids_prod_in_num: []
         e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 11
+  - cut_id: 1
+    rules_for_ct:
+    - enabled: true
+      loop_indices_this_ct_is_solved_in: [0, 2]
+      mc_factor:
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
+      surf_id_subtracted: 21
+    - enabled: false
+      loop_indices_this_ct_is_solved_in: [0]
+      mc_factor:
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
+      surf_id_subtracted: 21
+    - enabled: true
+      loop_indices_this_ct_is_solved_in: [0, 2]
+      mc_factor:
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
+      surf_id_subtracted: 18
+    - enabled: false
+      loop_indices_this_ct_is_solved_in: [2]
+      mc_factor:
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
+      surf_id_subtracted: 18
+  - cut_id: 7
+    rules_for_ct: []
   sector_signature: [1, 1, -1, 1, 0, -1, -1, 1, 0]
 - rules_for_cut:
   - cut_id: 1
@@ -1947,6 +2107,8 @@
         e_surf_ids_prod_in_num: []
         e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 19
+  - cut_id: 7
+    rules_for_ct: []
   sector_signature: [-1, 1, -1, 0, 1, -1, -1, 1, 0]
 - rules_for_cut:
   - cut_id: 1
@@ -2031,6 +2193,14 @@
         e_surf_ids_prod_in_num: []
         e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 19
+  - cut_id: 3
+    rules_for_ct:
+    - enabled: false
+      loop_indices_this_ct_is_solved_in: [1]
+      mc_factor:
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
+      surf_id_subtracted: 10
   sector_signature: [-1, 1, -1, 1, 1, -1, -1, 0, 0]
 - rules_for_cut:
   - cut_id: 1
@@ -2115,6 +2285,16 @@
         e_surf_ids_prod_in_num: []
         e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 19
+  - cut_id: 3
+    rules_for_ct:
+    - enabled: false
+      loop_indices_this_ct_is_solved_in: [1]
+      mc_factor:
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
+      surf_id_subtracted: 10
+  - cut_id: 7
+    rules_for_ct: []
   sector_signature: [-1, 1, -1, 1, 1, -1, -1, 1, 0]
 - rules_for_cut:
   - cut_id: 1
@@ -2283,6 +2463,14 @@
         e_surf_ids_prod_in_num: []
         e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 22
+  - cut_id: 3
+    rules_for_ct:
+    - enabled: false
+      loop_indices_this_ct_is_solved_in: [1]
+      mc_factor:
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
+      surf_id_subtracted: 10
   sector_signature: [0, 1, -1, 1, -1, 1, -1, -1, 0]
 - rules_for_cut:
   - cut_id: 0
@@ -2451,6 +2639,32 @@
         e_surf_ids_prod_in_num: []
         e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 22
+  - cut_id: 0
+    rules_for_ct:
+    - enabled: true
+      loop_indices_this_ct_is_solved_in: [1, 2]
+      mc_factor:
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
+      surf_id_subtracted: 10
+    - enabled: false
+      loop_indices_this_ct_is_solved_in: [1]
+      mc_factor:
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
+      surf_id_subtracted: 10
+    - enabled: true
+      loop_indices_this_ct_is_solved_in: [1, 2]
+      mc_factor:
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
+      surf_id_subtracted: 18
+    - enabled: false
+      loop_indices_this_ct_is_solved_in: [2]
+      mc_factor:
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
+      surf_id_subtracted: 18
   sector_signature: [1, 1, -1, 0, -1, 1, -1, -1, 0]
 - rules_for_cut:
   - cut_id: 0
@@ -2535,6 +2749,32 @@
         e_surf_ids_prod_in_num: []
         e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 11
+  - cut_id: 1
+    rules_for_ct:
+    - enabled: true
+      loop_indices_this_ct_is_solved_in: [0, 2]
+      mc_factor:
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
+      surf_id_subtracted: 21
+    - enabled: false
+      loop_indices_this_ct_is_solved_in: [0]
+      mc_factor:
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
+      surf_id_subtracted: 21
+    - enabled: true
+      loop_indices_this_ct_is_solved_in: [0, 2]
+      mc_factor:
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
+      surf_id_subtracted: 18
+    - enabled: false
+      loop_indices_this_ct_is_solved_in: [2]
+      mc_factor:
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
+      surf_id_subtracted: 18
   sector_signature: [1, 1, -1, 1, -1, 0, -1, -1, 0]
 - rules_for_cut:
   - cut_id: 1
@@ -2703,6 +2943,14 @@
         e_surf_ids_prod_in_num: []
         e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 22
+  - cut_id: 3
+    rules_for_ct:
+    - enabled: false
+      loop_indices_this_ct_is_solved_in: [1]
+      mc_factor:
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
+      surf_id_subtracted: 10
   sector_signature: [-1, 1, -1, 1, -1, 1, -1, -1, 0]
 - rules_for_cut:
   - cut_id: 0
@@ -3123,6 +3371,14 @@
         e_surf_ids_prod_in_num: []
         e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 19
+  - cut_id: 2
+    rules_for_ct:
+    - enabled: false
+      loop_indices_this_ct_is_solved_in: [1]
+      mc_factor:
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
+      surf_id_subtracted: 10
   sector_signature: [0, 1, 1, -1, 1, -1, -1, -1, 0]
 - rules_for_cut:
   - cut_id: 0
@@ -3291,6 +3547,32 @@
         e_surf_ids_prod_in_num: []
         e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 19
+  - cut_id: 0
+    rules_for_ct:
+    - enabled: true
+      loop_indices_this_ct_is_solved_in: [1, 2]
+      mc_factor:
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
+      surf_id_subtracted: 10
+    - enabled: false
+      loop_indices_this_ct_is_solved_in: [1]
+      mc_factor:
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
+      surf_id_subtracted: 10
+    - enabled: true
+      loop_indices_this_ct_is_solved_in: [1, 2]
+      mc_factor:
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
+      surf_id_subtracted: 18
+    - enabled: false
+      loop_indices_this_ct_is_solved_in: [2]
+      mc_factor:
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
+      surf_id_subtracted: 18
   sector_signature: [1, 1, 0, -1, 1, -1, -1, -1, 0]
 - rules_for_cut:
   - cut_id: 0
@@ -3375,6 +3657,32 @@
         e_surf_ids_prod_in_num: []
         e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 17
+  - cut_id: 1
+    rules_for_ct:
+    - enabled: true
+      loop_indices_this_ct_is_solved_in: [0, 2]
+      mc_factor:
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
+      surf_id_subtracted: 21
+    - enabled: false
+      loop_indices_this_ct_is_solved_in: [0]
+      mc_factor:
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
+      surf_id_subtracted: 21
+    - enabled: true
+      loop_indices_this_ct_is_solved_in: [0, 2]
+      mc_factor:
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
+      surf_id_subtracted: 18
+    - enabled: false
+      loop_indices_this_ct_is_solved_in: [2]
+      mc_factor:
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
+      surf_id_subtracted: 18
   sector_signature: [1, 1, 1, -1, 0, -1, -1, -1, 0]
 - rules_for_cut:
   - cut_id: 1
@@ -3543,6 +3851,8 @@
         e_surf_ids_prod_in_num: []
         e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 22
+  - cut_id: 6
+    rules_for_ct: []
   sector_signature: [0, 1, 0, -1, -1, 1, 1, -1, 0]
 - rules_for_cut:
   - cut_id: 1
@@ -3627,6 +3937,14 @@
         e_surf_ids_prod_in_num: []
         e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 22
+  - cut_id: 2
+    rules_for_ct:
+    - enabled: false
+      loop_indices_this_ct_is_solved_in: [1]
+      mc_factor:
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
+      surf_id_subtracted: 10
   sector_signature: [0, 1, 1, -1, -1, 1, 0, -1, 0]
 - rules_for_cut:
   - cut_id: 1
@@ -3711,6 +4029,16 @@
         e_surf_ids_prod_in_num: []
         e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 22
+  - cut_id: 2
+    rules_for_ct:
+    - enabled: false
+      loop_indices_this_ct_is_solved_in: [1]
+      mc_factor:
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
+      surf_id_subtracted: 10
+  - cut_id: 6
+    rules_for_ct: []
   sector_signature: [0, 1, 1, -1, -1, 1, 1, -1, 0]
 - rules_for_cut:
   - cut_id: 0
@@ -3879,6 +4207,8 @@
         e_surf_ids_prod_in_num: []
         e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 17
+  - cut_id: 6
+    rules_for_ct: []
   sector_signature: [1, 0, 1, -1, -1, 0, 1, -1, 0]
 - rules_for_cut:
   - cut_id: 1
@@ -3963,6 +4293,32 @@
         e_surf_ids_prod_in_num: []
         e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 22
+  - cut_id: 0
+    rules_for_ct:
+    - enabled: true
+      loop_indices_this_ct_is_solved_in: [1, 2]
+      mc_factor:
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
+      surf_id_subtracted: 10
+    - enabled: false
+      loop_indices_this_ct_is_solved_in: [1]
+      mc_factor:
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
+      surf_id_subtracted: 10
+    - enabled: true
+      loop_indices_this_ct_is_solved_in: [1, 2]
+      mc_factor:
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
+      surf_id_subtracted: 18
+    - enabled: false
+      loop_indices_this_ct_is_solved_in: [2]
+      mc_factor:
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
+      surf_id_subtracted: 18
   sector_signature: [1, 1, 0, -1, -1, 1, 0, -1, 0]
 - rules_for_cut:
   - cut_id: 1
@@ -4047,6 +4403,34 @@
         e_surf_ids_prod_in_num: []
         e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 22
+  - cut_id: 0
+    rules_for_ct:
+    - enabled: true
+      loop_indices_this_ct_is_solved_in: [1, 2]
+      mc_factor:
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
+      surf_id_subtracted: 10
+    - enabled: false
+      loop_indices_this_ct_is_solved_in: [1]
+      mc_factor:
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
+      surf_id_subtracted: 10
+    - enabled: true
+      loop_indices_this_ct_is_solved_in: [1, 2]
+      mc_factor:
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
+      surf_id_subtracted: 18
+    - enabled: false
+      loop_indices_this_ct_is_solved_in: [2]
+      mc_factor:
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
+      surf_id_subtracted: 18
+  - cut_id: 6
+    rules_for_ct: []
   sector_signature: [1, 1, 0, -1, -1, 1, 1, -1, 0]
 - rules_for_cut:
   - cut_id: 0
@@ -4131,6 +4515,32 @@
         e_surf_ids_prod_in_num: []
         e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 17
+  - cut_id: 1
+    rules_for_ct:
+    - enabled: true
+      loop_indices_this_ct_is_solved_in: [0, 2]
+      mc_factor:
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
+      surf_id_subtracted: 21
+    - enabled: false
+      loop_indices_this_ct_is_solved_in: [0]
+      mc_factor:
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
+      surf_id_subtracted: 21
+    - enabled: true
+      loop_indices_this_ct_is_solved_in: [0, 2]
+      mc_factor:
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
+      surf_id_subtracted: 18
+    - enabled: false
+      loop_indices_this_ct_is_solved_in: [2]
+      mc_factor:
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
+      surf_id_subtracted: 18
   sector_signature: [1, 1, 1, -1, -1, 0, 0, -1, 0]
 - rules_for_cut:
   - cut_id: 0
@@ -4215,6 +4625,34 @@
         e_surf_ids_prod_in_num: []
         e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 17
+  - cut_id: 1
+    rules_for_ct:
+    - enabled: true
+      loop_indices_this_ct_is_solved_in: [0, 2]
+      mc_factor:
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
+      surf_id_subtracted: 21
+    - enabled: false
+      loop_indices_this_ct_is_solved_in: [0]
+      mc_factor:
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
+      surf_id_subtracted: 21
+    - enabled: true
+      loop_indices_this_ct_is_solved_in: [0, 2]
+      mc_factor:
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
+      surf_id_subtracted: 18
+    - enabled: false
+      loop_indices_this_ct_is_solved_in: [2]
+      mc_factor:
+        e_surf_ids_prod_in_num: []
+        e_surf_ids_prods_to_sum_in_denom: []
+      surf_id_subtracted: 18
+  - cut_id: 6
+    rules_for_ct: []
   sector_signature: [1, 1, 1, -1, -1, 0, 1, -1, 0]
 - rules_for_cut:
   - cut_id: 0
@@ -4383,5 +4821,7 @@
         e_surf_ids_prod_in_num: []
         e_surf_ids_prods_to_sum_in_denom: []
       surf_id_subtracted: 17
+  - cut_id: 6
+    rules_for_ct: []
   sector_signature: [1, -1, 1, -1, -1, 0, 1, -1, 0]
 
