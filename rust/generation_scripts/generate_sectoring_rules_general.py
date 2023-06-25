@@ -94,7 +94,7 @@ THRESHOLD_INTERSECTION_INFO = {
         CUT_046: intersection_info([0, 4, 6]),
         CUT_145: intersection_info([1, 4, 5]),
         CUT_672: intersection_info([6, 7, 2], {'loop_indices_solved': [[L]]}),
-        CUT_375: intersection_info([3, 7, 5]),
+        CUT_375: intersection_info([3, 7, 5], {'loop_indices_solved': [[L]]}),
         CUT_0473: intersection_info([0, 4, 7, 3]),
         CUT_1472: intersection_info([1, 4, 7, 2]),
         CUT_56: intersection_info([5, 6]),
@@ -104,7 +104,7 @@ THRESHOLD_INTERSECTION_INFO = {
         CUT_23: intersection_info([2, 3], {'loop_indices_solved': [[L]]}),
         CUT_046: intersection_info([0, 4, 6]),
         CUT_145: intersection_info([1, 4, 5]),
-        CUT_672: intersection_info([6, 7, 2]),
+        CUT_672: intersection_info([6, 7, 2], {'loop_indices_solved': [[L]]}),
         CUT_375: intersection_info([3, 7, 5], {'loop_indices_solved': [[L]]}),
         CUT_0473: intersection_info([0, 4, 7, 3]),
         CUT_1472: intersection_info([1, 4, 7, 2]),
@@ -114,7 +114,7 @@ THRESHOLD_INTERSECTION_INFO = {
         CUT_01: intersection_info([0, 1], {'loop_indices_solved': [[K]]}),
         CUT_23: intersection_info([2, 3]),
         CUT_046: intersection_info([0, 4, 6], {'loop_indices_solved': [[K]]}),
-        CUT_145: intersection_info([1, 4, 5]),
+        CUT_145: intersection_info([1, 4, 5], {'loop_indices_solved': [[K]]}),
         CUT_672: intersection_info([6, 7, 2]),
         CUT_375: intersection_info([3, 7, 5]),
         CUT_0473: intersection_info([0, 4, 7, 3]),
@@ -124,7 +124,7 @@ THRESHOLD_INTERSECTION_INFO = {
     CUT_375: {
         CUT_01: intersection_info([0, 1], {'loop_indices_solved': [[K]]}),
         CUT_23: intersection_info([2, 3]),
-        CUT_046: intersection_info([0, 4, 6]),
+        CUT_046: intersection_info([0, 4, 6], {'loop_indices_solved': [[K]]}),
         CUT_145: intersection_info([1, 4, 5], {'loop_indices_solved': [[K]]}),
         CUT_672: intersection_info([6, 7, 2]),
         CUT_375: intersection_info([3, 7, 5]),
@@ -171,6 +171,17 @@ CUT_DEPENDENCIES = {
     K: [CUT_01, CUT_145, CUT_046],
     L: [CUT_23, CUT_375, CUT_672],
     M: [CUT_56, CUT_145, CUT_046, CUT_375, CUT_672]
+}
+CUT_LOOP_MOMENTA_INDICES = {
+    CUT_01: [K],
+    CUT_23: [L],
+    CUT_046: [K, M],
+    CUT_145: [K, M],
+    CUT_672: [L, M],
+    CUT_375: [L, M],
+    CUT_0473: [K, L, M],
+    CUT_1472: [K, L, M],
+    CUT_56: [M],
 }
 
 NO_MC_FACTOR = {'e_surf_ids_prod_in_num': [],
@@ -254,8 +265,8 @@ def generate_file(filename):
             for intersecting_cut, intersecting_cut_info in THRESHOLD_INTERSECTION_INFO[cut_to_add].items():
                 if len(intersecting_cut_info['loop_indices_solved']) == 0:
                     continue
-                max_loop_indices = max(
-                    intersecting_cut_info['loop_indices_solved'], key=lambda x: len(x))
+                max_loop_indices = list(sorted(max(
+                    intersecting_cut_info['loop_indices_solved'], key=lambda x: len(x))))
 
                 if len(intersecting_cut_info['loop_indices_solved']) == 2 and len(max_loop_indices) == 2:
                     orthogonal_space = [i for i in max_loop_indices if not all(
@@ -264,9 +275,16 @@ def generate_file(filename):
                         i in lis for lis in intersecting_cut_info['loop_indices_solved'])][0]
                     # Include both spaces for solving but PFed using the E-surface of all active cuts intersecting the subspace chosen
                     active_thresholds_in_orthogonal_space = [
-                        c for c in CUT_DEPENDENCIES[orthogonal_space] if c != intersecting_cut and sig[c] == CUT_ACTIVE]
+                        c for c in CUT_DEPENDENCIES[orthogonal_space] if c != intersecting_cut and CUT_LOOP_MOMENTA_INDICES[c] != max_loop_indices and sig[c] == CUT_ACTIVE]
                     inactive_thresholds_in_orthogonal_space = [
-                        c for c in CUT_DEPENDENCIES[orthogonal_space] if c != intersecting_cut and sig[c] == CUT_INACTIVE]
+                        c for c in CUT_DEPENDENCIES[orthogonal_space] if c != intersecting_cut and CUT_LOOP_MOMENTA_INDICES[c] != max_loop_indices and sig[c] == CUT_INACTIVE]
+                    # if sig == (0, 1, -1, 0, -1, 1, -1, -1, 1):
+                    #     print('')
+                    #     print('sig[3]=', sig[3] == CUT_ACTIVE)
+                    #     print("active_thresholds_in_orthogonal_space=",
+                    #           active_thresholds_in_orthogonal_space)
+                    #     print("inactive_thresholds_in_orthogonal_space=",
+                    #           inactive_thresholds_in_orthogonal_space)
                     # active_thresholds_in_common_space = [
                     #     c for c in CUT_DEPENDENCIES[common_space] if c!=intersecting_cut and sig[c] == CUT_ACTIVE]
                     # inactive_thresholds_in_common_space = [
@@ -282,6 +300,9 @@ def generate_file(filename):
                         mc_factor_denom = []
 
                 for loop_indices in intersecting_cut_info['loop_indices_solved']:
+                    # if sig == (0, 1, -1, 0, -1, 1, -1, -1, 1):
+                    #     print("cut=", cut_to_add)
+                    #     print("loop_indices=", loop_indices)
                     # Anti-observable
                     if sig[intersecting_cut] == CUT_ACTIVE:
                         is_enabled = False
@@ -316,6 +337,9 @@ def generate_file(filename):
                                         mc_factor_remove_orthogonal_space_active_thresholds) > 0
                                     mc_factor = NO_MC_FACTOR
 
+                    # if sig == (0, 1, -1, 0, -1, 1, -1, -1, 1):
+                    #     print("mc_factor=", mc_factor)
+
                     rules_for_ct.append({
                         'surf_id_subtracted': E_SURF_MAP[intersecting_cut],
                         'loop_indices_this_ct_is_solved_in': loop_indices,
@@ -330,8 +354,9 @@ def generate_file(filename):
 
         rules.append(sector_rule)
         continue
-
     print(' '*63, end='\r')
+    # print('')
+    # pprint(rules[502])
     print("A total of %d/%d rules have been generated." % (
         len(rules), len(possible_signatures)
     ))

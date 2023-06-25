@@ -2884,7 +2884,9 @@ impl TriBoxTriCFFSectoredIntegrand {
                                                             );
                                                             }
                                                             if self.settings.general.debug > 4 {
-                                                                println!("     | MC factor specified as {:?} yielded the following mc_factor weight: {:+.16e}",hc_rule.mc_factor, min_eval_num.unwrap() / min_eval_denom.unwrap());
+                                                                println!("     | MC factor specified as {:?} yielded the following mc_factor weight: {:+.16e} from num {:+.16e} and denom {:+.16e}",hc_rule.mc_factor,
+                                                                    if min_eval_denom.unwrap() < min_eval_num.unwrap() { T::one() } else { T::zero() }, min_eval_num.unwrap() , min_eval_denom.unwrap()
+                                                                );
                                                             }
                                                             if min_eval_denom.unwrap()
                                                                 < min_eval_num.unwrap()
