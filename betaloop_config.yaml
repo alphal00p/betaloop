@@ -7,7 +7,7 @@ HardCodedIntegrand:
   numerator: spatial_exponential_dummy #spatial_exponential_dummy # Options are "one", "spatial_exponential_dummy" and "physical"
   #sampling_basis: [1, 3, 6] # This is the generation LMB
   sampling_basis: [1, 4, 7] # This is the LMB with vertical edges in it
-  selected_sg_cff_term: null #110 # e.g. 122 or null for enabling all
+  selected_sg_cff_term: 110 #110 # e.g. 122 or null for enabling all
   selected_sector_signature: null # e.g. [-1,1,1,0,0,0,-1,1,1] or null for enabling all
   h_function:
     function: poly_left_right_exponential # Options are poly_exponential, poly_left_right_exponential, exponential
@@ -17,11 +17,11 @@ HardCodedIntegrand:
     enabled: true
     include_integrated_ct: false
     compute_only_im_squared: false
-    im_squared_through_local_ct_only: false
-    include_amplitude_level_cts: true
+    im_squared_through_local_ct_only: true
+    include_amplitude_level_cts: false
     variable: R # for the local CT: options in this case are R and logR
-    local_ct_sliver_width: 0.7 # Specify an f64 for a finite sliver width, otherwise leave Option to null
-    integrated_ct_sliver_width: 0.7 # Specify an f64 for a finite sliver width, otherwise leave Option to null
+    local_ct_sliver_width: 0.3 # Specify an f64 for a finite sliver width, otherwise leave Option to null
+    integrated_ct_sliver_width: 0.3 # Specify an f64 for a finite sliver width, otherwise leave Option to null
     parameterization_center: [[0., 0., 0.], [0., 0., 0.], [0., 0., 0.]] # [[3., -5., 1.], [2., 7., -3.], [2., -4., -1.]] # [[0., 0., 0.], [0., 0., 0.], [0., 0., 0.]]
     include_cts_solved_in_two_loop_space: true
     include_cts_solved_in_one_loop_subspace: true
@@ -100,10 +100,10 @@ Parameterization:
 #Selectors: []
 Selectors:
   - type: jet
-    min_jets: 2
-    max_jets: 100
-    min_jpt: 0.0
-    min_j1pt: 20.
+    min_jets: 0
+    max_jets: 0
+    min_jpt: 22.0
+    min_j1pt: 0.
     max_j1pt: -1.
     dR: 0.7
     use_fastjet: true

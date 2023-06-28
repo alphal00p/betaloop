@@ -8,6 +8,7 @@ mod triangle_subtraction;
 mod triboxtri;
 mod triboxtri_cff;
 mod triboxtri_cff_sectored;
+mod triboxtri_cff_sg;
 mod utils;
 
 use clap::{App, Arg, SubCommand};

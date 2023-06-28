@@ -6,6 +6,7 @@ use crate::triangle_subtraction::{TriangleSubtractionIntegrand, TriangleSubtract
 use crate::triboxtri::{TriBoxTriIntegrand, TriBoxTriSettings};
 use crate::triboxtri_cff::{TriBoxTriCFFIntegrand, TriBoxTriCFFSettings};
 use crate::triboxtri_cff_sectored::{TriBoxTriCFFSectoredIntegrand, TriBoxTriCFFSectoredSettings};
+use crate::triboxtri_cff_sg::{TriBoxTriCFFSGIntegrand, TriBoxTriCFFSGSettings};
 use crate::utils::FloatLike;
 use crate::{utils, Settings};
 use color_eyre::{Help, Report};
@@ -37,6 +38,8 @@ pub enum HardCodedIntegrandSettings {
     TriBoxTriCFF(TriBoxTriCFFSettings),
     #[serde(rename = "TriBoxTriCFFSectored")]
     TriBoxTriCFFSectored(TriBoxTriCFFSectoredSettings),
+    #[serde(rename = "TriBoxTriCFFSG")]
+    TriBoxTriCFFSG(TriBoxTriCFFSGSettings),
     #[serde(rename = "triangle_subtraction")]
     TriangleSubtraction(TriangleSubtractionSettings),
     #[serde(rename = "box_subtraction")]
@@ -61,6 +64,9 @@ impl Display for HardCodedIntegrandSettings {
             }
             HardCodedIntegrandSettings::TriBoxTriCFFSectored(_) => {
                 write!(f, "TriBoxTriCFFSectored")
+            }
+            HardCodedIntegrandSettings::TriBoxTriCFFSG(_) => {
+                write!(f, "TriBoxTriCFFSG")
             }
             HardCodedIntegrandSettings::TriangleSubtraction(_) => {
                 write!(f, "triangle_subtraction")
@@ -1073,6 +1079,7 @@ pub enum Integrand {
     TriBoxTri(TriBoxTriIntegrand),
     TriBoxTriCFF(TriBoxTriCFFIntegrand),
     TriBoxTriCFFSectored(TriBoxTriCFFSectoredIntegrand),
+    TriBoxTriCFFSG(TriBoxTriCFFSGIntegrand),
     TriangleSubtraction(TriangleSubtractionIntegrand),
     BoxSubtraction(BoxSubtractionIntegrand),
 }
@@ -1102,6 +1109,12 @@ pub fn integrand_factory(settings: &Settings) -> Integrand {
         ),
         HardCodedIntegrandSettings::TriBoxTriCFFSectored(integrand_settings) => {
             Integrand::TriBoxTriCFFSectored(TriBoxTriCFFSectoredIntegrand::new(
+                settings.clone(),
+                integrand_settings,
+            ))
+        }
+        HardCodedIntegrandSettings::TriBoxTriCFFSG(integrand_settings) => {
+            Integrand::TriBoxTriCFFSG(TriBoxTriCFFSGIntegrand::new(
                 settings.clone(),
                 integrand_settings,
             ))

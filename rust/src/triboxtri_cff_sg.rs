@@ -21,7 +21,7 @@ use utils::{
 };
 
 #[derive(Debug, Clone, Default, Deserialize)]
-pub struct TriBoxTriCFFSectoredCTSettings {
+pub struct TriBoxTriCFFSGCTSettings {
     pub variable: CTVariable,
     pub enabled: bool,
     pub compute_only_im_squared: bool,
@@ -89,7 +89,7 @@ pub struct SectoringRuleMCFactor {
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
-pub struct TriBoxTriCFFSectoredSettings {
+pub struct TriBoxTriCFFSGSettings {
     pub supergraph_yaml_file: String,
     pub q: [f64; 4],
     pub h_function: HFunctionSettings,
@@ -98,21 +98,21 @@ pub struct TriBoxTriCFFSectoredSettings {
     pub selected_sg_cff_term: Option<usize>,
     pub selected_sector_signature: Option<Vec<isize>>,
     #[serde(rename = "threshold_CT_settings")]
-    pub threshold_ct_settings: TriBoxTriCFFSectoredCTSettings,
+    pub threshold_ct_settings: TriBoxTriCFFSGCTSettings,
 }
 
-pub struct TriBoxTriCFFSectoredIntegrand {
+pub struct TriBoxTriCFFSGIntegrand {
     pub settings: Settings,
     pub supergraph: SuperGraph,
     pub n_dim: usize,
-    pub integrand_settings: TriBoxTriCFFSectoredSettings,
+    pub integrand_settings: TriBoxTriCFFSGSettings,
     pub event_manager: EventManager,
     pub sampling_rot: Option<[[isize; 3]; 3]>,
     pub hard_coded_rules: Vec<SectoringRule>,
 }
 
 #[derive(Debug, Clone)]
-pub struct TriBoxTriCFFSectoredComputationCachePerCut<T: FloatLike> {
+pub struct TriBoxTriCFFSGComputationCachePerCut<T: FloatLike> {
     pub onshell_edge_momenta: Vec<LorentzVector<T>>,
     pub rescaled_loop_momenta: Vec<LorentzVector<T>>,
     // 0 means observable regected that cut, 1 means observable passed on that cut and -1 means cff term does not contribut to that cut
@@ -124,9 +124,9 @@ pub struct TriBoxTriCFFSectoredComputationCachePerCut<T: FloatLike> {
     pub e_surf_caches: Vec<GenericESurfaceCache<T>>,
 }
 
-impl<T: FloatLike> TriBoxTriCFFSectoredComputationCachePerCut<T> {
-    pub fn default() -> TriBoxTriCFFSectoredComputationCachePerCut<T> {
-        TriBoxTriCFFSectoredComputationCachePerCut {
+impl<T: FloatLike> TriBoxTriCFFSGComputationCachePerCut<T> {
+    pub fn default() -> TriBoxTriCFFSGComputationCachePerCut<T> {
+        TriBoxTriCFFSGComputationCachePerCut {
             onshell_edge_momenta: vec![],
             rescaled_loop_momenta: vec![],
             sector_signature: vec![],
@@ -140,16 +140,16 @@ impl<T: FloatLike> TriBoxTriCFFSectoredComputationCachePerCut<T> {
 }
 
 #[derive(Debug)]
-pub struct TriBoxTriCFFSectoredComputationCache<T: FloatLike> {
+pub struct TriBoxTriCFFSGComputationCache<T: FloatLike> {
     pub external_momenta: Vec<LorentzVector<T>>,
-    pub cut_caches: Vec<TriBoxTriCFFSectoredComputationCachePerCut<T>>,
+    pub cut_caches: Vec<TriBoxTriCFFSGComputationCachePerCut<T>>,
     pub sector_signature: Vec<isize>,
     pub sampling_xs: Vec<f64>,
 }
 
-impl<T: FloatLike> TriBoxTriCFFSectoredComputationCache<T> {
-    pub fn default() -> TriBoxTriCFFSectoredComputationCache<T> {
-        TriBoxTriCFFSectoredComputationCache {
+impl<T: FloatLike> TriBoxTriCFFSGComputationCache<T> {
+    pub fn default() -> TriBoxTriCFFSGComputationCache<T> {
+        TriBoxTriCFFSGComputationCache {
             external_momenta: vec![],
             cut_caches: vec![],
             sector_signature: vec![],
@@ -243,11 +243,11 @@ pub fn compute_propagator_momentum<T: FloatLike>(
 }
 
 #[allow(unused)]
-impl TriBoxTriCFFSectoredIntegrand {
+impl TriBoxTriCFFSGIntegrand {
     pub fn new(
         settings: Settings,
-        integrand_settings: TriBoxTriCFFSectoredSettings,
-    ) -> TriBoxTriCFFSectoredIntegrand {
+        integrand_settings: TriBoxTriCFFSGSettings,
+    ) -> TriBoxTriCFFSGIntegrand {
         /*
                output_LU_scalar betaLoop_triangleBoxTriangleBenchmark_scalar \
         --topology=[\
@@ -290,7 +290,7 @@ impl TriBoxTriCFFSectoredIntegrand {
         } else {
             vec![]
         };
-        TriBoxTriCFFSectoredIntegrand {
+        TriBoxTriCFFSGIntegrand {
             settings,
             supergraph: sg,
             n_dim: n_dim,
@@ -363,7 +363,7 @@ impl TriBoxTriCFFSectoredIntegrand {
         &self,
         esurf_basis_edge_ids: &Vec<usize>,
         edge_ids: &Vec<usize>,
-        cache: &TriBoxTriCFFSectoredComputationCache<T>,
+        cache: &TriBoxTriCFFSGComputationCache<T>,
         loop_momenta: &Vec<LorentzVector<T>>,
         side: usize,
         e_shift_sig: &Vec<isize>,
@@ -422,7 +422,7 @@ impl TriBoxTriCFFSectoredIntegrand {
     fn build_e_surfaces<T: FloatLike>(
         &self,
         onshell_edge_momenta: &Vec<LorentzVector<T>>,
-        cache: &TriBoxTriCFFSectoredComputationCache<T>,
+        cache: &TriBoxTriCFFSGComputationCache<T>,
         loop_momenta: &Vec<LorentzVector<T>>,
         i_cut: usize,
     ) -> Vec<GenericESurfaceCache<T>> {
@@ -526,7 +526,7 @@ impl TriBoxTriCFFSectoredIntegrand {
     fn evt_for_e_surf_to_pass_selection<T: FloatLike>(
         &self,
         asc_e_surf_id: usize,
-        cache: &TriBoxTriCFFSectoredComputationCache<T>,
+        cache: &TriBoxTriCFFSGComputationCache<T>,
         onshell_edge_momenta: &Vec<LorentzVector<T>>,
     ) -> (usize, Event) {
         let (as_i_cut, anti_selected_cut) =
@@ -587,7 +587,7 @@ impl TriBoxTriCFFSectoredIntegrand {
     fn fill_cache<T: FloatLike>(
         &mut self,
         loop_momenta: &Vec<LorentzVector<T>>,
-        cache: &mut TriBoxTriCFFSectoredComputationCache<T>,
+        cache: &mut TriBoxTriCFFSGComputationCache<T>,
     ) {
         if self.settings.general.debug > 3 {
             println!(
@@ -607,7 +607,7 @@ impl TriBoxTriCFFSectoredIntegrand {
         //         .unwrap()
         // });
         cache.cut_caches =
-            vec![TriBoxTriCFFSectoredComputationCachePerCut::default(); self.supergraph.cuts.len()];
+            vec![TriBoxTriCFFSGComputationCachePerCut::default(); self.supergraph.cuts.len()];
         // for i_cut in sorted_cut_ids {
         for i_cut in 0..self.supergraph.cuts.len() {
             let cut = &self.supergraph.cuts[i_cut];
@@ -1004,7 +1004,7 @@ impl TriBoxTriCFFSectoredIntegrand {
         &mut self,
         e_surf_id: usize,
         i_cut: usize,
-        cache: &TriBoxTriCFFSectoredComputationCache<T>,
+        cache: &TriBoxTriCFFSGComputationCache<T>,
     ) -> Vec<ESurfaceCT<T, GenericESurfaceCache<T>>> {
         let mut all_new_cts = vec![];
 
@@ -2034,7 +2034,7 @@ impl TriBoxTriCFFSectoredIntegrand {
         i_cut: usize,
         loop_momenta: &Vec<LorentzVector<T>>,
         overall_sampling_jac: T,
-        cache: &TriBoxTriCFFSectoredComputationCache<T>,
+        cache: &TriBoxTriCFFSGComputationCache<T>,
         selected_sg_cff_term: Option<usize>,
     ) -> (
         Complex<T>,
@@ -2494,16 +2494,11 @@ impl TriBoxTriCFFSectoredIntegrand {
                                 );
                             }
 
-                            /*
                             let loop_indices_solved = if side == LEFT {
                                 &ct.loop_indices_solved.0
                             } else {
                                 &ct.loop_indices_solved.1
                             };
-                            */
-                            let mut loop_indices_solved = vec![];
-                            loop_indices_solved.extend(&ct.loop_indices_solved.0);
-                            loop_indices_solved.extend(&ct.loop_indices_solved.1);
 
                             if self
                                 .integrand_settings
@@ -2577,7 +2572,7 @@ impl TriBoxTriCFFSectoredIntegrand {
                                             {
                                                 if hc_rule_for_cut.cut_id == i_cut {
                                                     let i_rule_ct = match hc_rule_for_cut.rules_for_ct.iter().enumerate().find(|(_i_rule_ct, hc_rule_for_cut_and_ct)| {
-                                                    hc_rule_for_cut_and_ct.surf_id_subtracted == ct.e_surf_id && loop_indices_solved.iter().all(|&li| hc_rule_for_cut_and_ct.loop_indices_this_ct_is_solved_in.contains(li)) && hc_rule_for_cut_and_ct.loop_indices_this_ct_is_solved_in.iter().all(|li| loop_indices_solved.contains(&li))
+                                                    hc_rule_for_cut_and_ct.surf_id_subtracted == ct.e_surf_id && loop_indices_solved.iter().all(|li| hc_rule_for_cut_and_ct.loop_indices_this_ct_is_solved_in.contains(li)) && hc_rule_for_cut_and_ct.loop_indices_this_ct_is_solved_in.iter().all(|li| loop_indices_solved.contains(li))
                                                 }) {
                                                     Some((i_rule_ct, _hc_rule_for_cut_and_ct)) => i_rule_ct,
                                                     _ => panic!("   | Could not find hard-coded rule for this CT for E-surface #{} solved in loop indices {:?} and whose signature ({:?}) and cut id ({}) are however specified.",
@@ -3245,7 +3240,7 @@ impl TriBoxTriCFFSectoredIntegrand {
                                     {
                                         if !loop_indices_in_this_amplitude
                                             .iter()
-                                            .all(|lia| loop_indices_solved.contains(&lia))
+                                            .all(|lia| loop_indices_solved.contains(lia))
                                         {
                                             keep_this_one_ct = false;
                                             if self.settings.general.debug > 3 {
@@ -3310,7 +3305,7 @@ impl TriBoxTriCFFSectoredIntegrand {
                                             if n_loop_ct > 1
                                                 && loop_indices_in_this_amplitude
                                                     .iter()
-                                                    .all(|lia| loop_indices_solved.contains(&lia))
+                                                    .all(|lia| loop_indices_solved.contains(lia))
                                             {
                                                 keep_this_one_ct = false;
                                                 if self.settings.general.debug > 3 {
@@ -4311,7 +4306,7 @@ impl TriBoxTriCFFSectoredIntegrand {
             }
         }
 
-        let mut computational_cache = TriBoxTriCFFSectoredComputationCache::default();
+        let mut computational_cache = TriBoxTriCFFSGComputationCache::default();
 
         for i in 0..=1 {
             computational_cache
@@ -4569,7 +4564,7 @@ impl TriBoxTriCFFSectoredIntegrand {
     }
 }
 
-impl HasIntegrand for TriBoxTriCFFSectoredIntegrand {
+impl HasIntegrand for TriBoxTriCFFSGIntegrand {
     fn create_grid(&self) -> Grid {
         Grid::ContinuousGrid(ContinuousGrid::new(
             self.n_dim,

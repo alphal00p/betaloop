@@ -55,122 +55,127 @@ L = 1
 M = 2
 
 
-def intersection_info(edges, specified_info=None):
+def intersection_info(edges, **opts):
     default = {
         'loop_indices_solved': [],
         'edges': edges
     }
-    if specified_info is not None:
-        default.update(specified_info)
+    default.update(opts)
     return default
+
+
+class IntersectionStatus:
+    PINCHED = 0
+    NON_PINCHED = 1
+    ABSENT = 3
 
 
 THRESHOLD_INTERSECTION_INFO = {
     CUT_01: {
-        CUT_01: intersection_info([0, 1]),
-        CUT_23: intersection_info([2, 3], {'loop_indices_solved': [[L, M], [L]]}),
-        CUT_046: intersection_info([0, 4, 6]),
-        CUT_145: intersection_info([1, 4, 5]),
-        CUT_672: intersection_info([6, 7, 2], {'loop_indices_solved': [[L, M], [L]]}),
-        CUT_375: intersection_info([3, 7, 5], {'loop_indices_solved': [[L, M], [L]]}),
-        CUT_0473: intersection_info([0, 4, 7, 3]),
-        CUT_1472: intersection_info([1, 4, 7, 2]),
-        CUT_56: intersection_info([5, 6], {'loop_indices_solved': [[L, M], [M]]}),
+        CUT_01: intersection_info([0, 1], status=IntersectionStatus.ABSENT),
+        CUT_23: intersection_info([2, 3], loop_indices_solved=[[L, M], [L]], status=IntersectionStatus.NON_PINCHED),
+        CUT_046: intersection_info([0, 4, 6], status=IntersectionStatus.PINCHED),
+        CUT_145: intersection_info([1, 4, 5], status=IntersectionStatus.PINCHED),
+        CUT_672: intersection_info([6, 7, 2], loop_indices_solved=[[L, M], [L]], status=IntersectionStatus.NON_PINCHED),
+        CUT_375: intersection_info([3, 7, 5], loop_indices_solved=[[L, M], [L]], status=IntersectionStatus.NON_PINCHED),
+        CUT_0473: intersection_info([0, 4, 7, 3], status=IntersectionStatus.PINCHED),
+        CUT_1472: intersection_info([1, 4, 7, 2], status=IntersectionStatus.PINCHED),
+        CUT_56: intersection_info([5, 6], loop_indices_solved=[[L, M], [M]], status=IntersectionStatus.NON_PINCHED),
     },
     CUT_23: {
-        CUT_01: intersection_info([0, 1], {'loop_indices_solved': [[K, M], [K]]}),
-        CUT_23: intersection_info([2, 3]),
-        CUT_046: intersection_info([0, 4, 6], {'loop_indices_solved': [[K, M], [K]]}),
-        CUT_145: intersection_info([1, 4, 5], {'loop_indices_solved': [[K, M], [K]]}),
-        CUT_672: intersection_info([6, 7, 2]),
-        CUT_375: intersection_info([3, 7, 5]),
-        CUT_0473: intersection_info([0, 4, 7, 3]),
-        CUT_1472: intersection_info([1, 4, 7, 2]),
-        CUT_56: intersection_info([5, 6], {'loop_indices_solved': [[K, M], [M]]}),
+        CUT_01: intersection_info([0, 1], loop_indices_solved=[[K, M], [K]], status=IntersectionStatus.NON_PINCHED),
+        CUT_23: intersection_info([2, 3], status=IntersectionStatus.ABSENT),
+        CUT_046: intersection_info([0, 4, 6], loop_indices_solved=[[K, M], [K]], status=IntersectionStatus.NON_PINCHED),
+        CUT_145: intersection_info([1, 4, 5], loop_indices_solved=[[K, M], [K]], status=IntersectionStatus.NON_PINCHED),
+        CUT_672: intersection_info([6, 7, 2], status=IntersectionStatus.PINCHED),
+        CUT_375: intersection_info([3, 7, 5], status=IntersectionStatus.PINCHED),
+        CUT_0473: intersection_info([0, 4, 7, 3], status=IntersectionStatus.PINCHED),
+        CUT_1472: intersection_info([1, 4, 7, 2], status=IntersectionStatus.PINCHED),
+        CUT_56: intersection_info([5, 6], loop_indices_solved=[[K, M], [M]], status=IntersectionStatus.NON_PINCHED),
     },
     CUT_046: {
-        CUT_01: intersection_info([0, 1]),
-        CUT_23: intersection_info([2, 3], {'loop_indices_solved': [[L]]}),
-        CUT_046: intersection_info([0, 4, 6]),
-        CUT_145: intersection_info([1, 4, 5]),
-        CUT_672: intersection_info([6, 7, 2], {'loop_indices_solved': [[L]]}),
-        CUT_375: intersection_info([3, 7, 5], {'loop_indices_solved': [[L]]}),
-        CUT_0473: intersection_info([0, 4, 7, 3]),
-        CUT_1472: intersection_info([1, 4, 7, 2]),
-        CUT_56: intersection_info([5, 6]),
+        CUT_01: intersection_info([0, 1], status=IntersectionStatus.PINCHED),
+        CUT_23: intersection_info([2, 3], loop_indices_solved=[[L]], status=IntersectionStatus.NON_PINCHED),
+        CUT_046: intersection_info([0, 4, 6], status=IntersectionStatus.ABSENT),
+        CUT_145: intersection_info([1, 4, 5], status=IntersectionStatus.ABSENT),
+        CUT_672: intersection_info([6, 7, 2], loop_indices_solved=[[L]], status=IntersectionStatus.NON_PINCHED),
+        CUT_375: intersection_info([3, 7, 5], loop_indices_solved=[[L]], status=IntersectionStatus.NON_PINCHED),
+        CUT_0473: intersection_info([0, 4, 7, 3], status=IntersectionStatus.ABSENT),
+        CUT_1472: intersection_info([1, 4, 7, 2], status=IntersectionStatus.ABSENT),
+        CUT_56: intersection_info([5, 6], status=IntersectionStatus.PINCHED),
     },
     CUT_145: {
-        CUT_01: intersection_info([0, 1]),
-        CUT_23: intersection_info([2, 3], {'loop_indices_solved': [[L]]}),
-        CUT_046: intersection_info([0, 4, 6]),
-        CUT_145: intersection_info([1, 4, 5]),
-        CUT_672: intersection_info([6, 7, 2], {'loop_indices_solved': [[L]]}),
-        CUT_375: intersection_info([3, 7, 5], {'loop_indices_solved': [[L]]}),
-        CUT_0473: intersection_info([0, 4, 7, 3]),
-        CUT_1472: intersection_info([1, 4, 7, 2]),
-        CUT_56: intersection_info([5, 6]),
+        CUT_01: intersection_info([0, 1], status=IntersectionStatus.PINCHED),
+        CUT_23: intersection_info([2, 3], loop_indices_solved=[[L]], status=IntersectionStatus.NON_PINCHED),
+        CUT_046: intersection_info([0, 4, 6], status=IntersectionStatus.ABSENT),
+        CUT_145: intersection_info([1, 4, 5], status=IntersectionStatus.ABSENT),
+        CUT_672: intersection_info([6, 7, 2], loop_indices_solved=[[L]], status=IntersectionStatus.NON_PINCHED),
+        CUT_375: intersection_info([3, 7, 5], loop_indices_solved=[[L]], status=IntersectionStatus.NON_PINCHED),
+        CUT_0473: intersection_info([0, 4, 7, 3], status=IntersectionStatus.ABSENT),
+        CUT_1472: intersection_info([1, 4, 7, 2], status=IntersectionStatus.ABSENT),
+        CUT_56: intersection_info([5, 6], status=IntersectionStatus.PINCHED),
     },
     CUT_672: {
-        CUT_01: intersection_info([0, 1], {'loop_indices_solved': [[K]]}),
-        CUT_23: intersection_info([2, 3]),
-        CUT_046: intersection_info([0, 4, 6], {'loop_indices_solved': [[K]]}),
-        CUT_145: intersection_info([1, 4, 5], {'loop_indices_solved': [[K]]}),
-        CUT_672: intersection_info([6, 7, 2]),
-        CUT_375: intersection_info([3, 7, 5]),
-        CUT_0473: intersection_info([0, 4, 7, 3]),
-        CUT_1472: intersection_info([1, 4, 7, 2]),
-        CUT_56: intersection_info([5, 6]),
+        CUT_01: intersection_info([0, 1], loop_indices_solved=[[K]], status=IntersectionStatus.NON_PINCHED),
+        CUT_23: intersection_info([2, 3], status=IntersectionStatus.PINCHED),
+        CUT_046: intersection_info([0, 4, 6], loop_indices_solved=[[K]], status=IntersectionStatus.NON_PINCHED),
+        CUT_145: intersection_info([1, 4, 5], loop_indices_solved=[[K]], status=IntersectionStatus.NON_PINCHED),
+        CUT_672: intersection_info([6, 7, 2], status=IntersectionStatus.ABSENT),
+        CUT_375: intersection_info([3, 7, 5], status=IntersectionStatus.ABSENT),
+        CUT_0473: intersection_info([0, 4, 7, 3], status=IntersectionStatus.ABSENT),
+        CUT_1472: intersection_info([1, 4, 7, 2], status=IntersectionStatus.ABSENT),
+        CUT_56: intersection_info([5, 6], status=IntersectionStatus.PINCHED),
     },
     CUT_375: {
-        CUT_01: intersection_info([0, 1], {'loop_indices_solved': [[K]]}),
-        CUT_23: intersection_info([2, 3]),
-        CUT_046: intersection_info([0, 4, 6], {'loop_indices_solved': [[K]]}),
-        CUT_145: intersection_info([1, 4, 5], {'loop_indices_solved': [[K]]}),
-        CUT_672: intersection_info([6, 7, 2]),
-        CUT_375: intersection_info([3, 7, 5]),
-        CUT_0473: intersection_info([0, 4, 7, 3]),
-        CUT_1472: intersection_info([1, 4, 7, 2]),
-        CUT_56: intersection_info([5, 6]),
+        CUT_01: intersection_info([0, 1], loop_indices_solved=[[K]], status=IntersectionStatus.NON_PINCHED),
+        CUT_23: intersection_info([2, 3], status=IntersectionStatus.PINCHED),
+        CUT_046: intersection_info([0, 4, 6], loop_indices_solved=[[K]], status=IntersectionStatus.NON_PINCHED),
+        CUT_145: intersection_info([1, 4, 5], loop_indices_solved=[[K]], status=IntersectionStatus.NON_PINCHED),
+        CUT_672: intersection_info([6, 7, 2], status=IntersectionStatus.ABSENT),
+        CUT_375: intersection_info([3, 7, 5], status=IntersectionStatus.ABSENT),
+        CUT_0473: intersection_info([0, 4, 7, 3], status=IntersectionStatus.ABSENT),
+        CUT_1472: intersection_info([1, 4, 7, 2], status=IntersectionStatus.ABSENT),
+        CUT_56: intersection_info([5, 6], status=IntersectionStatus.PINCHED),
     },
     CUT_0473: {
-        CUT_01: intersection_info([0, 1],),
-        CUT_23: intersection_info([2, 3]),
-        CUT_046: intersection_info([0, 4, 6]),
-        CUT_145: intersection_info([1, 4, 5]),
-        CUT_672: intersection_info([6, 7, 2]),
-        CUT_375: intersection_info([3, 7, 5]),
-        CUT_0473: intersection_info([0, 4, 7, 3]),
-        CUT_1472: intersection_info([1, 4, 7, 2]),
-        CUT_56: intersection_info([5, 6]),
+        CUT_01: intersection_info([0, 1], status=IntersectionStatus.ABSENT),
+        CUT_23: intersection_info([2, 3], status=IntersectionStatus.ABSENT),
+        CUT_046: intersection_info([0, 4, 6], status=IntersectionStatus.ABSENT),
+        CUT_145: intersection_info([1, 4, 5], status=IntersectionStatus.ABSENT),
+        CUT_672: intersection_info([6, 7, 2], status=IntersectionStatus.ABSENT),
+        CUT_375: intersection_info([3, 7, 5], status=IntersectionStatus.ABSENT),
+        CUT_0473: intersection_info([0, 4, 7, 3], status=IntersectionStatus.ABSENT),
+        CUT_1472: intersection_info([1, 4, 7, 2], status=IntersectionStatus.ABSENT),
+        CUT_56: intersection_info([5, 6], status=IntersectionStatus.ABSENT),
     },
     CUT_1472: {
-        CUT_01: intersection_info([0, 1]),
-        CUT_23: intersection_info([2, 3]),
-        CUT_046: intersection_info([0, 4, 6]),
-        CUT_145: intersection_info([1, 4, 5]),
-        CUT_672: intersection_info([6, 7, 2]),
-        CUT_375: intersection_info([3, 7, 5]),
-        CUT_0473: intersection_info([0, 4, 7, 3]),
-        CUT_1472: intersection_info([0, 4, 7, 3]),
-        CUT_56: intersection_info([5, 6]),
+        CUT_01: intersection_info([0, 1], status=IntersectionStatus.ABSENT),
+        CUT_23: intersection_info([2, 3], status=IntersectionStatus.ABSENT),
+        CUT_046: intersection_info([0, 4, 6], status=IntersectionStatus.ABSENT),
+        CUT_145: intersection_info([1, 4, 5], status=IntersectionStatus.ABSENT),
+        CUT_672: intersection_info([6, 7, 2], status=IntersectionStatus.ABSENT),
+        CUT_375: intersection_info([3, 7, 5], status=IntersectionStatus.ABSENT),
+        CUT_0473: intersection_info([0, 4, 7, 3], status=IntersectionStatus.ABSENT),
+        CUT_1472: intersection_info([0, 4, 7, 3], status=IntersectionStatus.ABSENT),
+        CUT_56: intersection_info([5, 6], status=IntersectionStatus.ABSENT),
     },
     CUT_56: {
-        CUT_01: intersection_info([0, 1], {'loop_indices_solved': [[K]]}),
-        CUT_23: intersection_info([2, 3], {'loop_indices_solved': [[L]]}),
-        CUT_046: intersection_info([0, 4, 6]),
-        CUT_145: intersection_info([1, 4, 5]),
-        CUT_672: intersection_info([6, 7, 2]),
-        CUT_375: intersection_info([3, 7, 5]),
-        CUT_0473: intersection_info([0, 4, 7, 3]),
-        CUT_1472: intersection_info([0, 4, 7, 3]),
-        CUT_56: intersection_info([5, 6]),
+        CUT_01: intersection_info([0, 1], loop_indices_solved=[[K], [K, L]], status=IntersectionStatus.NON_PINCHED),
+        CUT_23: intersection_info([2, 3], loop_indices_solved=[[L], [K, L]], status=IntersectionStatus.NON_PINCHED),
+        CUT_046: intersection_info([0, 4, 6], status=IntersectionStatus.PINCHED),
+        CUT_145: intersection_info([1, 4, 5], status=IntersectionStatus.PINCHED),
+        CUT_672: intersection_info([6, 7, 2], status=IntersectionStatus.PINCHED),
+        CUT_375: intersection_info([3, 7, 5], status=IntersectionStatus.PINCHED),
+        CUT_0473: intersection_info([0, 4, 7, 3], status=IntersectionStatus.ABSENT),
+        CUT_1472: intersection_info([0, 4, 7, 3], status=IntersectionStatus.ABSENT),
+        CUT_56: intersection_info([5, 6], status=IntersectionStatus.ABSENT),
     },
 }
 
 CUT_DEPENDENCIES = {
-    K: [CUT_01, CUT_145, CUT_046],
-    L: [CUT_23, CUT_375, CUT_672],
-    M: [CUT_56, CUT_145, CUT_046, CUT_375, CUT_672]
+    K: [CUT_01, CUT_145, CUT_046, CUT_0473, CUT_1472],
+    L: [CUT_23, CUT_375, CUT_672, CUT_0473, CUT_1472],
+    M: [CUT_56, CUT_145, CUT_046, CUT_375, CUT_672, CUT_0473, CUT_1472]
 }
 CUT_LOOP_MOMENTA_INDICES = {
     CUT_01: [K],
@@ -274,17 +279,27 @@ def generate_file(filename):
                     common_space = [i for i in max_loop_indices if all(
                         i in lis for lis in intersecting_cut_info['loop_indices_solved'])][0]
                     # Include both spaces for solving but PFed using the E-surface of all active cuts intersecting the subspace chosen
+
                     active_thresholds_in_orthogonal_space = [
                         c for c in CUT_DEPENDENCIES[orthogonal_space] if c != intersecting_cut and CUT_LOOP_MOMENTA_INDICES[c] != max_loop_indices and sig[c] == CUT_ACTIVE]
                     inactive_thresholds_in_orthogonal_space = [
                         c for c in CUT_DEPENDENCIES[orthogonal_space] if c != intersecting_cut and CUT_LOOP_MOMENTA_INDICES[c] != max_loop_indices and sig[c] == CUT_INACTIVE]
-                    # if sig == (0, 1, -1, 0, -1, 1, -1, -1, 1):
+
+                    # active_thresholds_in_orthogonal_space = [
+                    #     c for c in CUT_DEPENDENCIES[orthogonal_space] if c != intersecting_cut and CUT_LOOP_MOMENTA_INDICES[c] != max_loop_indices and sig[c] != CUT_ABSENT and THRESHOLD_INTERSECTION_INFO[cut_to_add][c]['status'] == IntersectionStatus.PINCHED]
+                    # inactive_thresholds_in_orthogonal_space = [
+                    #     c for c in CUT_DEPENDENCIES[orthogonal_space] if c != intersecting_cut and CUT_LOOP_MOMENTA_INDICES[c] != max_loop_indices and sig[c] != CUT_ABSENT and THRESHOLD_INTERSECTION_INFO[cut_to_add][c]['status'] == IntersectionStatus.NON_PINCHED]
+
+                    # if sig == (0, 1, -1, 0, -1, 0, -1, -1, 0):
                     #     print('')
+                    #     print('cut_to_add=%d, max_loop_indices=%s' %
+                    #           (cut_to_add, max_loop_indices))
                     #     print('sig[3]=', sig[3] == CUT_ACTIVE)
                     #     print("active_thresholds_in_orthogonal_space=",
                     #           active_thresholds_in_orthogonal_space)
                     #     print("inactive_thresholds_in_orthogonal_space=",
                     #           inactive_thresholds_in_orthogonal_space)
+
                     # active_thresholds_in_common_space = [
                     #     c for c in CUT_DEPENDENCIES[common_space] if c!=intersecting_cut and sig[c] == CUT_ACTIVE]
                     # inactive_thresholds_in_common_space = [
