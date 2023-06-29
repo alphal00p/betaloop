@@ -162,6 +162,9 @@ THRESHOLD_INTERSECTION_INFO = {
     CUT_56: {
         CUT_01: intersection_info([0, 1], loop_indices_solved=[[K], [K, L]], status=IntersectionStatus.NON_PINCHED),
         CUT_23: intersection_info([2, 3], loop_indices_solved=[[L], [K, L]], status=IntersectionStatus.NON_PINCHED),
+        # When subtracting at the amplitude level, substitute the two lines above with ones below
+        # CUT_01: intersection_info([0, 1], loop_indices_solved=[[K],], status=IntersectionStatus.NON_PINCHED),
+        # CUT_23: intersection_info([2, 3], loop_indices_solved=[[L],], status=IntersectionStatus.NON_PINCHED),
         CUT_046: intersection_info([0, 4, 6], status=IntersectionStatus.PINCHED),
         CUT_145: intersection_info([1, 4, 5], status=IntersectionStatus.PINCHED),
         CUT_672: intersection_info([6, 7, 2], status=IntersectionStatus.PINCHED),
