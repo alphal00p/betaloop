@@ -2763,7 +2763,7 @@ impl TriBoxTriCFFSectoredIntegrand {
                                                     if n_terms > 1 && found_one_factor_in_num {
                                                         if self.settings.general.debug > 5 {
                                                             println!("     | E-surface evaluations for the computation of the MC factor specified as {:?}:\n{}",hc_rule.mc_factor,
-                                                            ct.e_surface_evals[0].iter().enumerate().map(|(i,sc)| format!("     |   E-surface #{:-2}: {:+.16e}",i,sc.cached_eval())).collect::<Vec<_>>().join("\n")
+                                                            ct.e_surface_evals[0].iter().enumerate().map(|(i,sc)| format!("     |   E-surface #{:-2}: pinched={} | exists={} | {:+.16e}",i, if sc.pinched {"YES"} else {"NO "}, if sc.exists {"YES"} else {"NO "},sc.cached_eval())).collect::<Vec<_>>().join("\n")
                                                         );
                                                         }
                                                         if self.settings.general.debug > 4 {
@@ -2807,15 +2807,22 @@ impl TriBoxTriCFFSectoredIntegrand {
                                                                 .cff_expression
                                                                 .terms[i_cff]
                                                                 .contains_e_surf_id(*e_surf_id_b))
-                                                    {
-                                                        continue;
-                                                    }
-                                                        let t = (ct.e_surface_evals[0]
+                                                        {
+                                                            continue;
+                                                        }
+                                                        let mut t = (ct.e_surface_evals[0]
                                                             [*e_surf_id_a]
                                                             .cached_eval()
                                                             - ct.e_surface_evals[0][*e_surf_id_b]
                                                                 .cached_eval())
                                                         .abs();
+                                                        if !ct.e_surface_evals[0][*e_surf_id_a]
+                                                            .exists
+                                                            && ct.e_surface_evals[0][*e_surf_id_a]
+                                                                .pinched
+                                                        {
+                                                            t *= mc_factor_power.abs();
+                                                        }
                                                         if let Some(min_eval) = min_eval_num {
                                                             if t < min_eval {
                                                                 min_eval_num = Some(t);
@@ -2858,13 +2865,22 @@ impl TriBoxTriCFFSectoredIntegrand {
                                                                 {
                                                                     continue;
                                                                 }
-                                                                let t = (ct.e_surface_evals[0]
+                                                                let mut t = (ct.e_surface_evals[0]
                                                                     [*e_surf_id_a]
                                                                     .cached_eval()
                                                                     - ct.e_surface_evals[0]
                                                                         [*e_surf_id_b]
                                                                         .cached_eval())
                                                                 .abs();
+                                                                if !ct.e_surface_evals[0]
+                                                                    [*e_surf_id_a]
+                                                                    .exists
+                                                                    && ct.e_surface_evals[0]
+                                                                        [*e_surf_id_a]
+                                                                        .pinched
+                                                                {
+                                                                    t *= mc_factor_power.abs();
+                                                                }
                                                                 if let Some(min_eval) =
                                                                     min_eval_denom
                                                                 {
@@ -2885,7 +2901,7 @@ impl TriBoxTriCFFSectoredIntegrand {
                                                         } else {
                                                             if self.settings.general.debug > 5 {
                                                                 println!("     | E-surface evaluations for the computation of the MC factor specified as {:?}:\n{}",hc_rule.mc_factor,
-                                                                ct.e_surface_evals[0].iter().enumerate().map(|(i,sc)| format!("     |   E-surface #{:-2}: {:+.16e}",i,sc.cached_eval())).collect::<Vec<_>>().join("\n")
+                                                                ct.e_surface_evals[0].iter().enumerate().map(|(i,sc)| format!("     |   E-surface #{:-2}: pinched={} | exists={} | {:+.16e}",i, if sc.pinched {"YES"} else {"NO "}, if sc.exists {"YES"} else {"NO "},sc.cached_eval())).collect::<Vec<_>>().join("\n")
                                                             );
                                                             }
                                                             if self.settings.general.debug > 4 {

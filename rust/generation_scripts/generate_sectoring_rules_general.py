@@ -283,10 +283,17 @@ def generate_file(filename):
                         i in lis for lis in intersecting_cut_info['loop_indices_solved'])][0]
                     # Include both spaces for solving but PFed using the E-surface of all active cuts intersecting the subspace chosen
 
+                    # OPTION A: use observables
+                    # active_thresholds_in_orthogonal_space = [
+                    #     c for c in CUT_DEPENDENCIES[orthogonal_space] if c != intersecting_cut and CUT_LOOP_MOMENTA_INDICES[c] != max_loop_indices and sig[c] == CUT_ACTIVE]
+                    # inactive_thresholds_in_orthogonal_space = [
+                    #     c for c in CUT_DEPENDENCIES[orthogonal_space] if c != intersecting_cut and CUT_LOOP_MOMENTA_INDICES[c] != max_loop_indices and sig[c] == CUT_INACTIVE]
+
+                    # OPTION B: just differentiate pinched vs non-pinched
                     active_thresholds_in_orthogonal_space = [
-                        c for c in CUT_DEPENDENCIES[orthogonal_space] if c != intersecting_cut and CUT_LOOP_MOMENTA_INDICES[c] != max_loop_indices and sig[c] == CUT_ACTIVE]
+                        c for c in CUT_DEPENDENCIES[orthogonal_space] if c != intersecting_cut and CUT_LOOP_MOMENTA_INDICES[c] != max_loop_indices and sig[c] != CUT_ABSENT and THRESHOLD_INTERSECTION_INFO[cut_to_add][c]['status'] == IntersectionStatus.PINCHED]
                     inactive_thresholds_in_orthogonal_space = [
-                        c for c in CUT_DEPENDENCIES[orthogonal_space] if c != intersecting_cut and CUT_LOOP_MOMENTA_INDICES[c] != max_loop_indices and sig[c] == CUT_INACTIVE]
+                        c for c in CUT_DEPENDENCIES[orthogonal_space] if c != intersecting_cut and CUT_LOOP_MOMENTA_INDICES[c] != max_loop_indices and sig[c] != CUT_ABSENT and THRESHOLD_INTERSECTION_INFO[cut_to_add][c]['status'] == IntersectionStatus.NON_PINCHED]
 
                     # active_thresholds_in_orthogonal_space = [
                     #     c for c in CUT_DEPENDENCIES[orthogonal_space] if c != intersecting_cut and CUT_LOOP_MOMENTA_INDICES[c] != max_loop_indices and sig[c] != CUT_ABSENT and THRESHOLD_INTERSECTION_INFO[cut_to_add][c]['status'] == IntersectionStatus.PINCHED]
@@ -318,6 +325,19 @@ def generate_file(filename):
                         mc_factor_denom = []
 
                 for loop_indices in intersecting_cut_info['loop_indices_solved']:
+                    # TEST START
+                    # if len(intersecting_cut_info["edges"]) > 2 and len(max_loop_indices) == 2:
+                    #     if len(loop_indices) < 2:
+                    #         is_enabled = False
+                    #         mc_factor = NO_MC_FACTOR
+                    #     else:
+                    #         if sig[intersecting_cut] == CUT_ACTIVE:
+                    #             is_enabled = False
+                    #         else:
+                    #             is_enabled = True
+                    #         mc_factor = NO_MC_FACTOR
+                    # else:
+                    # TEST END
                     # if sig == (0, 1, -1, 0, -1, 1, -1, -1, 1):
                     #     print("cut=", cut_to_add)
                     #     print("loop_indices=", loop_indices)
