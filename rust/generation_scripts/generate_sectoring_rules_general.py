@@ -54,6 +54,8 @@ K = 0
 L = 1
 M = 2
 
+ALL_LOOP_INDICES = [K, L, M]
+
 
 def intersection_info(edges, **opts):
     default = {
@@ -289,11 +291,21 @@ def generate_file(filename):
                     # inactive_thresholds_in_orthogonal_space = [
                     #     c for c in CUT_DEPENDENCIES[orthogonal_space] if c != intersecting_cut and CUT_LOOP_MOMENTA_INDICES[c] != max_loop_indices and sig[c] == CUT_INACTIVE]
 
-                    # OPTION B: just differentiate pinched vs non-pinched
+                    # OPTION B: just differentiate pinched vs non-pinched\
+                    vetoed_loop_indices_combinations = [
+                        max_loop_indices, ALL_LOOP_INDICES]
+                    # vetoed_loop_indices_combinations = [ALL_LOOP_INDICES,]
+                    # active_thresholds_in_orthogonal_space = [
+                    #     c for c in CUT_DEPENDENCIES[orthogonal_space] if c != intersecting_cut and CUT_LOOP_MOMENTA_INDICES[c] not in vetoed_loop_indices_combinations and sig[c] == CUT_ACTIVE and THRESHOLD_INTERSECTION_INFO[cut_to_add][c]['status'] == IntersectionStatus.PINCHED]
+                    # inactive_thresholds_in_orthogonal_space = [
+                    #     c for c in CUT_DEPENDENCIES[orthogonal_space] if c != intersecting_cut and CUT_LOOP_MOMENTA_INDICES[c] not in vetoed_loop_indices_combinations and sig[c] == CUT_INACTIVE and THRESHOLD_INTERSECTION_INFO[cut_to_add][c]['status'] == IntersectionStatus.NON_PINCHED]
                     active_thresholds_in_orthogonal_space = [
-                        c for c in CUT_DEPENDENCIES[orthogonal_space] if c != intersecting_cut and CUT_LOOP_MOMENTA_INDICES[c] != max_loop_indices and sig[c] != CUT_ABSENT and THRESHOLD_INTERSECTION_INFO[cut_to_add][c]['status'] == IntersectionStatus.PINCHED]
+                        c for c in CUT_DEPENDENCIES[orthogonal_space] if c != intersecting_cut and CUT_LOOP_MOMENTA_INDICES[c] not in vetoed_loop_indices_combinations and sig[c] == CUT_ACTIVE]
                     inactive_thresholds_in_orthogonal_space = [
-                        c for c in CUT_DEPENDENCIES[orthogonal_space] if c != intersecting_cut and CUT_LOOP_MOMENTA_INDICES[c] != max_loop_indices and sig[c] != CUT_ABSENT and THRESHOLD_INTERSECTION_INFO[cut_to_add][c]['status'] == IntersectionStatus.NON_PINCHED]
+                        c for c in CUT_DEPENDENCIES[orthogonal_space] if c != intersecting_cut and CUT_LOOP_MOMENTA_INDICES[c] not in vetoed_loop_indices_combinations and sig[c] == CUT_INACTIVE]
+
+                    ALL_inactive_thresholds_in_orthogonal_space = [
+                        c for c in CUT_DEPENDENCIES[orthogonal_space] if c != intersecting_cut and CUT_LOOP_MOMENTA_INDICES[c] not in [ALL_LOOP_INDICES,] and sig[c] == CUT_INACTIVE and THRESHOLD_INTERSECTION_INFO[cut_to_add][c]['status'] == IntersectionStatus.NON_PINCHED]
 
                     # active_thresholds_in_orthogonal_space = [
                     #     c for c in CUT_DEPENDENCIES[orthogonal_space] if c != intersecting_cut and CUT_LOOP_MOMENTA_INDICES[c] != max_loop_indices and sig[c] != CUT_ABSENT and THRESHOLD_INTERSECTION_INFO[cut_to_add][c]['status'] == IntersectionStatus.PINCHED]
@@ -346,34 +358,74 @@ def generate_file(filename):
                         is_enabled = False
                         mc_factor = NO_MC_FACTOR
                     else:
-                        if len(max_loop_indices) == 1:
-                            is_enabled = True
+                        prefer_one_loop_solving = True
+                        force_one_loop_solving = None
+                        if len(intersecting_cut_info['loop_indices_solved']) > 1:
+                            if len(intersecting_cut_info['edges']) > 2:
+                                prefer_one_loop_solving = False
+                            if cut_to_add != CUT_56 and orthogonal_space in [K, L]:
+                                if len(active_thresholds_in_orthogonal_space) > 0:
+                                    prefer_one_loop_solving = True
+                                    force_one_loop_solving = True
+                                else:
+                                    force_one_loop_solving = False
+
+                        if force_one_loop_solving is not None:
+                            if force_one_loop_solving:
+                                if max_loop_indices == loop_indices:
+                                    is_enabled = False
+                                else:
+                                    is_enabled = True
+                            else:
+                                if max_loop_indices == loop_indices:
+                                    is_enabled = True
+                                else:
+                                    is_enabled = False
                             mc_factor = NO_MC_FACTOR
                         else:
-                            # Include both spaces for solving but PFed using the E-surface of all active cuts intersecting the subspace chosen
-                            if max_loop_indices == loop_indices:
-                                if mc_factor_denom != []:
-                                    is_enabled = True
-                                    mc_factor = {
-                                        'e_surf_ids_prod_in_num': mc_factor_remove_orthogonal_space_active_thresholds,
-                                        'e_surf_ids_prods_to_sum_in_denom': mc_factor_denom
-                                    }
-                                else:
-                                    is_enabled = len(
-                                        mc_factor_remove_orthogonal_space_active_thresholds) == 0
-                                    mc_factor = NO_MC_FACTOR
-
+                            if len(max_loop_indices) == 1:
+                                is_enabled = True
+                                mc_factor = NO_MC_FACTOR
                             else:
-                                if mc_factor_denom != []:
-                                    is_enabled = True
-                                    mc_factor = {
-                                        'e_surf_ids_prod_in_num': mc_factor_remove_orthogonal_space_inactive_thresholds,
-                                        'e_surf_ids_prods_to_sum_in_denom': mc_factor_denom
-                                    }
+                                # Include both spaces for solving but PFed using the E-surface of all active cuts intersecting the subspace chosen
+                                if max_loop_indices == loop_indices:
+                                    if mc_factor_denom != []:
+                                        is_enabled = True
+                                        mc_factor = {
+                                            'e_surf_ids_prod_in_num': mc_factor_remove_orthogonal_space_active_thresholds,
+                                            'e_surf_ids_prods_to_sum_in_denom': mc_factor_denom
+                                        }
+                                    else:
+                                        if prefer_one_loop_solving:
+                                            is_enabled = len(
+                                                mc_factor_remove_orthogonal_space_active_thresholds) == 0 and len(mc_factor_remove_orthogonal_space_inactive_thresholds) > 0
+                                        else:
+                                            is_enabled = len(
+                                                mc_factor_remove_orthogonal_space_active_thresholds) == 0
+                                        # is_enabled = len(
+                                        #     mc_factor_remove_orthogonal_space_active_thresholds) == 0 and len(ALL_inactive_thresholds_in_orthogonal_space) > 0
+                                        mc_factor = NO_MC_FACTOR
+
                                 else:
-                                    is_enabled = len(mc_factor_remove_orthogonal_space_inactive_thresholds) == 0 and len(
-                                        mc_factor_remove_orthogonal_space_active_thresholds) > 0
-                                    mc_factor = NO_MC_FACTOR
+                                    if mc_factor_denom != []:
+                                        is_enabled = True
+                                        mc_factor = {
+                                            'e_surf_ids_prod_in_num': mc_factor_remove_orthogonal_space_inactive_thresholds,
+                                            'e_surf_ids_prods_to_sum_in_denom': mc_factor_denom
+                                        }
+                                    else:
+                                        # is_enabled = len(mc_factor_remove_orthogonal_space_inactive_thresholds) == 0 and len(
+                                        #    mc_factor_remove_orthogonal_space_active_thresholds) > 0
+                                        if prefer_one_loop_solving:
+                                            is_enabled = len(
+                                                mc_factor_remove_orthogonal_space_inactive_thresholds) == 0
+                                        else:
+                                            is_enabled = len(
+                                                mc_factor_remove_orthogonal_space_inactive_thresholds) == 0 and len(
+                                                mc_factor_remove_orthogonal_space_active_thresholds) > 0
+                                        # is_enabled = len(
+                                        #     ALL_inactive_thresholds_in_orthogonal_space) == 0
+                                        mc_factor = NO_MC_FACTOR
 
                     # if sig == (0, 1, -1, 0, -1, 1, -1, -1, 1):
                     #     print("mc_factor=", mc_factor)

@@ -39,6 +39,14 @@ pub struct TriBoxTriCFFSectoredCTSettings {
     pub apply_original_event_selection_to_cts: bool,
 }
 
+fn _default_one() -> f64 {
+    1.0
+}
+
+fn _default_hundred() -> f64 {
+    100.0
+}
+
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct SectoringSettings {
     pub enabled: bool,
@@ -51,6 +59,8 @@ pub struct SectoringSettings {
     pub apply_hard_coded_rules: bool,
     pub check_for_absent_e_surfaces_when_building_mc_factor: bool,
     pub mc_factor_power: f64, // negative means using min()
+    #[serde(default = "_default_hundred")]
+    pub pinch_protection_factor: f64, // negative means disabled
     pub hard_coded_rules_file: Option<String>,
 }
 
@@ -1987,6 +1997,8 @@ impl TriBoxTriCFFSectoredIntegrand {
                             adjusted_sampling_jac,
                             h_function_wgt,
                             e_surf_expanded: e_surf_expanded,
+                            t: t,
+                            t_star: t_star,
                             loop_momenta_star: loop_momenta_star_in_sampling_basis, // Not used at the moment, could be dropped
                             onshell_edges: onshell_edge_momenta_for_this_ct,
                             e_surface_evals: e_surface_caches_for_this_ct,
@@ -2638,6 +2650,12 @@ impl TriBoxTriCFFSectoredIntegrand {
                                         )
                                         }
 
+                                        if self.settings.general.debug > 6 {
+                                            println!("     | E-surface evaluations for the computation of the MC factor specified as {:?}:\n{}",hc_rule.mc_factor,
+                                            ct.e_surface_evals[0].iter().enumerate().map(|(i,sc)| format!("     |   E-surface #{:-2}: pinched={} | exists={} | {:+.16e}",i, if sc.pinched {"YES"} else {"NO "}, if sc.exists {"YES"} else {"NO "},sc.cached_eval())).collect::<Vec<_>>().join("\n")
+                                        );
+                                        }
+
                                         if hc_rule.enabled {
                                             mc_factor = if hc_rule
                                                 .mc_factor
@@ -2761,7 +2779,9 @@ impl TriBoxTriCFFSectoredIntegrand {
                                                         }
                                                     }
                                                     if n_terms > 1 && found_one_factor_in_num {
-                                                        if self.settings.general.debug > 5 {
+                                                        if self.settings.general.debug > 5
+                                                            && self.settings.general.debug <= 6
+                                                        {
                                                             println!("     | E-surface evaluations for the computation of the MC factor specified as {:?}:\n{}",hc_rule.mc_factor,
                                                             ct.e_surface_evals[0].iter().enumerate().map(|(i,sc)| format!("     |   E-surface #{:-2}: pinched={} | exists={} | {:+.16e}",i, if sc.pinched {"YES"} else {"NO "}, if sc.exists {"YES"} else {"NO "},sc.cached_eval())).collect::<Vec<_>>().join("\n")
                                                         );
@@ -2892,18 +2912,12 @@ impl TriBoxTriCFFSectoredIntegrand {
                                                                 }
                                                             }
                                                         }
-
                                                         if min_eval_denom.is_none() {
                                                             if self.settings.general.debug > 4 {
                                                                 println!("     | MC factor specified as {:?} yielded no mc_factor (therefore set to one) since not enough e-surfaces of this factor are present in this cFF term.",hc_rule.mc_factor);
                                                             }
                                                             T::one()
                                                         } else {
-                                                            if self.settings.general.debug > 5 {
-                                                                println!("     | E-surface evaluations for the computation of the MC factor specified as {:?}:\n{}",hc_rule.mc_factor,
-                                                                ct.e_surface_evals[0].iter().enumerate().map(|(i,sc)| format!("     |   E-surface #{:-2}: pinched={} | exists={} | {:+.16e}",i, if sc.pinched {"YES"} else {"NO "}, if sc.exists {"YES"} else {"NO "},sc.cached_eval())).collect::<Vec<_>>().join("\n")
-                                                            );
-                                                            }
                                                             if self.settings.general.debug > 4 {
                                                                 println!("     | MC factor specified as {:?} yielded the following mc_factor weight: {:+.16e} from num {:+.16e} and denom {:+.16e}",hc_rule.mc_factor,
                                                                     if min_eval_denom.unwrap() < min_eval_num.unwrap() { T::one() } else { T::zero() }, min_eval_num.unwrap() , min_eval_denom.unwrap()
@@ -2944,6 +2958,107 @@ impl TriBoxTriCFFSectoredIntegrand {
                                         }
                                     }
                                 }
+
+                                let pinch_factor = Into::<T>::into(
+                                    self.integrand_settings
+                                        .threshold_ct_settings
+                                        .sectoring_settings
+                                        .pinch_protection_factor,
+                                );
+                                // APPLY LOCAL VETO BASED ON PROXIMITY TO PINCH
+                                if keep_this_one_ct && pinch_factor > T::zero() {
+                                    // # | ID   (cut edges   ) : E-surf ID
+                                    // # | #0   (-0|+1       ) : #21
+                                    // # | #1   (-2|+3       ) : #10
+                                    // # | #2   (-0|+4|+6    ) : #19
+                                    // # | #3   (+1|-4|-5    ) : #22
+                                    // # | #4   (+6|-7|-2    ) : #17
+                                    // # | #5   (+3|+7|-5    ) : #11
+                                    // # | #6   (-0|+4|+7|+3 ) : #15
+                                    // # | #7   (+1|-4|-7|-2 ) : #23
+                                    // # | #8   (-5|+6       ) : #18
+                                    let cut_to_e_surf_map: Vec<usize> =
+                                        vec![21, 10, 19, 22, 17, 11, 15, 23, 18];
+                                    let all_pinched_other_cuts: Vec<usize> = match i_cut {
+                                        0 => {
+                                            if loop_indices_solved.contains(&&2_usize) {
+                                                vec![2, 3, 6, 7]
+                                            } else {
+                                                vec![6, 7]
+                                            }
+                                        }
+                                        1 => {
+                                            if loop_indices_solved.contains(&&2_usize) {
+                                                vec![4, 5, 6, 7]
+                                            } else {
+                                                vec![6, 7]
+                                            }
+                                        }
+                                        2 => vec![4, 5],
+                                        3 => vec![4, 5],
+                                        4 => vec![2, 3],
+                                        5 => vec![2, 3],
+                                        8 => {
+                                            if loop_indices_solved.contains(&&0_usize)
+                                                && !loop_indices_solved.contains(&&1_usize)
+                                            {
+                                                vec![2, 3]
+                                            } else if loop_indices_solved.contains(&&1_usize)
+                                                && !loop_indices_solved.contains(&&0_usize)
+                                            {
+                                                vec![4, 5]
+                                            } else if loop_indices_solved.contains(&&1_usize)
+                                                && loop_indices_solved.contains(&&0_usize)
+                                            {
+                                                vec![2, 3, 4, 5]
+                                            } else {
+                                                vec![6, 7]
+                                            }
+                                        }
+                                        _ => vec![],
+                                    };
+                                    let min_pinched_eval = all_pinched_other_cuts
+                                        .iter()
+                                        .filter(|&c| {
+                                            this_ct_sector_signature[*c] == CUT_ACTIVE
+                                                && ct.e_surface_evals[0][cut_to_e_surf_map[*c]]
+                                                    .pinched
+                                        })
+                                        .map(|c| {
+                                            pinch_factor
+                                                * ct.e_surface_evals[0][cut_to_e_surf_map[*c]]
+                                                    .cached_eval()
+                                                    .abs()
+                                        })
+                                        .min_by(|a, b| a.partial_cmp(b).unwrap());
+                                    let distance_to_self = (ct.t - ct.t_star) * ct.e_surf_expanded;
+                                    if self.settings.general.debug > 6 {
+                                        println!("     | Pinch test for this CT yielded the following distance to self {:+.16} and the following pinched cuts to consider {:?} and corresponding min pinched eval {:?}",
+                                        distance_to_self,
+                                        all_pinched_other_cuts,
+                                        min_pinched_eval);
+                                    }
+                                    if let Some(min_pinched) = min_pinched_eval {
+                                        if self.settings.general.debug > 4 {
+                                            println!("     | Pinch test compared closest pinch value of {:+.16e} to self ct threshold distance of {:+.16e} so that this CT will be {}",
+                                                min_pinched,
+                                                distance_to_self,
+                                                if distance_to_self.abs() < min_pinched.abs() {
+                                                    format!("{}","KEPT").green()
+                                                } else {
+                                                    format!("{}","DISCARDED").red()
+                                                }
+                                            );
+                                        }
+                                        if min_pinched * min_pinched
+                                            < distance_to_self * distance_to_self
+                                        {
+                                            keep_this_one_ct = false;
+                                            reason_for_this_ct = format!("pinch test found closest pinch value {:+.16e} to be closer than the self ct threshold distance {:+.16e}",min_pinched,distance_to_self);
+                                        }
+                                    }
+                                }
+
                                 if !keep_this_one_ct {
                                     if self.settings.general.debug > 3 {
                                         println!(
@@ -4236,6 +4351,7 @@ impl TriBoxTriCFFSectoredIntegrand {
 
         let cff_cts_sum_contribution = cff_cts_sum * global_factors;
         for i_cff in 0..self.supergraph.supergraph_cff.cff_expression.terms.len() {
+            cff_res[i_cff] += cff_cts_res[i_cff];
             cff_cts_res[i_cff] *= global_factors;
             cff_res[i_cff] *= global_factors;
         }
@@ -4661,8 +4777,6 @@ impl HasIntegrand for TriBoxTriCFFSectoredIntegrand {
             println!("Integrator weight : {:+.16e}", wgt);
         }
 
-        // TODO implement stability check
-
         let mut result = if use_f128 {
             let sample_xs_f128 = sample_xs
                 .iter()
@@ -4686,7 +4800,66 @@ impl HasIntegrand for TriBoxTriCFFSectoredIntegrand {
         } else {
             self.evaluate_sample_generic(sample_xs.as_slice())
         };
-        self.event_manager.process_events(result, wgt);
+
+        if !use_f128 && iter > 0 {
+            let mut rerun_in_f128 = false;
+            if !result.re.is_finite() || !result.im.is_finite() {
+                rerun_in_f128 = true;
+            } else if result.norm() > 0. {
+                self.event_manager.event_buffer.clear();
+                let nudged_sample_xs = sample_xs
+                    .iter()
+                    .map(|&x| x * (1. - 1.0e-13))
+                    .collect::<Vec<_>>();
+
+                let nudged_result = self.evaluate_sample(
+                    &Sample::ContinuousGrid(1., nudged_sample_xs.clone()),
+                    wgt,
+                    0,
+                    false,
+                );
+                if self.settings.general.debug > 0 {
+                    println!("Stability result using original xs sample:\n{:?}\nand nudged one:\n{:?}\nyields\n{:?}\nand\n{:?}\nrespectively, resulting in a relative difference of {:+.16e}.",
+                        sample_xs,
+                        nudged_sample_xs,
+                        result,
+                        nudged_result,
+                        (nudged_result.norm() - result.norm()).abs()
+                    / (nudged_result.norm() + result.norm())
+                    );
+                }
+                if (nudged_result.norm() - result.norm()).abs()
+                    / (nudged_result.norm() + result.norm())
+                    > 1.0e-4
+                {
+                    if self.settings.general.debug > 0 {
+                        println!(
+                            "{}",
+                            format!(
+                                "WARNING: Unstable result found for xs={:?} : {:+16e} + i {:+16e}",
+                                sample_xs, result.re, result.im
+                            )
+                            .bold()
+                            .red()
+                        );
+                    }
+                    rerun_in_f128 = true;
+                }
+            }
+            if rerun_in_f128 {
+                self.event_manager.event_buffer.clear();
+                result = self.evaluate_sample(
+                    &Sample::ContinuousGrid(1., sample_xs.clone()),
+                    wgt,
+                    0,
+                    true,
+                );
+            }
+        }
+
+        if iter > 0 {
+            self.event_manager.process_events(result, wgt);
+        }
         if !result.re.is_finite() || !result.im.is_finite() {
             println!("{}",format!("WARNING: Found infinite result (now set to zero) for xs={:?} : {:+16e} + i {:+16e}", sample_xs, result.re, result.im).bold().red());
             result = Complex::new(0.0, 0.0);

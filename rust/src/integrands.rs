@@ -150,6 +150,8 @@ pub struct ESurfaceCT<T: FloatLike, ESC: ESurfaceCacheTrait<T>> {
     pub adjusted_sampling_jac: T,
     pub h_function_wgt: T,
     pub e_surf_expanded: T,
+    pub t: T,
+    pub t_star: T,
     pub loop_momenta_star: Vec<LorentzVector<T>>,
     pub onshell_edges: Vec<LorentzVector<T>>,
     pub e_surface_evals: [Vec<ESC>; 2],

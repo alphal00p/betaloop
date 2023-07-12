@@ -922,6 +922,8 @@ impl TriBoxTriIntegrand {
                     adjusted_sampling_jac,
                     h_function_wgt,
                     e_surf_expanded: e_surf_expanded,
+                    t: t,
+                    t_star: t_star,
                     loop_momenta_star: loop_momenta_star_in_sampling_basis, // Not used at the moment, could be dropped
                     onshell_edges: onshell_edge_momenta_for_this_ct,
                     e_surface_evals: e_surface_caches_for_this_ct, // Not used at the moment, could be dropped
