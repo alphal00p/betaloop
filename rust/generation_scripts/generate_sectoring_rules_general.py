@@ -72,6 +72,8 @@ class IntersectionStatus:
     ABSENT = 3
 
 
+_AMPLITUDE_LEVEL_SUBTRACTION = True
+
 THRESHOLD_INTERSECTION_INFO = {
     CUT_01: {
         CUT_01: intersection_info([0, 1], status=IntersectionStatus.ABSENT),
@@ -164,9 +166,6 @@ THRESHOLD_INTERSECTION_INFO = {
     CUT_56: {
         CUT_01: intersection_info([0, 1], loop_indices_solved=[[K], [K, L]], status=IntersectionStatus.NON_PINCHED),
         CUT_23: intersection_info([2, 3], loop_indices_solved=[[L], [K, L]], status=IntersectionStatus.NON_PINCHED),
-        # When subtracting at the amplitude level, substitute the two lines above with ones below
-        # CUT_01: intersection_info([0, 1], loop_indices_solved=[[K],], status=IntersectionStatus.NON_PINCHED),
-        # CUT_23: intersection_info([2, 3], loop_indices_solved=[[L],], status=IntersectionStatus.NON_PINCHED),
         CUT_046: intersection_info([0, 4, 6], status=IntersectionStatus.PINCHED),
         CUT_145: intersection_info([1, 4, 5], status=IntersectionStatus.PINCHED),
         CUT_672: intersection_info([6, 7, 2], status=IntersectionStatus.PINCHED),
@@ -176,6 +175,11 @@ THRESHOLD_INTERSECTION_INFO = {
         CUT_56: intersection_info([5, 6], status=IntersectionStatus.ABSENT),
     },
 }
+
+# At the amplitude level, we must ignore the the loop indices across the cut 56
+if _AMPLITUDE_LEVEL_SUBTRACTION:
+    THRESHOLD_INTERSECTION_INFO[CUT_56][CUT_01]["loop_indices_solved"] = [[K],]
+    THRESHOLD_INTERSECTION_INFO[CUT_56][CUT_23]["loop_indices_solved"] = [[L],]
 
 CUT_DEPENDENCIES = {
     K: [CUT_01, CUT_145, CUT_046, CUT_0473, CUT_1472],
@@ -292,9 +296,9 @@ def generate_file(filename):
                     #     c for c in CUT_DEPENDENCIES[orthogonal_space] if c != intersecting_cut and CUT_LOOP_MOMENTA_INDICES[c] != max_loop_indices and sig[c] == CUT_INACTIVE]
 
                     # OPTION B: just differentiate pinched vs non-pinched\
-                    vetoed_loop_indices_combinations = [
-                        max_loop_indices, ALL_LOOP_INDICES]
-                    # vetoed_loop_indices_combinations = [ALL_LOOP_INDICES,]
+                    # vetoed_loop_indices_combinations = [
+                    #     max_loop_indices, ALL_LOOP_INDICES]
+                    vetoed_loop_indices_combinations = [ALL_LOOP_INDICES,]
                     # active_thresholds_in_orthogonal_space = [
                     #     c for c in CUT_DEPENDENCIES[orthogonal_space] if c != intersecting_cut and CUT_LOOP_MOMENTA_INDICES[c] not in vetoed_loop_indices_combinations and sig[c] == CUT_ACTIVE and THRESHOLD_INTERSECTION_INFO[cut_to_add][c]['status'] == IntersectionStatus.PINCHED]
                     # inactive_thresholds_in_orthogonal_space = [

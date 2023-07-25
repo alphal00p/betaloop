@@ -92,10 +92,10 @@ Parameterization:
 #Selectors: []
 Selectors:
   - type: jet
-    min_jets: 2
-    max_jets: 2
+    min_jets: 0
+    max_jets: 0
     min_jpt: 10.0
-    min_j1pt: 00.0
+    min_j1pt: 15.0
     max_j1pt: -1.
     dR: 0.7
     use_fastjet: true
