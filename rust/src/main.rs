@@ -3,12 +3,13 @@ mod h_function_test;
 mod integrands;
 mod loop_induced_triboxtri;
 mod observables;
+mod tbbt;
 mod tests;
 mod triangle_subtraction;
 mod triboxtri;
 mod triboxtri_cff;
+mod triboxtri_cff_as;
 mod triboxtri_cff_sectored;
-mod triboxtri_cff_sg;
 mod utils;
 
 use clap::{App, Arg, SubCommand};

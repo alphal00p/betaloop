@@ -21,7 +21,7 @@ use utils::{
 };
 
 #[derive(Debug, Clone, Default, Deserialize)]
-pub struct TriBoxTriCFFSGCTSettings {
+pub struct TBBTCTSettings {
     pub variable: CTVariable,
     pub enabled: bool,
     pub compute_only_im_squared: bool,
@@ -39,80 +39,43 @@ pub struct TriBoxTriCFFSGCTSettings {
     pub apply_original_event_selection_to_cts: bool,
 }
 
+fn _default_one() -> f64 {
+    1.0
+}
+
+fn _default_hundred() -> f64 {
+    100.0
+}
+
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct SectoringSettings {
     pub enabled: bool,
-    pub accept_all: bool,
-    pub sector_based_analysis: bool,
-    pub force_one_loop_ct_in_soft_sector: bool,
-    pub always_solve_cts_in_all_amplitude_loop_indices: bool,
     pub anti_select_threshold_against_observable: bool,
-    pub correlate_event_sector_with_ct_sector: bool,
-    pub apply_hard_coded_rules: bool,
-    pub check_for_absent_e_surfaces_when_building_mc_factor: bool,
-    pub mc_factor_power: f64, // negative means using min()
-    pub hard_coded_rules_file: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
-pub struct SectoringRule {
-    pub sector_signature: Vec<isize>,
-    pub rules_for_cut: Vec<SectoringRuleForCut>,
-}
-
-#[derive(Debug, Clone, Default, Deserialize)]
-pub struct SectoringRuleForCut {
-    pub cut_id: usize,
-    pub rules_for_ct: Vec<SectoringRuleForCutAndCT>,
-}
-
-fn _default_mc_factor() -> SectoringRuleMCFactor {
-    SectoringRuleMCFactor {
-        e_surf_ids_prod_in_num: vec![],
-        e_surf_ids_prods_to_sum_in_denom: vec![],
-    }
-}
-
-#[derive(Debug, Clone, Default, Deserialize)]
-pub struct SectoringRuleForCutAndCT {
-    pub surf_id_subtracted: usize,
-    pub loop_indices_this_ct_is_solved_in: Vec<usize>,
-    pub enabled: bool,
-    #[serde(default = "_default_mc_factor")]
-    pub mc_factor: SectoringRuleMCFactor,
-}
-
-#[derive(Debug, Clone, Default, Deserialize)]
-pub struct SectoringRuleMCFactor {
-    pub e_surf_ids_prod_in_num: Vec<(usize, usize)>,
-    pub e_surf_ids_prods_to_sum_in_denom: Vec<Vec<(usize, usize)>>,
-}
-
-#[derive(Debug, Clone, Default, Deserialize)]
-pub struct TriBoxTriCFFSGSettings {
+pub struct TBBTSettings {
     pub supergraph_yaml_file: String,
     pub q: [f64; 4],
     pub h_function: HFunctionSettings,
     pub numerator: NumeratorType,
     pub sampling_basis: Vec<usize>,
     pub selected_sg_cff_term: Option<usize>,
-    pub selected_sector_signature: Option<Vec<isize>>,
     #[serde(rename = "threshold_CT_settings")]
-    pub threshold_ct_settings: TriBoxTriCFFSGCTSettings,
+    pub threshold_ct_settings: TBBTCTSettings,
 }
 
-pub struct TriBoxTriCFFSGIntegrand {
+pub struct TBBTIntegrand {
     pub settings: Settings,
     pub supergraph: SuperGraph,
     pub n_dim: usize,
-    pub integrand_settings: TriBoxTriCFFSGSettings,
+    pub integrand_settings: TBBTSettings,
     pub event_manager: EventManager,
-    pub sampling_rot: Option<[[isize; 3]; 3]>,
-    pub hard_coded_rules: Vec<SectoringRule>,
+    pub sampling_rot: Option<[[isize; 4]; 4]>,
 }
 
 #[derive(Debug, Clone)]
-pub struct TriBoxTriCFFSGComputationCachePerCut<T: FloatLike> {
+pub struct TriBoxTriCFFSectoredComputationCachePerCut<T: FloatLike> {
     pub onshell_edge_momenta: Vec<LorentzVector<T>>,
     pub rescaled_loop_momenta: Vec<LorentzVector<T>>,
     // 0 means observable regected that cut, 1 means observable passed on that cut and -1 means cff term does not contribut to that cut
@@ -124,9 +87,9 @@ pub struct TriBoxTriCFFSGComputationCachePerCut<T: FloatLike> {
     pub e_surf_caches: Vec<GenericESurfaceCache<T>>,
 }
 
-impl<T: FloatLike> TriBoxTriCFFSGComputationCachePerCut<T> {
-    pub fn default() -> TriBoxTriCFFSGComputationCachePerCut<T> {
-        TriBoxTriCFFSGComputationCachePerCut {
+impl<T: FloatLike> TriBoxTriCFFSectoredComputationCachePerCut<T> {
+    pub fn default() -> TriBoxTriCFFSectoredComputationCachePerCut<T> {
+        TriBoxTriCFFSectoredComputationCachePerCut {
             onshell_edge_momenta: vec![],
             rescaled_loop_momenta: vec![],
             sector_signature: vec![],
@@ -140,16 +103,16 @@ impl<T: FloatLike> TriBoxTriCFFSGComputationCachePerCut<T> {
 }
 
 #[derive(Debug)]
-pub struct TriBoxTriCFFSGComputationCache<T: FloatLike> {
+pub struct TriBoxTriCFFSectoredComputationCache<T: FloatLike> {
     pub external_momenta: Vec<LorentzVector<T>>,
-    pub cut_caches: Vec<TriBoxTriCFFSGComputationCachePerCut<T>>,
+    pub cut_caches: Vec<TriBoxTriCFFSectoredComputationCachePerCut<T>>,
     pub sector_signature: Vec<isize>,
     pub sampling_xs: Vec<f64>,
 }
 
-impl<T: FloatLike> TriBoxTriCFFSGComputationCache<T> {
-    pub fn default() -> TriBoxTriCFFSGComputationCache<T> {
-        TriBoxTriCFFSGComputationCache {
+impl<T: FloatLike> TriBoxTriCFFSectoredComputationCache<T> {
+    pub fn default() -> TriBoxTriCFFSectoredComputationCache<T> {
+        TriBoxTriCFFSectoredComputationCache {
             external_momenta: vec![],
             cut_caches: vec![],
             sector_signature: vec![],
@@ -243,11 +206,8 @@ pub fn compute_propagator_momentum<T: FloatLike>(
 }
 
 #[allow(unused)]
-impl TriBoxTriCFFSGIntegrand {
-    pub fn new(
-        settings: Settings,
-        integrand_settings: TriBoxTriCFFSGSettings,
-    ) -> TriBoxTriCFFSGIntegrand {
+impl TBBTIntegrand {
+    pub fn new(settings: Settings, integrand_settings: TBBTSettings) -> TBBTIntegrand {
         /*
                output_LU_scalar betaLoop_triangleBoxTriangleBenchmark_scalar \
         --topology=[\
@@ -272,32 +232,13 @@ impl TriBoxTriCFFSGIntegrand {
         let sg = SuperGraph::from_file(integrand_settings.supergraph_yaml_file.as_str()).unwrap();
         let n_dim = utils::get_n_dim_for_n_loop_momenta(&settings, sg.n_loop, false);
         let event_manager = EventManager::new(true, settings.clone());
-        let hard_coded_rules: Vec<SectoringRule> = if let Some(hard_coded_rules_file) =
-            integrand_settings
-                .threshold_ct_settings
-                .sectoring_settings
-                .hard_coded_rules_file
-                .as_ref()
-        {
-            let f = File::open(&hard_coded_rules_file).unwrap_or_else(|_e| {
-                panic!(
-                    "Could not open hardcoded sectoring rules file {}",
-                    hard_coded_rules_file
-                )
-            });
-            serde_yaml::from_reader(f)
-                .unwrap_or_else(|_e| panic!("Could not parse hardcoded sectoring rules file"))
-        } else {
-            vec![]
-        };
-        TriBoxTriCFFSGIntegrand {
+        TBBTIntegrand {
             settings,
             supergraph: sg,
             n_dim: n_dim,
             integrand_settings,
             event_manager,
             sampling_rot: None,
-            hard_coded_rules,
         }
     }
 
@@ -363,7 +304,7 @@ impl TriBoxTriCFFSGIntegrand {
         &self,
         esurf_basis_edge_ids: &Vec<usize>,
         edge_ids: &Vec<usize>,
-        cache: &TriBoxTriCFFSGComputationCache<T>,
+        cache: &TriBoxTriCFFSectoredComputationCache<T>,
         loop_momenta: &Vec<LorentzVector<T>>,
         side: usize,
         e_shift_sig: &Vec<isize>,
@@ -422,7 +363,7 @@ impl TriBoxTriCFFSGIntegrand {
     fn build_e_surfaces<T: FloatLike>(
         &self,
         onshell_edge_momenta: &Vec<LorentzVector<T>>,
-        cache: &TriBoxTriCFFSGComputationCache<T>,
+        cache: &TriBoxTriCFFSectoredComputationCache<T>,
         loop_momenta: &Vec<LorentzVector<T>>,
         i_cut: usize,
     ) -> Vec<GenericESurfaceCache<T>> {
@@ -453,7 +394,34 @@ impl TriBoxTriCFFSGIntegrand {
                     }
                 }
             }
-            if e_surf_side == NOSIDE {
+
+            let amplitude_for_sides = [
+                &self.supergraph.cuts[i_cut].left_amplitude,
+                &self.supergraph.cuts[i_cut].right_amplitude,
+            ];
+            let loop_edge_ids = if e_surf_side != NOSIDE {
+                amplitude_for_sides[e_surf_side]
+                    .edges
+                    .iter()
+                    .map(|e| e.id)
+                    .collect::<Vec<_>>()
+            } else {
+                vec![]
+            };
+            /*
+            println!("cut={:?}", self.supergraph.cuts[i_cut]);
+            println!("i_cut={}", i_cut);
+            println!("loop_edge_ids={:?}", loop_edge_ids);
+            println!("e_surf={:?}", e_surf);
+            */
+            let e_surf_loop_edges = e_surf
+                .edge_ids
+                .iter()
+                .filter(|e_id| loop_edge_ids.contains(e_id))
+                .map(|e_id| *e_id)
+                .collect::<Vec<_>>();
+
+            if e_surf_side == NOSIDE || e_surf_loop_edges.len() <= 1 {
                 // For the present case we can hardcode that the tree E-surface is always pinched.
                 let mut tree_e_surf_cache = self.build_e_surface_for_edges(
                     &sg_lmb,
@@ -462,7 +430,7 @@ impl TriBoxTriCFFSGIntegrand {
                     // Nothing will be used from the loop momenta in this context because we specify all edges to be in the e surf basis here.
                     // But this construction is useful when building the amplitude e-surfaces using the same function.
                     loop_momenta,
-                    NOSIDE,
+                    e_surf_side,
                     &e_surf.shift,
                 );
                 tree_e_surf_cache.exists = false;
@@ -472,21 +440,6 @@ impl TriBoxTriCFFSGIntegrand {
                 continue;
             }
 
-            let amplitude_for_sides = [
-                &self.supergraph.cuts[i_cut].left_amplitude,
-                &self.supergraph.cuts[i_cut].right_amplitude,
-            ];
-            let loop_edge_ids = amplitude_for_sides[e_surf_side]
-                .edges
-                .iter()
-                .map(|e| e.id)
-                .collect::<Vec<_>>();
-            let e_surf_loop_edges = e_surf
-                .edge_ids
-                .iter()
-                .filter(|e_id| loop_edge_ids.contains(e_id))
-                .map(|e_id| *e_id)
-                .collect::<Vec<_>>();
             let mut e_shift_extra = T::zero();
             for e_id in &e_surf.edge_ids {
                 if !e_surf_loop_edges.contains(e_id) {
@@ -526,7 +479,7 @@ impl TriBoxTriCFFSGIntegrand {
     fn evt_for_e_surf_to_pass_selection<T: FloatLike>(
         &self,
         asc_e_surf_id: usize,
-        cache: &TriBoxTriCFFSGComputationCache<T>,
+        cache: &TriBoxTriCFFSectoredComputationCache<T>,
         onshell_edge_momenta: &Vec<LorentzVector<T>>,
     ) -> (usize, Event) {
         let (as_i_cut, anti_selected_cut) =
@@ -587,7 +540,7 @@ impl TriBoxTriCFFSGIntegrand {
     fn fill_cache<T: FloatLike>(
         &mut self,
         loop_momenta: &Vec<LorentzVector<T>>,
-        cache: &mut TriBoxTriCFFSGComputationCache<T>,
+        cache: &mut TriBoxTriCFFSectoredComputationCache<T>,
     ) {
         if self.settings.general.debug > 3 {
             println!(
@@ -607,7 +560,7 @@ impl TriBoxTriCFFSGIntegrand {
         //         .unwrap()
         // });
         cache.cut_caches =
-            vec![TriBoxTriCFFSGComputationCachePerCut::default(); self.supergraph.cuts.len()];
+            vec![TriBoxTriCFFSectoredComputationCachePerCut::default(); self.supergraph.cuts.len()];
         // for i_cut in sorted_cut_ids {
         for i_cut in 0..self.supergraph.cuts.len() {
             let cut = &self.supergraph.cuts[i_cut];
@@ -710,11 +663,10 @@ impl TriBoxTriCFFSGIntegrand {
             e_surface_cc_cut.t_scaling = e_surface_cc_cut.compute_t_scaling(&loop_momenta);
             cache.cut_caches[i_cut].cut_sg_e_surf = e_surface_cc_cut.clone();
 
-            let rescaled_loop_momenta = vec![
-                loop_momenta[0] * e_surface_cc_cut.t_scaling[0],
-                loop_momenta[1] * e_surface_cc_cut.t_scaling[0],
-                loop_momenta[2] * e_surface_cc_cut.t_scaling[0],
-            ];
+            let rescaled_loop_momenta = loop_momenta
+                .iter()
+                .map(|ki| ki * e_surface_cc_cut.t_scaling[0])
+                .collect::<Vec<_>>();
 
             // Now re-evaluate the kinematics with the correct hyperradius
             onshell_edge_momenta_for_this_cut = self.evaluate_onshell_edge_momenta(
@@ -1004,7 +956,7 @@ impl TriBoxTriCFFSGIntegrand {
         &mut self,
         e_surf_id: usize,
         i_cut: usize,
-        cache: &TriBoxTriCFFSGComputationCache<T>,
+        cache: &TriBoxTriCFFSectoredComputationCache<T>,
     ) -> Vec<ESurfaceCT<T, GenericESurfaceCache<T>>> {
         let mut all_new_cts = vec![];
 
@@ -1329,7 +1281,10 @@ impl TriBoxTriCFFSGIntegrand {
                 }
 
                 let center_eval = subtracted_e_surface.eval(&center_shifts);
-                assert!(center_eval < T::zero());
+                if center_eval > T::zero() {
+                    panic!("Invalid eval={:+.e}>0 for center:\n{:?}\nFor the following E-surface:\n{:?}",center_eval,center_shifts,subtracted_e_surface);
+                }
+                //assert!(center_eval < T::zero());
 
                 // Change the parametric equation of the subtracted E-surface to the CT basis
                 subtracted_e_surface.adjust_loop_momenta_shifts(&center_coordinates);
@@ -1602,7 +1557,6 @@ impl TriBoxTriCFFSGIntegrand {
                                 .map(|e| (e.id, 1_isize))
                                 .collect::<Vec<_>>(),
                         );
-
                         let onshell_edge_momenta_for_this_ct_for_each_cut =
                             loop_momenta_star_in_sampling_basis_for_each_cut
                                 .iter()
@@ -1630,6 +1584,7 @@ impl TriBoxTriCFFSGIntegrand {
                         //     onshell_edge_momenta_for_this_ct
                         // );
 
+                        /*
                         let ct_i_cut =
                         match self.supergraph.cuts.iter().enumerate().find(|(_i, c)| {
                             c.cut_edge_ids_and_flip.iter().all(|(e_id, _flip)| {
@@ -1650,6 +1605,16 @@ impl TriBoxTriCFFSGIntegrand {
                             )
                         ),
                         };
+                        */
+                        let ct_i_cut_opt =
+                            self.supergraph.cuts.iter().enumerate().find(|(_i, c)| {
+                                c.cut_edge_ids_and_flip.iter().all(|(e_id, _flip)| {
+                                    self.supergraph.supergraph_cff.cff_expression.e_surfaces
+                                        [e_surf_id]
+                                        .edge_ids
+                                        .contains(e_id)
+                                })
+                            });
                         let mut ct_sector_signature = vec![CUT_ABSENT; self.supergraph.cuts.len()];
                         // We can immediately set the sector signature for this CT to the one of the cut it stems from
                         ct_sector_signature[i_cut] =
@@ -1659,13 +1624,19 @@ impl TriBoxTriCFFSGIntegrand {
                         // cut, so that we should not consider it. This is however obviously never the case for the cut corresponding to
                         // this CT itself and the cutkosky cut it stems from, so we can apply those immediately
                         // However, when debugging it's best to leave it here and let it be removed later for each cFF term
-                        let mut cuts_for_signature = if self.settings.general.debug == 0 {
-                            vec![(ct_i_cut, true)]
+                        let mut cuts_for_signature = if let Some((ct_i_cut, _c)) = ct_i_cut_opt {
+                            if self.settings.general.debug == 0 {
+                                vec![(ct_i_cut, true)]
+                            } else {
+                                vec![(ct_i_cut, false)]
+                            }
                         } else {
-                            vec![(ct_i_cut, false)]
+                            vec![]
                         };
                         for sig_i_cut in 0..self.supergraph.cuts.len() {
-                            if sig_i_cut != i_cut && sig_i_cut != ct_i_cut {
+                            if sig_i_cut != i_cut
+                                && (ct_i_cut_opt.is_none() || sig_i_cut != ct_i_cut_opt.unwrap().0)
+                            {
                                 cuts_for_signature.push((sig_i_cut, false));
                             }
                         }
@@ -1681,6 +1652,18 @@ impl TriBoxTriCFFSGIntegrand {
                                             onshell_edge_momenta_for_this_ct_for_each_cut
                                                 [sig_i_cut][*i_edge]
                                                 * Into::<T>::into(*flip as f64);
+                                        // if edge_mom.t < T::zero() {
+                                        //     panic!(
+                                        //         "Found invalid edge mom #{}: {:?}",
+                                        //         i_edge, edge_mom
+                                        //     );
+                                        // }
+                                        // if edge_mom.pt() > Into::<T>::into(30. as f64) {
+                                        //     panic!(
+                                        //         "Found invalid pt in edge mom #{}: {:?}",
+                                        //         i_edge, edge_mom
+                                        //     );
+                                        // }
                                         edge_mom.t = edge_mom.t.abs();
                                         edge_mom
                                     })
@@ -2036,7 +2019,7 @@ impl TriBoxTriCFFSGIntegrand {
         i_cut: usize,
         loop_momenta: &Vec<LorentzVector<T>>,
         overall_sampling_jac: T,
-        cache: &TriBoxTriCFFSGComputationCache<T>,
+        cache: &TriBoxTriCFFSectoredComputationCache<T>,
         selected_sg_cff_term: Option<usize>,
     ) -> (
         Complex<T>,
@@ -2074,10 +2057,11 @@ impl TriBoxTriCFFSGIntegrand {
         let rescaled_loop_momenta = &cache.cut_caches[i_cut].rescaled_loop_momenta;
 
         // Compute the jacobian of the rescaling
-        let normalised_hyperradius = (rescaled_loop_momenta[0].spatial_squared()
-            + rescaled_loop_momenta[1].spatial_squared()
-            + rescaled_loop_momenta[2].spatial_squared())
-        .sqrt()
+        let normalised_hyperradius = rescaled_loop_momenta
+            .iter()
+            .map(|lm| lm.spatial_squared())
+            .sum::<T>()
+            .sqrt()
             / Into::<T>::into(
                 self.settings.kinematics.e_cm * self.integrand_settings.h_function.sigma,
             );
@@ -2250,28 +2234,6 @@ impl TriBoxTriCFFSGIntegrand {
             }
 
             let mut cut_sector_signature = cache.sector_signature.clone();
-            let mut selected_sector_signature = if let Some(user_selected_sector_signature) =
-                self.integrand_settings.selected_sector_signature.as_ref()
-            {
-                user_selected_sector_signature.clone()
-            } else {
-                cut_sector_signature.clone()
-            };
-
-            for i_sig_cut in 0..self.supergraph.cuts.len() {
-                if !self.supergraph.supergraph_cff.cff_expression.terms[i_cff]
-                    .contains_e_surf_id(cache.cut_caches[i_sig_cut].cut_sg_e_surf_id)
-                {
-                    cut_sector_signature[i_sig_cut] = CUT_ABSENT;
-                    selected_sector_signature[i_sig_cut] = CUT_ABSENT;
-                }
-            }
-
-            if self.integrand_settings.selected_sector_signature.is_some() {
-                if cut_sector_signature != selected_sector_signature {
-                    continue;
-                }
-            }
 
             // Adjust the energy signs for this cff term
             for (e_id, flip) in self.supergraph.supergraph_cff.cff_expression.terms[i_cff]
@@ -2496,1296 +2458,74 @@ impl TriBoxTriCFFSGIntegrand {
                                 );
                             }
 
+                            /*
                             let loop_indices_solved = if side == LEFT {
                                 &ct.loop_indices_solved.0
                             } else {
                                 &ct.loop_indices_solved.1
                             };
+                            */
+                            let mut loop_indices_solved: Vec<usize> = vec![];
+                            loop_indices_solved.extend(&ct.loop_indices_solved.0);
+                            loop_indices_solved.extend(&ct.loop_indices_solved.1);
 
-                            if self
-                                .integrand_settings
-                                .threshold_ct_settings
-                                .sectoring_settings
-                                .apply_hard_coded_rules
-                            {
-                                let mut keep_this_one_ct = true;
-                                let mut reason_for_this_ct = format!("{}", "");
-                                let mut rule_found = None;
-                                let mut mc_factor = T::one();
-
-                                // First apply anti-observable if requested
-                                for (sig_i_cut, cut_cache) in cache.cut_caches.iter().enumerate() {
-                                    let cut_str = if self.settings.general.debug > 3 {
+                            // if self.settings.general.debug > 0 {
+                            //     println!(
+                            //         "{}",
+                            //         format!("{}", "   > User forced accepting all CTs")
+                            //             .bold()
+                            //             .red()
+                            //     );
+                            // }
+                            let mut keep_this_one_ct = true;
+                            let mut reason_for_this_ct = format!("{}", "");
+                            for (sig_i_cut, cut_cache) in cache.cut_caches.iter().enumerate() {
+                                let cut_str = if self.settings.general.debug > 3 {
+                                    format!(
+                                        "{}({})",
+                                        format!("#{}", sig_i_cut).blue(),
                                         format!(
-                                            "{}({})",
-                                            format!("#{}", sig_i_cut).blue(),
-                                            format!(
-                                                "{}",
-                                                self.supergraph.cuts[sig_i_cut]
-                                                    .cut_edge_ids_and_flip
-                                                    .iter()
-                                                    .map(|(id, flip)| if *flip > 0 {
-                                                        format!("+{}", id)
-                                                    } else {
-                                                        format!("-{}", id)
-                                                    })
-                                                    .collect::<Vec<_>>()
-                                                    .join("|")
-                                            )
-                                            .blue()
+                                            "{}",
+                                            self.supergraph.cuts[sig_i_cut]
+                                                .cut_edge_ids_and_flip
+                                                .iter()
+                                                .map(|(id, flip)| if *flip > 0 {
+                                                    format!("+{}", id)
+                                                } else {
+                                                    format!("-{}", id)
+                                                })
+                                                .collect::<Vec<_>>()
+                                                .join("|")
                                         )
-                                    } else {
-                                        format!("{}", "")
-                                    };
-                                    if cut_cache.cut_sg_e_surf_id == ct.e_surf_id
-                                        && self
-                                            .integrand_settings
-                                            .threshold_ct_settings
-                                            .sectoring_settings
-                                            .anti_select_threshold_against_observable
-                                    {
-                                        if this_ct_sector_signature[sig_i_cut] == CUT_ACTIVE {
-                                            keep_this_one_ct = false;
-                                            if self.settings.general.debug > 3 {
-                                                reason_for_this_ct = format!("it contains the following cut {} which is the threshold itself and selected by the observable, so anti-selection of threshold kicks in.",
+                                        .blue()
+                                    )
+                                } else {
+                                    format!("{}", "")
+                                };
+                                if cut_cache.cut_sg_e_surf_id == ct.e_surf_id
+                                    && self
+                                        .integrand_settings
+                                        .threshold_ct_settings
+                                        .sectoring_settings
+                                        .anti_select_threshold_against_observable
+                                {
+                                    if this_ct_sector_signature[sig_i_cut] == CUT_ACTIVE {
+                                        keep_this_one_ct = false;
+                                        if self.settings.general.debug > 3 {
+                                            reason_for_this_ct = format!("it contains the following cut {} which is the threshold itself and selected by the observable, so anti-selection of threshold kicks in.",
                                                     cut_str
                                                 );
-                                            }
-                                            break;
                                         }
-                                    }
-                                }
-                                if keep_this_one_ct {
-                                    // Find a hard-coded rule
-                                    for (i_rule, hc_rule) in
-                                        self.hard_coded_rules.iter().enumerate()
-                                    {
-                                        if hc_rule
-                                            .sector_signature
-                                            .iter()
-                                            .zip(this_ct_sector_signature.iter())
-                                            .all(|(&target_sig, &sig)| {
-                                                sig == target_sig
-                                                    || (target_sig == -2 && sig != CUT_ACTIVE)
-                                            })
-                                        {
-                                            for (i_rule_cut, hc_rule_for_cut) in
-                                                hc_rule.rules_for_cut.iter().enumerate()
-                                            {
-                                                if hc_rule_for_cut.cut_id == i_cut {
-                                                    let i_rule_ct = match hc_rule_for_cut.rules_for_ct.iter().enumerate().find(|(_i_rule_ct, hc_rule_for_cut_and_ct)| {
-                                                    hc_rule_for_cut_and_ct.surf_id_subtracted == ct.e_surf_id && loop_indices_solved.iter().all(|li| hc_rule_for_cut_and_ct.loop_indices_this_ct_is_solved_in.contains(li)) && hc_rule_for_cut_and_ct.loop_indices_this_ct_is_solved_in.iter().all(|li| loop_indices_solved.contains(li))
-                                                }) {
-                                                    Some((i_rule_ct, _hc_rule_for_cut_and_ct)) => i_rule_ct,
-                                                    _ => panic!("   | Could not find hard-coded rule for this CT for E-surface #{} solved in loop indices {:?} and whose signature ({:?}) and cut id ({}) are however specified.",
-                                                        ct.e_surf_id,
-                                                        loop_indices_solved,
-                                                        this_ct_sector_signature,
-                                                        i_cut
-                                                    )
-                                                };
-                                                    if self.settings.general.debug > 3 {
-                                                        println!(
-                                                        "   | cFF Evaluation #{} : CT for {} E-surface {} solved in {} with sector signature {} will be handled by hard-coded rule #{}",
-                                                        format!("{}", i_cff).green(),
-                                                        format!(
-                                                            "{}|{}|{}",
-                                                            if side == LEFT { "L" } else { "R" },
-                                                            if ct.ct_level == AMPLITUDE_LEVEL_CT {
-                                                                "AMP"
-                                                            } else {
-                                                                "SG "
-                                                            },
-                                                            if ct.solution_type == PLUS { "+" } else { "-" }
-                                                        )
-                                                        .purple(),
-                                                        e_surf_str(
-                                                            ct.e_surf_id,
-                                                            &self.supergraph.supergraph_cff.cff_expression.e_surfaces
-                                                                [ct.e_surf_id]
-                                                        )
-                                                        .blue(),
-                                                        format!("[{}x{}]",
-                                                            format!("({:-3})", ct.loop_indices_solved.0.iter().map(|lis| format!("{}", lis)).collect::<Vec<_>>().join(",")),
-                                                            format!("({:-3})", ct.loop_indices_solved.1.iter().map(|lis| format!("{}", lis)).collect::<Vec<_>>().join(",")),
-                                                        ).blue(),
-                                                        format!("{:?}", this_ct_sector_signature).blue(),
-                                                        format!("{}", i_rule).red()
-                                                    );
-                                                    }
-                                                    if rule_found.is_some() {
-                                                        panic!("Multiple hard-coded rules found for a counterterm!");
-                                                    } else {
-                                                        rule_found =
-                                                            Some((i_rule, i_rule_cut, i_rule_ct));
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-
-                                    if let Some((i_rule, i_rule_cut, i_rule_ct)) = rule_found {
-                                        let hc_rule = &self.hard_coded_rules[i_rule].rules_for_cut
-                                            [i_rule_cut]
-                                            .rules_for_ct[i_rule_ct];
-                                        if self.settings.general.debug > 3 {
-                                            println!(
-                                            "     | Found the hard-coded rule with coordinates ({},{},{}) applying to this counterterm: {:?})",
-                                            i_rule, i_rule_cut, i_rule_ct, hc_rule
-                                        )
-                                        }
-
-                                        if hc_rule.enabled {
-                                            mc_factor = if hc_rule
-                                                .mc_factor
-                                                .e_surf_ids_prod_in_num
-                                                .len()
-                                                > 0
-                                            {
-                                                // let mc_factor_num = hc_rule
-                                                //     .mc_factor
-                                                //     .e_surf_ids_prod_in_num
-                                                //     .iter()
-                                                //     .map(|e_surf_id| {
-                                                //         ct.e_surface_evals[0][*e_surf_id]
-                                                //             .cached_eval()
-                                                //             * ct.e_surface_evals[0][*e_surf_id]
-                                                //                 .cached_eval()
-                                                //     })
-                                                //     .product::<T>();
-                                                let mc_factor_power = Into::<T>::into(
-                                                    self.integrand_settings
-                                                        .threshold_ct_settings
-                                                        .sectoring_settings
-                                                        .mc_factor_power,
-                                                );
-                                                let check_for_absent_e_surfaces_when_building_mc_factor = self
-                                                .integrand_settings
-                                                .threshold_ct_settings
-                                                .sectoring_settings
-                                                .check_for_absent_e_surfaces_when_building_mc_factor;
-
-                                                if mc_factor_power > T::zero() {
-                                                    let mut mc_factor_num = T::one();
-                                                    let mut found_one_factor_in_num = false;
-
-                                                    for (e_surf_id_a, e_surf_id_b) in hc_rule
-                                                        .mc_factor
-                                                        .e_surf_ids_prod_in_num
-                                                        .iter()
-                                                    {
-                                                        if check_for_absent_e_surfaces_when_building_mc_factor
-                                                        && (!self
-                                                            .supergraph
-                                                            .supergraph_cff
-                                                            .cff_expression
-                                                            .terms[i_cff]
-                                                            .contains_e_surf_id(*e_surf_id_a)
-                                                            || !self
-                                                                .supergraph
-                                                                .supergraph_cff
-                                                                .cff_expression
-                                                                .terms[i_cff]
-                                                                .contains_e_surf_id(*e_surf_id_b))
-                                                    {
-                                                        continue;
-                                                    }
-                                                        found_one_factor_in_num = true;
-                                                        mc_factor_num *= ((ct.e_surface_evals[0]
-                                                            [*e_surf_id_a]
-                                                            .cached_eval()
-                                                            - ct.e_surface_evals[0][*e_surf_id_b]
-                                                                .cached_eval())
-                                                            / Into::<T>::into(
-                                                                self.settings.kinematics.e_cm
-                                                                    * self.settings.kinematics.e_cm
-                                                                        as f64,
-                                                            ))
-                                                        .abs()
-                                                        .powf(mc_factor_power);
-                                                    }
-                                                    let mut mc_factor_den = T::zero();
-                                                    let mut n_terms = 0_usize;
-                                                    for term in hc_rule
-                                                        .mc_factor
-                                                        .e_surf_ids_prods_to_sum_in_denom
-                                                        .iter()
-                                                    {
-                                                        let mut mc_factor_den_term = T::one();
-                                                        let mut found_one_factor = false;
-                                                        for (e_surf_id_a, e_surf_id_b) in
-                                                            term.iter()
-                                                        {
-                                                            if check_for_absent_e_surfaces_when_building_mc_factor
-                                                            && (!self
-                                                                .supergraph
-                                                                .supergraph_cff
-                                                                .cff_expression
-                                                                .terms[i_cff]
-                                                                .contains_e_surf_id(*e_surf_id_a)
-                                                                || !self
-                                                                    .supergraph
-                                                                    .supergraph_cff
-                                                                    .cff_expression
-                                                                    .terms[i_cff]
-                                                                    .contains_e_surf_id(
-                                                                        *e_surf_id_b,
-                                                                    ))
-                                                        {
-                                                            continue;
-                                                        }
-                                                            found_one_factor = true;
-                                                            mc_factor_den_term *= ((ct
-                                                                .e_surface_evals[0][*e_surf_id_a]
-                                                                .cached_eval()
-                                                                - ct.e_surface_evals[0]
-                                                                    [*e_surf_id_b]
-                                                                    .cached_eval())
-                                                                / Into::<T>::into(
-                                                                    self.settings.kinematics.e_cm
-                                                                        * self
-                                                                            .settings
-                                                                            .kinematics
-                                                                            .e_cm
-                                                                            as f64,
-                                                                ))
-                                                            .abs()
-                                                            .powf(mc_factor_power);
-                                                        }
-                                                        if found_one_factor {
-                                                            mc_factor_den += mc_factor_den_term;
-                                                            n_terms += 1;
-                                                        }
-                                                    }
-                                                    if n_terms > 1 && found_one_factor_in_num {
-                                                        if self.settings.general.debug > 5 {
-                                                            println!("     | E-surface evaluations for the computation of the MC factor specified as {:?}:\n{}",hc_rule.mc_factor,
-                                                            ct.e_surface_evals[0].iter().enumerate().map(|(i,sc)| format!("     |   E-surface #{:-2}: {:+.16e}",i,sc.cached_eval())).collect::<Vec<_>>().join("\n")
-                                                        );
-                                                        }
-                                                        if self.settings.general.debug > 4 {
-                                                            println!("     | MC factor specified as {:?} yielded the following mc_factor weight: {:+.16e}",hc_rule.mc_factor, mc_factor_num / mc_factor_den);
-                                                        }
-                                                    } else {
-                                                        if self.settings.general.debug > 4 {
-                                                            println!("     | MC factor specified as {:?} yielded no mc_factor (therefore set to one) since not enough e-surfaces of this factor are present in this cFF term.",hc_rule.mc_factor);
-                                                        }
-                                                    }
-                                                    if n_terms > 1 && found_one_factor_in_num {
-                                                        mc_factor_num / mc_factor_den
-                                                    } else {
-                                                        T::one()
-                                                    }
-                                                } else {
-                                                    // Use the min of e_surf_evals, this only make sense if we're comparing only two entities
-                                                    assert!(
-                                                        hc_rule
-                                                            .mc_factor
-                                                            .e_surf_ids_prods_to_sum_in_denom
-                                                            .len()
-                                                            == 2
-                                                    );
-                                                    let mut min_eval_num = None;
-                                                    for (e_surf_id_a, e_surf_id_b) in hc_rule
-                                                        .mc_factor
-                                                        .e_surf_ids_prod_in_num
-                                                        .iter()
-                                                    {
-                                                        if check_for_absent_e_surfaces_when_building_mc_factor
-                                                        && (!self
-                                                            .supergraph
-                                                            .supergraph_cff
-                                                            .cff_expression
-                                                            .terms[i_cff]
-                                                            .contains_e_surf_id(*e_surf_id_a)
-                                                            || !self
-                                                                .supergraph
-                                                                .supergraph_cff
-                                                                .cff_expression
-                                                                .terms[i_cff]
-                                                                .contains_e_surf_id(*e_surf_id_b))
-                                                    {
-                                                        continue;
-                                                    }
-                                                        let t = (ct.e_surface_evals[0]
-                                                            [*e_surf_id_a]
-                                                            .cached_eval()
-                                                            - ct.e_surface_evals[0][*e_surf_id_b]
-                                                                .cached_eval())
-                                                        .abs();
-                                                        if let Some(min_eval) = min_eval_num {
-                                                            if t < min_eval {
-                                                                min_eval_num = Some(t);
-                                                            }
-                                                        } else {
-                                                            min_eval_num = Some(t);
-                                                        }
-                                                    }
-
-                                                    if min_eval_num.is_none() {
-                                                        if self.settings.general.debug > 4 {
-                                                            println!("     | MC factor specified as {:?} yielded no mc_factor (therefore set to one) since not enough e-surfaces of this factor are present in this cFF term.",hc_rule.mc_factor);
-                                                        }
-                                                        T::one()
-                                                    } else {
-                                                        let mut min_eval_denom = None;
-                                                        for term in hc_rule
-                                                            .mc_factor
-                                                            .e_surf_ids_prods_to_sum_in_denom
-                                                            .iter()
-                                                        {
-                                                            for (e_surf_id_a, e_surf_id_b) in
-                                                                term.iter()
-                                                            {
-                                                                if check_for_absent_e_surfaces_when_building_mc_factor
-                                                                && (!self
-                                                                    .supergraph
-                                                                    .supergraph_cff
-                                                                    .cff_expression
-                                                                    .terms[i_cff]
-                                                                    .contains_e_surf_id(*e_surf_id_a)
-                                                                    || !self
-                                                                        .supergraph
-                                                                        .supergraph_cff
-                                                                        .cff_expression
-                                                                        .terms[i_cff]
-                                                                        .contains_e_surf_id(
-                                                                            *e_surf_id_b,
-                                                                        ))
-                                                                {
-                                                                    continue;
-                                                                }
-                                                                let t = (ct.e_surface_evals[0]
-                                                                    [*e_surf_id_a]
-                                                                    .cached_eval()
-                                                                    - ct.e_surface_evals[0]
-                                                                        [*e_surf_id_b]
-                                                                        .cached_eval())
-                                                                .abs();
-                                                                if let Some(min_eval) =
-                                                                    min_eval_denom
-                                                                {
-                                                                    if t < min_eval {
-                                                                        min_eval_denom = Some(t);
-                                                                    }
-                                                                } else {
-                                                                    min_eval_denom = Some(t);
-                                                                }
-                                                            }
-                                                        }
-
-                                                        if min_eval_denom.is_none() {
-                                                            if self.settings.general.debug > 4 {
-                                                                println!("     | MC factor specified as {:?} yielded no mc_factor (therefore set to one) since not enough e-surfaces of this factor are present in this cFF term.",hc_rule.mc_factor);
-                                                            }
-                                                            T::one()
-                                                        } else {
-                                                            if self.settings.general.debug > 5 {
-                                                                println!("     | E-surface evaluations for the computation of the MC factor specified as {:?}:\n{}",hc_rule.mc_factor,
-                                                                ct.e_surface_evals[0].iter().enumerate().map(|(i,sc)| format!("     |   E-surface #{:-2}: {:+.16e}",i,sc.cached_eval())).collect::<Vec<_>>().join("\n")
-                                                            );
-                                                            }
-                                                            if self.settings.general.debug > 4 {
-                                                                println!("     | MC factor specified as {:?} yielded the following mc_factor weight: {:+.16e} from num {:+.16e} and denom {:+.16e}",hc_rule.mc_factor,
-                                                                    if min_eval_denom.unwrap() < min_eval_num.unwrap() { T::one() } else { T::zero() }, min_eval_num.unwrap() , min_eval_denom.unwrap()
-                                                                );
-                                                            }
-                                                            if min_eval_denom.unwrap()
-                                                                < min_eval_num.unwrap()
-                                                            {
-                                                                T::one()
-                                                            } else {
-                                                                T::zero()
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            } else {
-                                                // MC factor is absent then here
-                                                T::one()
-                                            };
-                                            if mc_factor == T::zero() {
-                                                keep_this_one_ct = false;
-                                                if self.settings.general.debug > 3 {
-                                                    reason_for_this_ct = format!("it was found in a hard-coded rule with mc_factor {:?} evaluating to zero.",hc_rule.mc_factor);
-                                                }
-                                            }
-                                        } else {
-                                            keep_this_one_ct = false;
-                                            if self.settings.general.debug > 3 {
-                                                reason_for_this_ct = format!("{}", "it was found to be explicitly disabled in a hard-coded rule.");
-                                            }
-                                        }
-                                    } else {
-                                        if self.settings.general.debug > 3 {
-                                            println!(
-                                            "     | Did not find any hard-coded rule applying to this counterterm with sector signature {:?} within cut #{}",
-                                            this_ct_sector_signature,i_cut
-                                        )
-                                        }
-                                    }
-                                }
-                                if !keep_this_one_ct {
-                                    if self.settings.general.debug > 3 {
-                                        println!(
-                                            "     | cFF Evaluation #{} : Ignoring CT for {} E-surface {} solved in {} with sector signature {} because {}",
-                                            format!("{}", i_cff).green(),
-                                            format!(
-                                                "{}|{}|{}",
-                                                if side == LEFT { "L" } else { "R" },
-                                                if ct.ct_level == AMPLITUDE_LEVEL_CT {
-                                                    "AMP"
-                                                } else {
-                                                    "SG "
-                                                },
-                                                if ct.solution_type == PLUS { "+" } else { "-" }
-                                            )
-                                            .purple(),
-                                            e_surf_str(
-                                                ct.e_surf_id,
-                                                &self.supergraph.supergraph_cff.cff_expression.e_surfaces
-                                                    [ct.e_surf_id]
-                                            )
-                                            .blue(),
-                                            format!("[{}x{}]",
-                                                format!("({:-3})", ct.loop_indices_solved.0.iter().map(|lis| format!("{}", lis)).collect::<Vec<_>>().join(",")),
-                                                format!("({:-3})", ct.loop_indices_solved.1.iter().map(|lis| format!("{}", lis)).collect::<Vec<_>>().join(",")),
-                                            ).blue(),
-                                            format!("{:?}", this_ct_sector_signature).blue(),
-                                            reason_for_this_ct
-                                        );
-                                    }
-                                    continue;
-                                } else {
-                                    if rule_found.is_some() {
-                                        cts[side].push((ct, mc_factor));
-                                        continue;
+                                        break;
                                     }
                                 }
                             }
 
-                            if self
-                                .integrand_settings
-                                .threshold_ct_settings
-                                .sectoring_settings
-                                .accept_all
-                            {
-                                if self.settings.general.debug > 0 {
-                                    println!(
-                                        "{}",
-                                        format!("{}", "   > User forced accepting all CTs")
-                                            .bold()
-                                            .red()
-                                    );
-                                }
-                                let mut keep_this_one_ct = true;
-                                let mut reason_for_this_ct = format!("{}", "");
-                                for (sig_i_cut, cut_cache) in cache.cut_caches.iter().enumerate() {
-                                    let cut_str = if self.settings.general.debug > 3 {
-                                        format!(
-                                            "{}({})",
-                                            format!("#{}", sig_i_cut).blue(),
-                                            format!(
-                                                "{}",
-                                                self.supergraph.cuts[sig_i_cut]
-                                                    .cut_edge_ids_and_flip
-                                                    .iter()
-                                                    .map(|(id, flip)| if *flip > 0 {
-                                                        format!("+{}", id)
-                                                    } else {
-                                                        format!("-{}", id)
-                                                    })
-                                                    .collect::<Vec<_>>()
-                                                    .join("|")
-                                            )
-                                            .blue()
-                                        )
-                                    } else {
-                                        format!("{}", "")
-                                    };
-                                    if cut_cache.cut_sg_e_surf_id == ct.e_surf_id
-                                        && self
-                                            .integrand_settings
-                                            .threshold_ct_settings
-                                            .sectoring_settings
-                                            .anti_select_threshold_against_observable
-                                    {
-                                        if this_ct_sector_signature[sig_i_cut] == CUT_ACTIVE {
-                                            keep_this_one_ct = false;
-                                            if self.settings.general.debug > 3 {
-                                                reason_for_this_ct = format!("it contains the following cut {} which is the threshold itself and selected by the observable, so anti-selection of threshold kicks in.",
-                                                    cut_str
-                                                );
-                                            }
-                                            break;
-                                        }
-                                    }
-                                }
-
-                                if keep_this_one_ct {
-                                    cts[side].push((ct, T::one()));
-                                } else {
-                                    if self.settings.general.debug > 3 {
-                                        println!(
-                                            "     | cFF Evaluation #{} : Ignoring CT for {} E-surface {} solved in {} with sector signature {} because {}",
-                                            format!("{}", i_cff).green(),
-                                            format!(
-                                                "{}|{}|{}",
-                                                if side == LEFT { "L" } else { "R" },
-                                                if ct.ct_level == AMPLITUDE_LEVEL_CT {
-                                                    "AMP"
-                                                } else {
-                                                    "SG "
-                                                },
-                                                if ct.solution_type == PLUS { "+" } else { "-" }
-                                            )
-                                            .purple(),
-                                            e_surf_str(
-                                                ct.e_surf_id,
-                                                &self.supergraph.supergraph_cff.cff_expression.e_surfaces
-                                                    [ct.e_surf_id]
-                                            )
-                                            .blue(),
-                                            format!("[{}x{}]",
-                                                format!("({:-3})", ct.loop_indices_solved.0.iter().map(|lis| format!("{}", lis)).collect::<Vec<_>>().join(",")),
-                                                format!("({:-3})", ct.loop_indices_solved.1.iter().map(|lis| format!("{}", lis)).collect::<Vec<_>>().join(",")),
-                                            ).blue(),
-                                            format!("{:?}", this_ct_sector_signature).blue(),
-                                            reason_for_this_ct
-                                        );
-                                    }
-                                }
-
-                                continue;
-                            } else if self
-                                .integrand_settings
-                                .threshold_ct_settings
-                                .sectoring_settings
-                                .sector_based_analysis
-                                || self
-                                    .integrand_settings
-                                    .threshold_ct_settings
-                                    .sectoring_settings
-                                    .force_one_loop_ct_in_soft_sector
-                                || self
-                                    .integrand_settings
-                                    .threshold_ct_settings
-                                    .sectoring_settings
-                                    .always_solve_cts_in_all_amplitude_loop_indices
-                            {
-                                let amplitude_for_sides = [
-                                    &self.supergraph.cuts[i_cut].left_amplitude,
-                                    &self.supergraph.cuts[i_cut].right_amplitude,
-                                ];
-
-                                let mut keep_this_one_ct = true;
-                                let mut reason_for_this_ct = format!("{}", "");
-
-                                let n_loop_ct =
-                                    ct.loop_indices_solved.0.len() + ct.loop_indices_solved.1.len();
-                                let was_projected = if ct.ct_level == SUPERGRAPH_LEVEL_CT {
-                                    ct.loop_indices_solved.0.len()
-                                        < self.supergraph.cuts[i_cut].left_amplitude.n_loop
-                                        || ct.loop_indices_solved.1.len()
-                                            < self.supergraph.cuts[i_cut].right_amplitude.n_loop
-                                } else {
-                                    if side == LEFT {
-                                        ct.loop_indices_solved.0.len()
-                                            < self.supergraph.cuts[i_cut].left_amplitude.n_loop
-                                    } else {
-                                        ct.loop_indices_solved.1.len()
-                                            < self.supergraph.cuts[i_cut].right_amplitude.n_loop
-                                    }
-                                };
-
-                                let mut loop_indices_in_this_amplitude = vec![];
-                                for lmb_e in amplitude_for_sides[side].lmb_edges.iter() {
-                                    for (i_s, s) in self.supergraph.supergraph_cff.edges[lmb_e.id]
-                                        .signature
-                                        .0
-                                        .iter()
-                                        .enumerate()
-                                    {
-                                        if *s != 0 && !loop_indices_in_this_amplitude.contains(&i_s)
-                                        {
-                                            loop_indices_in_this_amplitude.push(i_s);
-                                        }
-                                    }
-                                }
-
-                                let mut loop_indices_available_for_subtraction_in_this_sector =
-                                    vec![];
-
-                                for (sig_i_cut, cut_cache) in cache.cut_caches.iter().enumerate() {
-                                    let cut_str = if self.settings.general.debug > 3 {
-                                        format!(
-                                            "{}({})",
-                                            format!("#{}", sig_i_cut).blue(),
-                                            format!(
-                                                "{}",
-                                                self.supergraph.cuts[sig_i_cut]
-                                                    .cut_edge_ids_and_flip
-                                                    .iter()
-                                                    .map(|(id, flip)| if *flip > 0 {
-                                                        format!("+{}", id)
-                                                    } else {
-                                                        format!("-{}", id)
-                                                    })
-                                                    .collect::<Vec<_>>()
-                                                    .join("|")
-                                            )
-                                            .blue()
-                                        )
-                                    } else {
-                                        format!("{}", "")
-                                    };
-
-                                    if this_ct_sector_signature[sig_i_cut] == CUT_ABSENT {
-                                        if cut_cache.cut_sg_e_surf_id == ct.e_surf_id {
-                                            keep_this_one_ct = false;
-                                            if self.settings.general.debug > 3 {
-                                                reason_for_this_ct = format!("it contains the following cut {} which is the threshold itself and absent for this cFF term so it is removed",
-                                                    cut_str
-                                                );
-                                            }
-                                            break;
-                                        }
-                                    } else if this_ct_sector_signature[sig_i_cut] == CUT_ACTIVE {
-                                        if cut_cache.cut_sg_e_surf_id == ct.e_surf_id
-                                            && self
-                                                .integrand_settings
-                                                .threshold_ct_settings
-                                                .sectoring_settings
-                                                .anti_select_threshold_against_observable
-                                        {
-                                            keep_this_one_ct = false;
-                                            if self.settings.general.debug > 3 {
-                                                reason_for_this_ct = format!("it contains the following cut {} which is the threshold itself and selected by the observable, so anti-selection of threshold kicks in.",
-                                                    cut_str
-                                                );
-                                            }
-                                            break;
-                                        }
-                                    } else {
-                                        if this_ct_sector_signature[sig_i_cut] == CUT_INACTIVE {
-                                            for li in &[0, 1, 2] {
-                                                if loop_indices_available_for_subtraction_in_this_sector.contains(li) || !loop_indices_in_this_amplitude.contains(li) {
-                                                    continue;
-                                                }
-                                                for (i_edge, _flip) in self.supergraph.cuts
-                                                    [sig_i_cut]
-                                                    .cut_edge_ids_and_flip
-                                                    .iter()
-                                                {
-                                                    if self.supergraph.supergraph_cff.edges[*i_edge]
-                                                        .signature
-                                                        .0[*li]
-                                                        != 0
-                                                    {
-                                                        loop_indices_available_for_subtraction_in_this_sector.push(*li);
-                                                        break;
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-
-                                    if !keep_this_one_ct {
-                                        break;
-                                    }
-                                }
-
-                                // Custom rules removing available indices for the vertical cuts
-                                // left vertical cut
-                                if this_ct_sector_signature[0] == CUT_ACTIVE
-                                    && loop_indices_available_for_subtraction_in_this_sector
-                                        .contains(&0)
-                                {
-                                    loop_indices_available_for_subtraction_in_this_sector.remove(
-                                        loop_indices_available_for_subtraction_in_this_sector
-                                            .iter()
-                                            .position(|&li| li == 0)
-                                            .unwrap(),
-                                    );
-                                }
-                                // right vertical cut
-                                if this_ct_sector_signature[1] == CUT_ACTIVE
-                                    && loop_indices_available_for_subtraction_in_this_sector
-                                        .contains(&1)
-                                {
-                                    loop_indices_available_for_subtraction_in_this_sector.remove(
-                                        loop_indices_available_for_subtraction_in_this_sector
-                                            .iter()
-                                            .position(|&li| li == 1)
-                                            .unwrap(),
-                                    );
-                                }
-                                // middle vertical cut
-                                if this_ct_sector_signature[8] == CUT_ACTIVE
-                                    && loop_indices_available_for_subtraction_in_this_sector
-                                        .contains(&2)
-                                {
-                                    loop_indices_available_for_subtraction_in_this_sector.remove(
-                                        loop_indices_available_for_subtraction_in_this_sector
-                                            .iter()
-                                            .position(|&li| li == 2)
-                                            .unwrap(),
-                                    );
-                                }
-
-                                if keep_this_one_ct {
-                                    if self
-                                        .integrand_settings
-                                        .threshold_ct_settings
-                                        .sectoring_settings
-                                        .always_solve_cts_in_all_amplitude_loop_indices
-                                    {
-                                        if !loop_indices_in_this_amplitude
-                                            .iter()
-                                            .all(|lia| loop_indices_solved.contains(lia))
-                                        {
-                                            keep_this_one_ct = false;
-                                            if self.settings.general.debug > 3 {
-                                                reason_for_this_ct = format!("it is a counterterm solved only in loop_indices {:?}, but the soft sector analysis requires to keep only CTs solved in ALL loop momenta ({:?}).",
-                                                        loop_indices_solved, loop_indices_in_this_amplitude
-                                                    );
-                                            }
-                                        }
-                                    }
-
-                                    let mut force_projected_one_loop_cts = false;
-                                    if self
-                                        .integrand_settings
-                                        .threshold_ct_settings
-                                        .sectoring_settings
-                                        .force_one_loop_ct_in_soft_sector
-                                    {
-                                        if self
-                                            .integrand_settings
-                                            .threshold_ct_settings
-                                            .sectoring_settings
-                                            .always_solve_cts_in_all_amplitude_loop_indices
-                                        {
-                                            if self.settings.general.debug > 4 {
-                                                println!("     | User forced CTs to always be solved in the complete set of amplitude loop indices.");
-                                            }
-                                        } else {
-                                            for combinations_identifying_soft_sectors in [
-                                                [
-                                                    (0, [CUT_ACTIVE, CUT_ABSENT]),
-                                                    (3, [CUT_ACTIVE, CUT_ABSENT]),
-                                                    (2, [CUT_ACTIVE, CUT_ABSENT]),
-                                                    (8, [CUT_ACTIVE, CUT_ABSENT]),
-                                                ],
-                                                [
-                                                    (1, [CUT_ACTIVE, CUT_ABSENT]),
-                                                    (4, [CUT_ACTIVE, CUT_ABSENT]),
-                                                    (5, [CUT_ACTIVE, CUT_ABSENT]),
-                                                    (8, [CUT_ACTIVE, CUT_ABSENT]),
-                                                ],
-                                            ] {
-                                                if combinations_identifying_soft_sectors.iter().all(
-                                                    |(soft_i_cut, selected_status)| {
-                                                        selected_status.contains(
-                                                            &this_ct_sector_signature[*soft_i_cut],
-                                                        )
-                                                    },
-                                                ) {
-                                                    force_projected_one_loop_cts = true;
-                                                }
-                                            }
-                                            if self.settings.general.debug > 4 {
-                                                if force_projected_one_loop_cts {
-                                                    println!("     | Soft analysis did find a soft sector and all two-loop CTs will be required to be solved in projected spaces.");
-                                                } else {
-                                                    println!("     | Soft analysis found no soft sector and CTs will be required to be solved in the full set of amplitude loop indices.");
-                                                }
-                                            }
-                                        }
-
-                                        if force_projected_one_loop_cts {
-                                            if n_loop_ct > 1
-                                                && loop_indices_in_this_amplitude
-                                                    .iter()
-                                                    .all(|lia| loop_indices_solved.contains(lia))
-                                            {
-                                                keep_this_one_ct = false;
-                                                if self.settings.general.debug > 3 {
-                                                    reason_for_this_ct = format!("it is a counterterm solved in the loop_indices {:?} which are ALL loop momenta ({:?}), but the soft sector analysis requires to keep only CTs solved the projected space.",
-                                                        loop_indices_solved, loop_indices_in_this_amplitude
-                                                    );
-                                                }
-                                            }
-                                        }
-                                    }
-
-                                    if keep_this_one_ct && !force_projected_one_loop_cts {
-                                        if self.settings.general.debug > 4 {
-                                            println!("     | Active loop indices for this CT: {:?}, and present in the amplitude being subtracted: {:?}",loop_indices_available_for_subtraction_in_this_sector,loop_indices_in_this_amplitude);
-                                        }
-
-                                        if n_loop_ct > 1 {
-                                            if !loop_indices_solved.iter().all(|lis| loop_indices_available_for_subtraction_in_this_sector.contains(lis)) {
-                                                keep_this_one_ct = false;
-                                                if self.settings.general.debug > 3 {
-                                                    reason_for_this_ct = format!("it is a two-loop e-surface in the loop_indices {:?} that are not all available (availabled ones: {:?}).",
-                                                        loop_indices_solved, loop_indices_available_for_subtraction_in_this_sector
-                                                    );
-                                                }
-                                            }
-                                        }
-
-                                        if was_projected {
-                                            if loop_indices_in_this_amplitude.iter().all(|lis| loop_indices_available_for_subtraction_in_this_sector.contains(lis)) {
-                                                keep_this_one_ct = false;
-                                                if self.settings.general.debug > 3 {
-                                                    reason_for_this_ct = format!("it is a one-loop projected e-surface of an amplitude with loop indices {:?} that are all available (availabled ones: {:?}), so the two-loop CT should be used instead",
-                                                        loop_indices_in_this_amplitude, loop_indices_available_for_subtraction_in_this_sector
-                                                    );
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-
-                                if keep_this_one_ct {
-                                    cts[side].push((ct, T::one()));
-                                } else {
-                                    if self.settings.general.debug > 3 {
-                                        println!(
-                                            "     | cFF Evaluation #{} : Ignoring CT for {} E-surface {} solved in {} with sector signature {} because {}",
-                                            format!("{}", i_cff).green(),
-                                            format!(
-                                                "{}|{}|{}",
-                                                if side == LEFT { "L" } else { "R" },
-                                                if ct.ct_level == AMPLITUDE_LEVEL_CT {
-                                                    "AMP"
-                                                } else {
-                                                    "SG "
-                                                },
-                                                if ct.solution_type == PLUS { "+" } else { "-" }
-                                            )
-                                            .purple(),
-                                            e_surf_str(
-                                                ct.e_surf_id,
-                                                &self.supergraph.supergraph_cff.cff_expression.e_surfaces
-                                                    [ct.e_surf_id]
-                                            )
-                                            .blue(),
-                                            format!("[{}x{}]",
-                                                format!("({:-3})", ct.loop_indices_solved.0.iter().map(|lis| format!("{}", lis)).collect::<Vec<_>>().join(",")),
-                                                format!("({:-3})", ct.loop_indices_solved.1.iter().map(|lis| format!("{}", lis)).collect::<Vec<_>>().join(",")),
-                                            ).blue(),
-                                            format!("{:?}", this_ct_sector_signature).blue(),
-                                            reason_for_this_ct
-                                        );
-                                    }
-                                }
-
-                                continue;
+                            if keep_this_one_ct {
+                                cts[side].push((ct, T::one()));
                             } else {
-                                // WARNING: Do not correlate signature of CTs with event as it breaks the PV being zero
-                                let (keep_this_ct, reason) = if !self
-                                    .integrand_settings
-                                    .threshold_ct_settings
-                                    .sectoring_settings
-                                    .correlate_event_sector_with_ct_sector
-                                    || this_ct_sector_signature == cut_sector_signature
-                                {
-                                    let mut keep_this_one_ct = true;
-                                    let mut reason_for_this_ct = format!("{}", "");
-
-                                    let mut min_active_pinched_e_surf_sq_eval_in_solved_subspace =
-                                        Option::<(usize, T)>::None;
-                                    let mut
-                                    min_active_pinched_e_surf_sq_eval_in_projected_out_subspace =
-                                        Option::<(usize, T)>::None;
-                                    let mut
-                                    min_inactive_non_pinched_e_surf_sq_eval_in_solved_subspace =
-                                        Option::<(usize, T)>::None;
-                                    let mut
-                                    min_inactive_non_pinched_e_surf_sq_eval_in_projected_out_subspace =
-                                        Option::<(usize, T)>::None;
-
-                                    for (sig_i_cut, cut_cache) in
-                                        cache.cut_caches.iter().enumerate()
-                                    {
-                                        let cut_str = if self.settings.general.debug > 3 {
-                                            format!(
-                                                "{}({})",
-                                                format!("#{}", sig_i_cut).blue(),
-                                                format!(
-                                                    "{}",
-                                                    self.supergraph.cuts[sig_i_cut]
-                                                        .cut_edge_ids_and_flip
-                                                        .iter()
-                                                        .map(|(id, flip)| if *flip > 0 {
-                                                            format!("+{}", id)
-                                                        } else {
-                                                            format!("-{}", id)
-                                                        })
-                                                        .collect::<Vec<_>>()
-                                                        .join("|")
-                                                )
-                                                .blue()
-                                            )
-                                        } else {
-                                            format!("{}", "")
-                                        };
-
-                                        if this_ct_sector_signature[sig_i_cut] == CUT_ABSENT {
-                                            if cut_cache.cut_sg_e_surf_id == ct.e_surf_id {
-                                                keep_this_one_ct = false;
-                                                if self.settings.general.debug > 3 {
-                                                    reason_for_this_ct = format!("it contains the following cut {} which is the threshold itself and absent for this cFF term so it is removed",
-                                                        cut_str
-                                                    );
-                                                }
-                                                break;
-                                            }
-                                        } else if this_ct_sector_signature[sig_i_cut] == CUT_ACTIVE
-                                        {
-                                            if cut_cache.cut_sg_e_surf_id == ct.e_surf_id
-                                                && self
-                                                    .integrand_settings
-                                                    .threshold_ct_settings
-                                                    .sectoring_settings
-                                                    .anti_select_threshold_against_observable
-                                            {
-                                                keep_this_one_ct = false;
-                                                if self.settings.general.debug > 3 {
-                                                    reason_for_this_ct = format!("it contains the following cut {} which is the threshold itself and selected by the observable, so anti-selection of threshold kicks in.",
-                                                        cut_str
-                                                    );
-                                                }
-                                                break;
-                                            }
-
-                                            if ct
-                                                .e_surface_analysis
-                                                .pinched_e_surf_ids_active_solved_subspace
-                                                .contains(&cut_cache.cut_sg_e_surf_id)
-                                            {
-                                                if let Some((curr_min_i_cut, curr_min_sq_eval)) =
-                                                    min_active_pinched_e_surf_sq_eval_in_solved_subspace
-                                                {
-                                                    if ct.e_surface_evals[0][cut_cache.cut_sg_e_surf_id]
-                                                        .cached_eval()
-                                                        * ct.e_surface_evals[0][cut_cache.cut_sg_e_surf_id]
-                                                        .cached_eval()
-                                                        < curr_min_sq_eval
-                                                    {
-                                                        min_active_pinched_e_surf_sq_eval_in_solved_subspace = Some( (sig_i_cut, ct.e_surface_evals[0][cut_cache.cut_sg_e_surf_id].cached_eval()*ct.e_surface_evals[0][cut_cache.cut_sg_e_surf_id].cached_eval()) );
-                                                    }
-                                                } else {
-                                                    min_active_pinched_e_surf_sq_eval_in_solved_subspace = Some( (sig_i_cut, ct.e_surface_evals[0][cut_cache.cut_sg_e_surf_id].cached_eval()*ct.e_surface_evals[0][cut_cache.cut_sg_e_surf_id].cached_eval()) );
-                                                }
-                                            }
-                                            if ct
-                                                .e_surface_analysis
-                                                .pinched_e_surf_ids_active_in_projected_out_subspace
-                                                .contains(&cut_cache.cut_sg_e_surf_id)
-                                            {
-                                                if let Some( (curr_min_i_cut, curr_min_sq_eval) ) = min_active_pinched_e_surf_sq_eval_in_projected_out_subspace {
-                                                    if ct.e_surface_evals[0][cut_cache.cut_sg_e_surf_id].cached_eval()*ct.e_surface_evals[0][cut_cache.cut_sg_e_surf_id].cached_eval() < curr_min_sq_eval {
-                                                        min_active_pinched_e_surf_sq_eval_in_projected_out_subspace = Some( (sig_i_cut, ct.e_surface_evals[0][cut_cache.cut_sg_e_surf_id].cached_eval()*ct.e_surface_evals[0][cut_cache.cut_sg_e_surf_id].cached_eval()) );
-                                                    }
-                                                } else {
-                                                    min_active_pinched_e_surf_sq_eval_in_projected_out_subspace = Some( (sig_i_cut, ct.e_surface_evals[0][cut_cache.cut_sg_e_surf_id].cached_eval()*ct.e_surface_evals[0][cut_cache.cut_sg_e_surf_id].cached_eval()) );
-                                                }
-                                            }
-                                        } else if this_ct_sector_signature[sig_i_cut]
-                                            == CUT_INACTIVE
-                                        {
-                                            if ct
-                                                .e_surface_analysis
-                                                .non_pinched_e_surf_ids_active_solved_subspace
-                                                .contains(&cut_cache.cut_sg_e_surf_id)
-                                            {
-                                                if let Some((curr_min_i_cut, curr_min_sq_eval)) =
-                                                    min_inactive_non_pinched_e_surf_sq_eval_in_solved_subspace
-                                                {
-                                                    if ct.e_surface_evals[0][cut_cache.cut_sg_e_surf_id]
-                                                        .cached_eval()
-                                                        * ct.e_surface_evals[0][cut_cache.cut_sg_e_surf_id]
-                                                        .cached_eval()
-                                                        < curr_min_sq_eval
-                                                    {
-                                                        min_inactive_non_pinched_e_surf_sq_eval_in_solved_subspace = Some( (sig_i_cut, ct.e_surface_evals[0][cut_cache.cut_sg_e_surf_id].cached_eval()*ct.e_surface_evals[0][cut_cache.cut_sg_e_surf_id].cached_eval()) );
-                                                    }
-                                                } else {
-                                                    min_inactive_non_pinched_e_surf_sq_eval_in_solved_subspace = Some( (sig_i_cut, ct.e_surface_evals[0][cut_cache.cut_sg_e_surf_id].cached_eval()*ct.e_surface_evals[0][cut_cache.cut_sg_e_surf_id].cached_eval()) );
-                                                }
-                                            }
-                                            if ct
-                                                .e_surface_analysis
-                                                .non_pinched_e_surf_ids_active_in_projected_out_subspace
-                                                .contains(&cut_cache.cut_sg_e_surf_id)
-                                            {
-                                                if let Some( (curr_min_i_cut, curr_min_sq_eval) ) = min_inactive_non_pinched_e_surf_sq_eval_in_projected_out_subspace {
-                                                    if ct.e_surface_evals[0][cut_cache.cut_sg_e_surf_id].cached_eval()*ct.e_surface_evals[0][cut_cache.cut_sg_e_surf_id].cached_eval() < curr_min_sq_eval {
-                                                        min_inactive_non_pinched_e_surf_sq_eval_in_projected_out_subspace = Some( (sig_i_cut, ct.e_surface_evals[0][cut_cache.cut_sg_e_surf_id].cached_eval()*ct.e_surface_evals[0][cut_cache.cut_sg_e_surf_id].cached_eval()) );
-                                                    }
-                                                } else {
-                                                    min_inactive_non_pinched_e_surf_sq_eval_in_projected_out_subspace = Some( (sig_i_cut, ct.e_surface_evals[0][cut_cache.cut_sg_e_surf_id].cached_eval()*ct.e_surface_evals[0][cut_cache.cut_sg_e_surf_id].cached_eval()) );
-                                                }
-                                            }
-                                        }
-                                    }
-
-                                    if keep_this_one_ct {
-                                        let n_loop_ct = ct.loop_indices_solved.0.len()
-                                            + ct.loop_indices_solved.1.len();
-                                        let was_projected = if ct.ct_level == SUPERGRAPH_LEVEL_CT {
-                                            ct.loop_indices_solved.0.len()
-                                                < self.supergraph.cuts[i_cut].left_amplitude.n_loop
-                                                || ct.loop_indices_solved.1.len()
-                                                    < self.supergraph.cuts[i_cut]
-                                                        .right_amplitude
-                                                        .n_loop
-                                        } else {
-                                            if side == LEFT {
-                                                ct.loop_indices_solved.0.len()
-                                                    < self.supergraph.cuts[i_cut]
-                                                        .left_amplitude
-                                                        .n_loop
-                                            } else {
-                                                ct.loop_indices_solved.1.len()
-                                                    < self.supergraph.cuts[i_cut]
-                                                        .right_amplitude
-                                                        .n_loop
-                                            }
-                                        };
-
-                                        if self.settings.general.debug > 4 {
-                                            println!("Min active pinched e_surf in solved subspace: {}",
-                                                if let Some((
-                                                    min_i_cut,
-                                                    _eval,
-                                                )) = min_active_pinched_e_surf_sq_eval_in_solved_subspace {
-                                                    format!("from cut {}({}), eval = {:+16.e}",
-                                                        format!("#{}",min_i_cut).blue(),
-                                                        format!("{}",self.supergraph.cuts[min_i_cut].cut_edge_ids_and_flip.iter().map(|(id, flip)| if *flip > 0 {format!("+{}", id)} else {format!("-{}", id)}).collect::<Vec<_>>().join("|")).blue(),
-                                                        ct.e_surface_evals[0][cache.cut_caches[min_i_cut].cut_sg_e_surf_id].cached_eval()/Into::<T>::into(self.settings.kinematics.e_cm as f64)
-                                                    ).normal()
-                                                } else {
-                                                    format!("{}","None").blue()
-                                                }
-                                            );
-                                            println!("Min active pinched e_surf in projected out subspace: {}",
-                                                if let Some((
-                                                    min_i_cut,
-                                                    _eval,
-                                                )) = min_active_pinched_e_surf_sq_eval_in_projected_out_subspace {
-                                                    format!("from cut {}({}), eval = {:+16.e}",
-                                                        format!("#{}",min_i_cut).blue(),
-                                                        format!("{}",self.supergraph.cuts[min_i_cut].cut_edge_ids_and_flip.iter().map(|(id, flip)| if *flip > 0 {format!("+{}", id)} else {format!("-{}", id)}).collect::<Vec<_>>().join("|")).blue(),
-                                                        ct.e_surface_evals[0][cache.cut_caches[min_i_cut].cut_sg_e_surf_id].cached_eval()/Into::<T>::into(self.settings.kinematics.e_cm as f64)
-                                                    ).normal()
-                                                } else {
-                                                    format!("{}","None").blue()
-                                                }
-                                            );
-                                            println!("Min inactive non-pinched e_surf in solved subspace: {}",
-                                                if let Some((
-                                                    min_i_cut,
-                                                    _eval,
-                                                )) = min_inactive_non_pinched_e_surf_sq_eval_in_solved_subspace {
-                                                    format!("from cut {}({}), eval = {:+16.e}",
-                                                        format!("#{}",min_i_cut).blue(),
-                                                        format!("{}",self.supergraph.cuts[min_i_cut].cut_edge_ids_and_flip.iter().map(|(id, flip)| if *flip > 0 {format!("+{}", id)} else {format!("-{}", id)}).collect::<Vec<_>>().join("|")).blue(),
-                                                        ct.e_surface_evals[0][cache.cut_caches[min_i_cut].cut_sg_e_surf_id].cached_eval()/Into::<T>::into(self.settings.kinematics.e_cm as f64)
-                                                    ).normal()
-                                                } else {
-                                                    format!("{}","None").blue()
-                                                }
-                                            );
-                                            println!("Min inactive non-pinched e_surf in projected out subspace: {}",
-                                                if let Some((
-                                                    min_i_cut,
-                                                    _eval,
-                                                )) = min_inactive_non_pinched_e_surf_sq_eval_in_projected_out_subspace {
-                                                    format!("from cut {}({}), eval = {:+16.e}",
-                                                        format!("#{}",min_i_cut).blue(),
-                                                        format!("{}",self.supergraph.cuts[min_i_cut].cut_edge_ids_and_flip.iter().map(|(id, flip)| if *flip > 0 {format!("+{}", id)} else {format!("-{}", id)}).collect::<Vec<_>>().join("|")).blue(),
-                                                        ct.e_surface_evals[0][cache.cut_caches[min_i_cut].cut_sg_e_surf_id].cached_eval()/Into::<T>::into(self.settings.kinematics.e_cm as f64)
-                                                    ).normal()
-                                                } else {
-                                                    format!("{}","None").blue()
-                                                }
-                                            );
-                                        }
-                                        // First perform general checks that always apply
-                                        if let Some((
-                                            min_i_cut,
-                                            actual_min_active_pinched_e_surf_sq_eval_in_solved_subspace,
-                                        )) = min_active_pinched_e_surf_sq_eval_in_solved_subspace
-                                        {
-                                            if actual_min_active_pinched_e_surf_sq_eval_in_solved_subspace < ct.e_surface_evals[0][ct.e_surf_id].cached_eval()*ct.e_surface_evals[0][ct.e_surf_id].cached_eval() {
-                                                keep_this_one_ct = false;
-                                                reason_for_this_ct = if self.settings.general.debug > 3 {
-                                                    format!("it is a one-loop CT which contains an active pinched surface corresponding to cut {}({}) within the solved space with an eval of {:+16.e} wich is smaller in abs. value than self CT esurf eval of {:+16e}.",
-                                                        format!("#{}",min_i_cut).blue(),
-                                                        format!("{}",self.supergraph.cuts[min_i_cut].cut_edge_ids_and_flip.iter().map(|(id, flip)| if *flip > 0 {format!("+{}", id)} else {format!("-{}", id)}).collect::<Vec<_>>().join("|")).blue(),
-                                                        ct.e_surface_evals[0][cache.cut_caches[min_i_cut].cut_sg_e_surf_id].cached_eval()/Into::<T>::into(self.settings.kinematics.e_cm as f64),
-                                                        ct.e_surface_evals[0][ct.e_surf_id].cached_eval()/Into::<T>::into(self.settings.kinematics.e_cm as f64)
-                                                    )
-                                                } else {
-                                                    format!("{}","")
-                                                };
-                                            }
-                                        }
-                                        // Perform further checks if this a projected out one-loop from two-loop CTs or a two-loop CT itself and not yet dismissed
-                                        if keep_this_one_ct {
-                                            if was_projected {
-                                                let mut min_pinched = min_active_pinched_e_surf_sq_eval_in_solved_subspace;
-                                                if let Some((
-                                                    min_i_pinched_cut,
-                                                    actual_min_active_pinched_e_surf_sq_eval_in_projected_out_subspace,
-                                                )) = min_active_pinched_e_surf_sq_eval_in_projected_out_subspace {
-                                                    if let Some((curr_i, curr_min)) = min_pinched {
-                                                        if actual_min_active_pinched_e_surf_sq_eval_in_projected_out_subspace < curr_min {
-                                                            min_pinched = Some((min_i_pinched_cut, actual_min_active_pinched_e_surf_sq_eval_in_projected_out_subspace))
-                                                        }
-                                                    } else {
-                                                        min_pinched = Some((min_i_pinched_cut, actual_min_active_pinched_e_surf_sq_eval_in_projected_out_subspace))
-                                                    }
-                                                }
-                                                let mut min_non_pinched = min_inactive_non_pinched_e_surf_sq_eval_in_solved_subspace;
-                                                if let Some((
-                                                    min_i_non_pinched_cut,
-                                                    actual_min_inactive_non_pinched_e_surf_sq_eval_in_projected_out_subspace,
-                                                )) = min_inactive_non_pinched_e_surf_sq_eval_in_projected_out_subspace {
-                                                    if let Some((curr_i, curr_min)) = min_non_pinched {
-                                                        if actual_min_inactive_non_pinched_e_surf_sq_eval_in_projected_out_subspace < curr_min {
-                                                            min_non_pinched = Some((min_i_non_pinched_cut, actual_min_inactive_non_pinched_e_surf_sq_eval_in_projected_out_subspace))
-                                                        }
-                                                    } else {
-                                                        min_non_pinched = Some((min_i_non_pinched_cut, actual_min_inactive_non_pinched_e_surf_sq_eval_in_projected_out_subspace))
-                                                    }
-                                                }
-                                                // We want to keep the projected one-loop CT only when the two-loop CT would be inactivated, which is only when there is a pinched surface anywhere that is
-                                                // stronger than the strongest between a non-pinched E-surface anywhere and itself
-                                                if let Some((i_pinched, min_pinched_eval)) =
-                                                    min_pinched
-                                                {
-                                                    if let Some((
-                                                        i_non_pinched,
-                                                        min_non_pinched_eval,
-                                                    )) = min_non_pinched
-                                                    {
-                                                        if min_pinched_eval > min_non_pinched_eval {
-                                                            keep_this_one_ct = false;
-                                                            reason_for_this_ct = if self
-                                                                .settings
-                                                                .general
-                                                                .debug
-                                                                > 3
-                                                            {
-                                                                format!("it is a one-loop projected CT which contains, within both solved and projected space, a weaker active pinched surface there {}({}) with eval {:+16e} than the inactive non-pinched surface {}({}) with eval {:+16e}.",
-                                                                    format!("#{}",i_pinched).blue(),
-                                                                    format!("{}",self.supergraph.cuts[i_pinched].cut_edge_ids_and_flip.iter().map(|(id, flip)| if *flip > 0 {format!("+{}", id)} else {format!("-{}", id)}).collect::<Vec<_>>().join("|")).blue(),
-                                                                    ct.e_surface_evals[0][cache.cut_caches[i_pinched].cut_sg_e_surf_id].cached_eval()/Into::<T>::into(self.settings.kinematics.e_cm as f64),
-                                                                    format!("#{}",i_non_pinched).blue(),
-                                                                    format!("{}",self.supergraph.cuts[i_non_pinched].cut_edge_ids_and_flip.iter().map(|(id, flip)| if *flip > 0 {format!("+{}", id)} else {format!("-{}", id)}).collect::<Vec<_>>().join("|")).blue(),
-                                                                    ct.e_surface_evals[0][cache.cut_caches[i_non_pinched].cut_sg_e_surf_id].cached_eval()/Into::<T>::into(self.settings.kinematics.e_cm as f64)
-                                                                )
-                                                            } else {
-                                                                format!("{}", "")
-                                                            };
-                                                        }
-                                                    } else {
-                                                        keep_this_one_ct = false;
-                                                        reason_for_this_ct = if self
-                                                            .settings
-                                                            .general
-                                                            .debug
-                                                            > 3
-                                                        {
-                                                            format!("it is a one-loop projected CT which contains, within both solved and projected space, an active pinched surface there {}({}) with eval {:+16e} and no non-pinched one, so we will use the two-loop CT.",
-                                                                format!("#{}",i_pinched).blue(),
-                                                                format!("{}",self.supergraph.cuts[i_pinched].cut_edge_ids_and_flip.iter().map(|(id, flip)| if *flip > 0 {format!("+{}", id)} else {format!("-{}", id)}).collect::<Vec<_>>().join("|")).blue(),
-                                                                ct.e_surface_evals[0][cache.cut_caches[i_pinched].cut_sg_e_surf_id].cached_eval()/Into::<T>::into(self.settings.kinematics.e_cm as f64),
-                                                            )
-                                                        } else {
-                                                            format!("{}", "")
-                                                        };
-                                                    }
-                                                } else {
-                                                    keep_this_one_ct = false;
-                                                    reason_for_this_ct = if self
-                                                        .settings
-                                                        .general
-                                                        .debug
-                                                        > 3
-                                                    {
-                                                        format!("{}","it is a projected one-loop CT which does not contain any active pinched surface anywhere, so the two-loop CT will be used instead.")
-                                                    } else {
-                                                        format!("{}", "")
-                                                    };
-                                                }
-                                            } else if n_loop_ct > 1 {
-                                                // The idea is to always keep the two-loop CT except when the strongest non-pinched E-surface and itself within the solved space
-                                                // is weaker than the strongest pinched E-surface within the solved space.
-                                                if let Some((
-                                                    min_i_pinched_cut,
-                                                    actual_min_active_pinched_e_surf_sq_eval_in_solved_subspace,
-                                                )) = min_active_pinched_e_surf_sq_eval_in_solved_subspace {
-                                                    if let Some((
-                                                        min_i_non_pinched_cut,
-                                                        actual_min_inactive_non_pinched_e_surf_sq_eval_in_solved_subspace,
-                                                    )) = min_inactive_non_pinched_e_surf_sq_eval_in_solved_subspace {
-                                                        if actual_min_inactive_non_pinched_e_surf_sq_eval_in_solved_subspace > actual_min_active_pinched_e_surf_sq_eval_in_solved_subspace {
-                                                            keep_this_one_ct = false;
-                                                            reason_for_this_ct = if self.settings.general.debug > 3 {format!("it is a two-loop CT which contains, within the solved space, a stronger active pinched surface {}({}) with eval {:+16e} than min(inactive non-pinched surface {}({}) with eval {:+16e}, self eval {:+16e}).",
-                                                                format!("#{}",min_i_pinched_cut).blue(),
-                                                                format!("{}",self.supergraph.cuts[min_i_pinched_cut].cut_edge_ids_and_flip.iter().map(|(id, flip)| if *flip > 0 {format!("+{}", id)} else {format!("-{}", id)}).collect::<Vec<_>>().join("|")).blue(),
-                                                                ct.e_surface_evals[0][cache.cut_caches[min_i_pinched_cut].cut_sg_e_surf_id].cached_eval()/Into::<T>::into(self.settings.kinematics.e_cm as f64),
-                                                                format!("#{}",min_i_non_pinched_cut).blue(),
-                                                                format!("{}",self.supergraph.cuts[min_i_non_pinched_cut].cut_edge_ids_and_flip.iter().map(|(id, flip)| if *flip > 0 {format!("+{}", id)} else {format!("-{}", id)}).collect::<Vec<_>>().join("|")).blue(),
-                                                                ct.e_surface_evals[0][cache.cut_caches[min_i_non_pinched_cut].cut_sg_e_surf_id].cached_eval()/Into::<T>::into(self.settings.kinematics.e_cm as f64),
-                                                                ct.e_surface_evals[0][ct.e_surf_id].cached_eval()/Into::<T>::into(self.settings.kinematics.e_cm as f64)
-                                                            )} else {
-                                                                format!("{}","")
-                                                            };
-                                                        }
-                                                    } else {
-                                                        keep_this_one_ct = true;
-                                                        // keep_this_one_ct = false;
-                                                        // reason_for_this_ct = if self.settings.general.debug > 3 {format!("it is a two-loop CT which contains, within the solved space, a stronger active pinched surface there {}({}) with eval {:+16e} than self eval {:+16e}).",
-                                                        //     format!("#{}",min_i_pinched_cut).blue(),
-                                                        //     format!("{}",self.supergraph.cuts[min_i_pinched_cut].cut_edge_ids_and_flip.iter().map(|(id, flip)| if *flip > 0 {format!("+{}", id)} else {format!("-{}", id)}).collect::<Vec<_>>().join("|")).blue(),
-                                                        //     ct.e_surface_evals[0][cache.cut_caches[min_i_pinched_cut].cut_sg_e_surf_id].cached_eval()/Into::<T>::into(self.settings.kinematics.e_cm as f64),
-                                                        //     ct.e_surface_evals[0][ct.e_surf_id].cached_eval()/Into::<T>::into(self.settings.kinematics.e_cm as f64)
-                                                        // )} else {
-                                                        //     format!("{}","")
-                                                        // };
-                                                    }
-
-                                                }
-                                            }
-                                        }
-                                    }
-
-                                    (keep_this_one_ct, reason_for_this_ct)
-                                } else {
-                                    (
-                                        false,
-                                        if self.settings.general.debug > 3 {
-                                            format!(
-                                                "it has an incompatible sector signatue: {}",
-                                                format!("{:?}", this_ct_sector_signature).red()
-                                            )
-                                        } else {
-                                            format!("{}", "")
-                                        },
-                                    )
-                                };
-                                if keep_this_ct {
-                                    cts[side].push((ct, T::one()));
-                                } else {
-                                    if self.settings.general.debug > 3 {
-                                        println!(
+                                if self.settings.general.debug > 3 {
+                                    println!(
                                             "     | cFF Evaluation #{} : Ignoring CT for {} E-surface {} solved in {} with sector signature {} because {}",
                                             format!("{}", i_cff).green(),
                                             format!(
@@ -3810,9 +2550,8 @@ impl TriBoxTriCFFSGIntegrand {
                                                 format!("({:-3})", ct.loop_indices_solved.1.iter().map(|lis| format!("{}", lis)).collect::<Vec<_>>().join(",")),
                                             ).blue(),
                                             format!("{:?}", this_ct_sector_signature).blue(),
-                                            reason
+                                            reason_for_this_ct
                                         );
-                                    }
                                 }
                             }
                         }
@@ -4217,6 +2956,7 @@ impl TriBoxTriCFFSGIntegrand {
 
         let cff_cts_sum_contribution = cff_cts_sum * global_factors;
         for i_cff in 0..self.supergraph.supergraph_cff.cff_expression.terms.len() {
+            cff_res[i_cff] += cff_cts_res[i_cff];
             cff_cts_res[i_cff] *= global_factors;
             cff_res[i_cff] *= global_factors;
         }
@@ -4267,24 +3007,24 @@ impl TriBoxTriCFFSGIntegrand {
         }
         if self.integrand_settings.sampling_basis != vec![1, 3, 6] {
             if !self.sampling_rot.is_some() {
-                self.sampling_rot = Some([[0; 3]; 3]);
-                let mut sig_matrix = [[0; 3]; 3];
-                for i in 0..=2 {
-                    for j in 0..=2 {
+                self.sampling_rot = Some([[0; 4]; 4]);
+                let mut sig_matrix = [[0; 4]; 4];
+                for i in 0..=3 {
+                    for j in 0..=3 {
                         sig_matrix[i][j] = self.supergraph.edges
                             [self.integrand_settings.sampling_basis[i]]
                             .signature
                             .0[j];
                     }
                 }
-                self.sampling_rot = Some(utils::inv_3x3_sig_matrix(sig_matrix));
+                self.sampling_rot = Some(utils::inv_4x4_sig_matrix(sig_matrix));
             }
             let m_rot = &self.sampling_rot.unwrap();
             let mut rotated_loop_momenta = vec![];
-            for i in 0..=2 {
+            for i in 0..loop_momenta.len() {
                 let mut rotated_momenta =
                     LorentzVector::from_args(T::zero(), T::zero(), T::zero(), T::zero());
-                for j in 0..=2 {
+                for j in 0..loop_momenta.len() {
                     rotated_momenta += loop_momenta[j] * Into::<T>::into(m_rot[i][j] as f64);
                 }
                 rotated_loop_momenta.push(rotated_momenta);
@@ -4308,7 +3048,7 @@ impl TriBoxTriCFFSGIntegrand {
             }
         }
 
-        let mut computational_cache = TriBoxTriCFFSGComputationCache::default();
+        let mut computational_cache = TriBoxTriCFFSectoredComputationCache::default();
 
         for i in 0..=1 {
             computational_cache
@@ -4566,7 +3306,7 @@ impl TriBoxTriCFFSGIntegrand {
     }
 }
 
-impl HasIntegrand for TriBoxTriCFFSGIntegrand {
+impl HasIntegrand for TBBTIntegrand {
     fn create_grid(&self) -> Grid {
         Grid::ContinuousGrid(ContinuousGrid::new(
             self.n_dim,
@@ -4642,8 +3382,6 @@ impl HasIntegrand for TriBoxTriCFFSGIntegrand {
             println!("Integrator weight : {:+.16e}", wgt);
         }
 
-        // TODO implement stability check
-
         let mut result = if use_f128 {
             let sample_xs_f128 = sample_xs
                 .iter()
@@ -4667,7 +3405,66 @@ impl HasIntegrand for TriBoxTriCFFSGIntegrand {
         } else {
             self.evaluate_sample_generic(sample_xs.as_slice())
         };
-        self.event_manager.process_events(result, wgt);
+
+        if !use_f128 && iter > 0 {
+            let mut rerun_in_f128 = false;
+            if !result.re.is_finite() || !result.im.is_finite() {
+                rerun_in_f128 = true;
+            } else if result.norm() > 0. {
+                self.event_manager.event_buffer.clear();
+                let nudged_sample_xs = sample_xs
+                    .iter()
+                    .map(|&x| x * (1. - 1.0e-13))
+                    .collect::<Vec<_>>();
+
+                let nudged_result = self.evaluate_sample(
+                    &Sample::ContinuousGrid(1., nudged_sample_xs.clone()),
+                    wgt,
+                    0,
+                    false,
+                );
+                if self.settings.general.debug > 0 {
+                    println!("Stability result using original xs sample:\n{:?}\nand nudged one:\n{:?}\nyields\n{:?}\nand\n{:?}\nrespectively, resulting in a relative difference of {:+.16e}.",
+                        sample_xs,
+                        nudged_sample_xs,
+                        result,
+                        nudged_result,
+                        (nudged_result.norm() - result.norm()).abs()
+                    / (nudged_result.norm() + result.norm())
+                    );
+                }
+                if (nudged_result.norm() - result.norm()).abs()
+                    / (nudged_result.norm() + result.norm())
+                    > 1.0e-4
+                {
+                    if self.settings.general.debug > 0 {
+                        println!(
+                            "{}",
+                            format!(
+                                "WARNING: Unstable result found for xs={:?} : {:+16e} + i {:+16e}",
+                                sample_xs, result.re, result.im
+                            )
+                            .bold()
+                            .red()
+                        );
+                    }
+                    rerun_in_f128 = true;
+                }
+            }
+            if rerun_in_f128 {
+                self.event_manager.event_buffer.clear();
+                result = self.evaluate_sample(
+                    &Sample::ContinuousGrid(1., sample_xs.clone()),
+                    wgt,
+                    0,
+                    true,
+                );
+            }
+        }
+
+        if iter > 0 {
+            self.event_manager.process_events(result, wgt);
+        }
         if !result.re.is_finite() || !result.im.is_finite() {
             println!("{}",format!("WARNING: Found infinite result (now set to zero) for xs={:?} : {:+16e} + i {:+16e}", sample_xs, result.re, result.im).bold().red());
             result = Complex::new(0.0, 0.0);

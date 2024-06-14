@@ -715,6 +715,11 @@ impl EventSelector for JetSelector {
         self.clustering.cluster(event);
         //println!("Event: {:#?}",event);
         //println!("clustering: {:#?}",self.clustering);
+        // if self.clustering.ordered_pt[0] > 30. {
+        //     println!("Event: {:#?}", event);
+        //     println!("clustering: {:#?}", self.clustering);
+        //     panic!("Ordered pt too large!: {:?}", self.clustering.ordered_pt);
+        // }
         self.clustering.ordered_pt.len() >= self.jet_selector_settings.min_jets
             && self.clustering.ordered_pt.len() <= self.jet_selector_settings.max_jets
             && (self.clustering.ordered_pt.len() == 0

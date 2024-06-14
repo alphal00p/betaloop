@@ -336,9 +336,9 @@ impl TriBoxTriIntegrand {
             );
             (e_surf_cache.exists, e_surf_cache.pinched) = e_surf_cache.does_exist();
             e_surf_cache.eval = e_surf_cache.eval(&loop_momenta);
-            if e_surf_cache.exists && false {
-                e_surf_cache.t_scaling = e_surf_cache.compute_t_scaling(&loop_momenta);
-            }
+            // if e_surf_cache.exists && false {
+            //     e_surf_cache.t_scaling = e_surf_cache.compute_t_scaling(&loop_momenta);
+            // }
             e_surf_caches.push(e_surf_cache);
         }
 
@@ -904,17 +904,10 @@ impl TriBoxTriIntegrand {
                     None
                 };
 
-                let loop_indices_solved = if side == LEFT {
-                    (
-                        loop_indices_for_this_ct.clone(),
-                        other_side_loop_indices.clone(),
-                    )
-                } else {
-                    (
-                        loop_indices_for_this_ct.clone(),
-                        other_side_loop_indices.clone(),
-                    )
-                };
+                let loop_indices_solved = (
+                    loop_indices_for_this_ct.clone(),
+                    other_side_loop_indices.clone(),
+                );
                 all_new_cts.push(ESurfaceCT {
                     e_surf_id,
                     ct_basis_signature: ct_basis_signature.clone(), // Not used at the moment, could be dropped

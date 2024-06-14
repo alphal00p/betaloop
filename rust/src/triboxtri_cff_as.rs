@@ -7,7 +7,9 @@ use crate::utils;
 use crate::utils::FloatLike;
 use crate::Settings;
 use crate::{CTVariable, HFunctionSettings, NumeratorType};
+use color_eyre::{Help, Report};
 use colored::Colorize;
+use eyre::WrapErr;
 use havana::{ContinuousGrid, Grid, Sample};
 use lorentz_vector::LorentzVector;
 use num::Complex;
@@ -21,7 +23,7 @@ use utils::{
 };
 
 #[derive(Debug, Clone, Default, Deserialize)]
-pub struct TriBoxTriCFFSectoredCTSettings {
+pub struct TriBoxTriCFFASCTSettings {
     pub variable: CTVariable,
     pub enabled: bool,
     pub compute_only_im_squared: bool,
@@ -39,14 +41,6 @@ pub struct TriBoxTriCFFSectoredCTSettings {
     pub apply_original_event_selection_to_cts: bool,
 }
 
-fn _default_one() -> f64 {
-    1.0
-}
-
-fn _default_hundred() -> f64 {
-    100.0
-}
-
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct SectoringSettings {
     pub enabled: bool,
@@ -59,8 +53,6 @@ pub struct SectoringSettings {
     pub apply_hard_coded_rules: bool,
     pub check_for_absent_e_surfaces_when_building_mc_factor: bool,
     pub mc_factor_power: f64, // negative means using min()
-    #[serde(default = "_default_hundred")]
-    pub pinch_protection_factor: f64, // negative means disabled
     pub hard_coded_rules_file: Option<String>,
 }
 
@@ -99,7 +91,7 @@ pub struct SectoringRuleMCFactor {
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
-pub struct TriBoxTriCFFSectoredSettings {
+pub struct TriBoxTriCFFASSettings {
     pub supergraph_yaml_file: String,
     pub q: [f64; 4],
     pub h_function: HFunctionSettings,
@@ -108,21 +100,21 @@ pub struct TriBoxTriCFFSectoredSettings {
     pub selected_sg_cff_term: Option<usize>,
     pub selected_sector_signature: Option<Vec<isize>>,
     #[serde(rename = "threshold_CT_settings")]
-    pub threshold_ct_settings: TriBoxTriCFFSectoredCTSettings,
+    pub threshold_ct_settings: TriBoxTriCFFASCTSettings,
 }
 
-pub struct TriBoxTriCFFSectoredIntegrand {
+pub struct TriBoxTriCFFASIntegrand {
     pub settings: Settings,
-    pub supergraph: SuperGraph,
+    pub supergraph: SuperGraphAS,
     pub n_dim: usize,
-    pub integrand_settings: TriBoxTriCFFSectoredSettings,
+    pub integrand_settings: TriBoxTriCFFASSettings,
     pub event_manager: EventManager,
     pub sampling_rot: Option<[[isize; 3]; 3]>,
     pub hard_coded_rules: Vec<SectoringRule>,
 }
 
 #[derive(Debug, Clone)]
-pub struct TriBoxTriCFFSectoredComputationCachePerCut<T: FloatLike> {
+pub struct TriBoxTriCFFSGComputationCachePerCut<T: FloatLike> {
     pub onshell_edge_momenta: Vec<LorentzVector<T>>,
     pub rescaled_loop_momenta: Vec<LorentzVector<T>>,
     // 0 means observable regected that cut, 1 means observable passed on that cut and -1 means cff term does not contribut to that cut
@@ -134,9 +126,9 @@ pub struct TriBoxTriCFFSectoredComputationCachePerCut<T: FloatLike> {
     pub e_surf_caches: Vec<GenericESurfaceCache<T>>,
 }
 
-impl<T: FloatLike> TriBoxTriCFFSectoredComputationCachePerCut<T> {
-    pub fn default() -> TriBoxTriCFFSectoredComputationCachePerCut<T> {
-        TriBoxTriCFFSectoredComputationCachePerCut {
+impl<T: FloatLike> TriBoxTriCFFSGComputationCachePerCut<T> {
+    pub fn default() -> TriBoxTriCFFSGComputationCachePerCut<T> {
+        TriBoxTriCFFSGComputationCachePerCut {
             onshell_edge_momenta: vec![],
             rescaled_loop_momenta: vec![],
             sector_signature: vec![],
@@ -150,16 +142,16 @@ impl<T: FloatLike> TriBoxTriCFFSectoredComputationCachePerCut<T> {
 }
 
 #[derive(Debug)]
-pub struct TriBoxTriCFFSectoredComputationCache<T: FloatLike> {
+pub struct TriBoxTriCFFSGComputationCache<T: FloatLike> {
     pub external_momenta: Vec<LorentzVector<T>>,
-    pub cut_caches: Vec<TriBoxTriCFFSectoredComputationCachePerCut<T>>,
+    pub cut_caches: Vec<TriBoxTriCFFSGComputationCachePerCut<T>>,
     pub sector_signature: Vec<isize>,
     pub sampling_xs: Vec<f64>,
 }
 
-impl<T: FloatLike> TriBoxTriCFFSectoredComputationCache<T> {
-    pub fn default() -> TriBoxTriCFFSectoredComputationCache<T> {
-        TriBoxTriCFFSectoredComputationCache {
+impl<T: FloatLike> TriBoxTriCFFSGComputationCache<T> {
+    pub fn default() -> TriBoxTriCFFSGComputationCache<T> {
+        TriBoxTriCFFSGComputationCache {
             external_momenta: vec![],
             cut_caches: vec![],
             sector_signature: vec![],
@@ -203,7 +195,10 @@ struct ClosestESurfaceMonitor<T: FloatLike + std::fmt::Debug> {
 }
 
 impl<T: FloatLike + std::fmt::Debug> ClosestESurfaceMonitor<T> {
-    pub fn str_form(&self, cut: &Cut) -> String {
+    pub fn str_form_from_cut_edge_ids_and_flips(
+        &self,
+        cut_edge_ids_and_flip: &Vec<(usize, isize)>,
+    ) -> String {
         format!(
             "Normalised distance: {:+e} | E-surface {} of cut #{}{}: {}",
             self.distance,
@@ -215,7 +210,7 @@ impl<T: FloatLike + std::fmt::Debug> ClosestESurfaceMonitor<T> {
             self.i_cut,
             format!(
                 "({})",
-                cut.cut_edge_ids_and_flip
+                cut_edge_ids_and_flip
                     .iter()
                     .map(|(id, flip)| if *flip > 0 {
                         format!("+{}", id)
@@ -227,6 +222,10 @@ impl<T: FloatLike + std::fmt::Debug> ClosestESurfaceMonitor<T> {
             ),
             e_surf_str(self.e_surf_id, &self.e_surf)
         )
+    }
+
+    pub fn str_form(&self, cut: &Cut) -> String {
+        self.str_form_from_cut_edge_ids_and_flips(&cut.cut_edge_ids_and_flip)
     }
 }
 
@@ -252,12 +251,76 @@ pub fn compute_propagator_momentum<T: FloatLike>(
     prop_momentum
 }
 
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct CutAS {
+    pub cut_edge_ids_and_flip: Vec<(usize, isize)>,
+    pub left_amplitude: Amplitude,
+    pub right_amplitude: Amplitude,
+}
+
 #[allow(unused)]
-impl TriBoxTriCFFSectoredIntegrand {
+impl CutAS {
+    pub fn new(
+        cut_edge_ids_and_flip: Vec<(usize, isize)>,
+        left_amplitude: Amplitude,
+        right_amplitude: Amplitude,
+    ) -> CutAS {
+        CutAS {
+            cut_edge_ids_and_flip,
+            left_amplitude,
+            right_amplitude,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct SuperGraphAS {
+    pub edges: Vec<Edge>,
+    pub supergraph_cff: Amplitude,
+    pub cuts: Vec<CutAS>,
+    pub n_loop: usize,
+}
+#[allow(unused)]
+impl SuperGraphAS {
+    pub fn new(
+        edges: Vec<Edge>,
+        cuts: Vec<CutAS>,
+        supergraph_cff: Amplitude,
+        n_loop: usize,
+    ) -> SuperGraphAS {
+        SuperGraphAS {
+            edges,
+            supergraph_cff,
+            cuts,
+            n_loop,
+        }
+    }
+
+    pub fn default() -> SuperGraphAS {
+        SuperGraphAS {
+            edges: Vec::new(),
+            supergraph_cff: Amplitude::default(),
+            cuts: Vec::new(),
+            n_loop: 0,
+        }
+    }
+
+    pub fn from_file(filename: &str) -> Result<SuperGraphAS, Report> {
+        let f = File::open(filename)
+            .wrap_err_with(|| format!("Could not open supergraph file {}", filename))
+            .suggestion("Does the path exist?")?;
+        serde_yaml::from_reader(f)
+            .wrap_err("Could not parse supergraph file")
+            .suggestion("Is it a correct YAML file")
+    }
+}
+
+#[allow(unused)]
+impl TriBoxTriCFFASIntegrand {
     pub fn new(
         settings: Settings,
-        integrand_settings: TriBoxTriCFFSectoredSettings,
-    ) -> TriBoxTriCFFSectoredIntegrand {
+        integrand_settings: TriBoxTriCFFASSettings,
+    ) -> TriBoxTriCFFASIntegrand {
         /*
                output_LU_scalar betaLoop_triangleBoxTriangleBenchmark_scalar \
         --topology=[\
@@ -279,7 +342,7 @@ impl TriBoxTriCFFSectoredIntegrand {
         assert!(integrand_settings.q[2] == 0.);
         assert!(integrand_settings.q[3] == 0.);
 
-        let sg = SuperGraph::from_file(integrand_settings.supergraph_yaml_file.as_str()).unwrap();
+        let sg = SuperGraphAS::from_file(integrand_settings.supergraph_yaml_file.as_str()).unwrap();
         let n_dim = utils::get_n_dim_for_n_loop_momenta(&settings, sg.n_loop, false);
         let event_manager = EventManager::new(true, settings.clone());
         let hard_coded_rules: Vec<SectoringRule> = if let Some(hard_coded_rules_file) =
@@ -300,7 +363,7 @@ impl TriBoxTriCFFSectoredIntegrand {
         } else {
             vec![]
         };
-        TriBoxTriCFFSectoredIntegrand {
+        TriBoxTriCFFASIntegrand {
             settings,
             supergraph: sg,
             n_dim: n_dim,
@@ -373,7 +436,7 @@ impl TriBoxTriCFFSectoredIntegrand {
         &self,
         esurf_basis_edge_ids: &Vec<usize>,
         edge_ids: &Vec<usize>,
-        cache: &TriBoxTriCFFSectoredComputationCache<T>,
+        cache: &TriBoxTriCFFSGComputationCache<T>,
         loop_momenta: &Vec<LorentzVector<T>>,
         side: usize,
         e_shift_sig: &Vec<isize>,
@@ -432,7 +495,7 @@ impl TriBoxTriCFFSectoredIntegrand {
     fn build_e_surfaces<T: FloatLike>(
         &self,
         onshell_edge_momenta: &Vec<LorentzVector<T>>,
-        cache: &TriBoxTriCFFSectoredComputationCache<T>,
+        cache: &TriBoxTriCFFSGComputationCache<T>,
         loop_momenta: &Vec<LorentzVector<T>>,
         i_cut: usize,
     ) -> Vec<GenericESurfaceCache<T>> {
@@ -450,14 +513,16 @@ impl TriBoxTriCFFSectoredIntegrand {
         for (i_surf, e_surf) in cff.cff_expression.e_surfaces.iter().enumerate() {
             let mut e_surf_side = NOSIDE;
             for edge in &self.supergraph.cuts[i_cut].left_amplitude.edges {
-                if e_surf.edge_ids.contains(&edge.id) {
+                if !edge.signature.0.iter().all(|s| *s == 0) && e_surf.edge_ids.contains(&edge.id) {
                     e_surf_side = LEFT;
                     break;
                 }
             }
             if e_surf_side == NOSIDE {
                 for edge in &self.supergraph.cuts[i_cut].right_amplitude.edges {
-                    if e_surf.edge_ids.contains(&edge.id) {
+                    if !edge.signature.0.iter().all(|s| *s == 0)
+                        && e_surf.edge_ids.contains(&edge.id)
+                    {
                         e_surf_side = RIGHT;
                         break;
                     }
@@ -489,6 +554,7 @@ impl TriBoxTriCFFSectoredIntegrand {
             let loop_edge_ids = amplitude_for_sides[e_surf_side]
                 .edges
                 .iter()
+                .filter(|e| !e.signature.0.iter().all(|s| *s == 0))
                 .map(|e| e.id)
                 .collect::<Vec<_>>();
             let e_surf_loop_edges = e_surf
@@ -516,6 +582,7 @@ impl TriBoxTriCFFSectoredIntegrand {
                 e_surf_side,
                 &e_surf.shift,
             );
+
             e_surf_cache.e_shift += e_shift_extra;
             (e_surf_cache.exists, e_surf_cache.pinched) = e_surf_cache.does_exist();
             e_surf_cache.eval = e_surf_cache.eval(&loop_momenta);
@@ -536,7 +603,7 @@ impl TriBoxTriCFFSectoredIntegrand {
     fn evt_for_e_surf_to_pass_selection<T: FloatLike>(
         &self,
         asc_e_surf_id: usize,
-        cache: &TriBoxTriCFFSectoredComputationCache<T>,
+        cache: &TriBoxTriCFFSGComputationCache<T>,
         onshell_edge_momenta: &Vec<LorentzVector<T>>,
     ) -> (usize, Event) {
         let (as_i_cut, anti_selected_cut) =
@@ -597,7 +664,7 @@ impl TriBoxTriCFFSectoredIntegrand {
     fn fill_cache<T: FloatLike>(
         &mut self,
         loop_momenta: &Vec<LorentzVector<T>>,
-        cache: &mut TriBoxTriCFFSectoredComputationCache<T>,
+        cache: &mut TriBoxTriCFFSGComputationCache<T>,
     ) {
         if self.settings.general.debug > 3 {
             println!(
@@ -617,7 +684,7 @@ impl TriBoxTriCFFSectoredIntegrand {
         //         .unwrap()
         // });
         cache.cut_caches =
-            vec![TriBoxTriCFFSectoredComputationCachePerCut::default(); self.supergraph.cuts.len()];
+            vec![TriBoxTriCFFSGComputationCachePerCut::default(); self.supergraph.cuts.len()];
         // for i_cut in sorted_cut_ids {
         for i_cut in 0..self.supergraph.cuts.len() {
             let cut = &self.supergraph.cuts[i_cut];
@@ -660,7 +727,7 @@ impl TriBoxTriCFFSectoredIntegrand {
                         .all(|(e_id, _flip)| e_surf.edge_ids.contains(e_id))
                 {
                     if e_surf.shift[1] != 0 {
-                        panic!("Assumption about supergraph e-surface depending only upon the left incoming external momenta broken")
+                        panic!("Assumption about supergraph e-surface depending only upon the left incoming external momenta broken: esurf: {:?}",e_surf);
                     }
                     // Check if this e-surface is the existing one.
                     if Into::<T>::into(e_surf.shift[0] as f64) * cache.external_momenta[0].t
@@ -674,7 +741,7 @@ impl TriBoxTriCFFSectoredIntegrand {
                 }
             }
             if !e_surf_cut_found {
-                panic!("Could not find the e-surface corresponding to the cut in the supergraph cff expression");
+                panic!("Could not find the e-surface corresponding to the cut in the supergraph cff expression: cut: {:?}",self.supergraph.cuts[i_cut].cut_edge_ids_and_flip);
             }
             if self.settings.general.debug > 4 {
                 println!(
@@ -1014,7 +1081,7 @@ impl TriBoxTriCFFSectoredIntegrand {
         &mut self,
         e_surf_id: usize,
         i_cut: usize,
-        cache: &TriBoxTriCFFSectoredComputationCache<T>,
+        cache: &TriBoxTriCFFSGComputationCache<T>,
     ) -> Vec<ESurfaceCT<T, GenericESurfaceCache<T>>> {
         let mut all_new_cts = vec![];
 
@@ -1691,18 +1758,6 @@ impl TriBoxTriCFFSectoredIntegrand {
                                             onshell_edge_momenta_for_this_ct_for_each_cut
                                                 [sig_i_cut][*i_edge]
                                                 * Into::<T>::into(*flip as f64);
-                                        // if edge_mom.t < T::zero() {
-                                        //     panic!(
-                                        //         "Found invalid edge mom #{}: {:?}",
-                                        //         i_edge, edge_mom
-                                        //     );
-                                        // }
-                                        // if edge_mom.pt() > Into::<T>::into(30. as f64) {
-                                        //     panic!(
-                                        //         "Found invalid pt in edge mom #{}: {:?}",
-                                        //         i_edge, edge_mom
-                                        //     );
-                                        // }
                                         edge_mom.t = edge_mom.t.abs();
                                         edge_mom
                                     })
@@ -2058,7 +2113,7 @@ impl TriBoxTriCFFSectoredIntegrand {
         i_cut: usize,
         loop_momenta: &Vec<LorentzVector<T>>,
         overall_sampling_jac: T,
-        cache: &TriBoxTriCFFSectoredComputationCache<T>,
+        cache: &TriBoxTriCFFSGComputationCache<T>,
         selected_sg_cff_term: Option<usize>,
     ) -> (
         Complex<T>,
@@ -2239,7 +2294,7 @@ impl TriBoxTriCFFSectoredIntegrand {
         // B) I - AMP_CT = RealPart[ LAMP.re + i RAMP.im ] * RealPart[ RAMP.re + i RAMP.im ] = LAMP.re * LAMP.re
 
         // And the real part of the quantity we want, with complex conjugation, is:
-        // LAMP.re * RAMP.re + RAMP.im * RAMP.im
+        // LAMP.re * RAMP.re + LAMP.im * RAMP.im
         // We can therefore obtain the above using: B + (B - A) = 2 B - A
         // Which is what we will be implementing below, i.e.:
         // I - 2 AMP_CT + SG_CT
@@ -2288,6 +2343,7 @@ impl TriBoxTriCFFSectoredIntegrand {
                     selected_sector_signature[i_sig_cut] = CUT_ABSENT;
                 }
             }
+            //println!("VHH Cache found: {:?}", cut_sector_signature);
 
             if self.integrand_settings.selected_sector_signature.is_some() {
                 if cut_sector_signature != selected_sector_signature {
@@ -2518,16 +2574,11 @@ impl TriBoxTriCFFSectoredIntegrand {
                                 );
                             }
 
-                            /*
                             let loop_indices_solved = if side == LEFT {
                                 &ct.loop_indices_solved.0
                             } else {
                                 &ct.loop_indices_solved.1
                             };
-                            */
-                            let mut loop_indices_solved = vec![];
-                            loop_indices_solved.extend(&ct.loop_indices_solved.0);
-                            loop_indices_solved.extend(&ct.loop_indices_solved.1);
 
                             if self
                                 .integrand_settings
@@ -2601,7 +2652,7 @@ impl TriBoxTriCFFSectoredIntegrand {
                                             {
                                                 if hc_rule_for_cut.cut_id == i_cut {
                                                     let i_rule_ct = match hc_rule_for_cut.rules_for_ct.iter().enumerate().find(|(_i_rule_ct, hc_rule_for_cut_and_ct)| {
-                                                    hc_rule_for_cut_and_ct.surf_id_subtracted == ct.e_surf_id && loop_indices_solved.iter().all(|&li| hc_rule_for_cut_and_ct.loop_indices_this_ct_is_solved_in.contains(li)) && hc_rule_for_cut_and_ct.loop_indices_this_ct_is_solved_in.iter().all(|li| loop_indices_solved.contains(&li))
+                                                    hc_rule_for_cut_and_ct.surf_id_subtracted == ct.e_surf_id && loop_indices_solved.iter().all(|li| hc_rule_for_cut_and_ct.loop_indices_this_ct_is_solved_in.contains(li)) && hc_rule_for_cut_and_ct.loop_indices_this_ct_is_solved_in.iter().all(|li| loop_indices_solved.contains(li))
                                                 }) {
                                                     Some((i_rule_ct, _hc_rule_for_cut_and_ct)) => i_rule_ct,
                                                     _ => panic!("   | Could not find hard-coded rule for this CT for E-surface #{} solved in loop indices {:?} and whose signature ({:?}) and cut id ({}) are however specified.",
@@ -2660,12 +2711,6 @@ impl TriBoxTriCFFSectoredIntegrand {
                                             "     | Found the hard-coded rule with coordinates ({},{},{}) applying to this counterterm: {:?})",
                                             i_rule, i_rule_cut, i_rule_ct, hc_rule
                                         )
-                                        }
-
-                                        if self.settings.general.debug > 6 {
-                                            println!("     | E-surface evaluations for the computation of the MC factor specified as {:?}:\n{}",hc_rule.mc_factor,
-                                            ct.e_surface_evals[0].iter().enumerate().map(|(i,sc)| format!("     |   E-surface #{:-2}: pinched={} | exists={} | {:+.16e}",i, if sc.pinched {"YES"} else {"NO "}, if sc.exists {"YES"} else {"NO "},sc.cached_eval())).collect::<Vec<_>>().join("\n")
-                                        );
                                         }
 
                                         if hc_rule.enabled {
@@ -2791,11 +2836,9 @@ impl TriBoxTriCFFSectoredIntegrand {
                                                         }
                                                     }
                                                     if n_terms > 1 && found_one_factor_in_num {
-                                                        if self.settings.general.debug > 5
-                                                            && self.settings.general.debug <= 6
-                                                        {
+                                                        if self.settings.general.debug > 5 {
                                                             println!("     | E-surface evaluations for the computation of the MC factor specified as {:?}:\n{}",hc_rule.mc_factor,
-                                                            ct.e_surface_evals[0].iter().enumerate().map(|(i,sc)| format!("     |   E-surface #{:-2}: pinched={} | exists={} | {:+.16e}",i, if sc.pinched {"YES"} else {"NO "}, if sc.exists {"YES"} else {"NO "},sc.cached_eval())).collect::<Vec<_>>().join("\n")
+                                                            ct.e_surface_evals[0].iter().enumerate().map(|(i,sc)| format!("     |   E-surface #{:-2}: {:+.16e}",i,sc.cached_eval())).collect::<Vec<_>>().join("\n")
                                                         );
                                                         }
                                                         if self.settings.general.debug > 4 {
@@ -2839,22 +2882,15 @@ impl TriBoxTriCFFSectoredIntegrand {
                                                                 .cff_expression
                                                                 .terms[i_cff]
                                                                 .contains_e_surf_id(*e_surf_id_b))
-                                                        {
-                                                            continue;
-                                                        }
-                                                        let mut t = (ct.e_surface_evals[0]
+                                                    {
+                                                        continue;
+                                                    }
+                                                        let t = (ct.e_surface_evals[0]
                                                             [*e_surf_id_a]
                                                             .cached_eval()
                                                             - ct.e_surface_evals[0][*e_surf_id_b]
                                                                 .cached_eval())
                                                         .abs();
-                                                        if !ct.e_surface_evals[0][*e_surf_id_a]
-                                                            .exists
-                                                            && ct.e_surface_evals[0][*e_surf_id_a]
-                                                                .pinched
-                                                        {
-                                                            t *= mc_factor_power.abs();
-                                                        }
                                                         if let Some(min_eval) = min_eval_num {
                                                             if t < min_eval {
                                                                 min_eval_num = Some(t);
@@ -2897,22 +2933,13 @@ impl TriBoxTriCFFSectoredIntegrand {
                                                                 {
                                                                     continue;
                                                                 }
-                                                                let mut t = (ct.e_surface_evals[0]
+                                                                let t = (ct.e_surface_evals[0]
                                                                     [*e_surf_id_a]
                                                                     .cached_eval()
                                                                     - ct.e_surface_evals[0]
                                                                         [*e_surf_id_b]
                                                                         .cached_eval())
                                                                 .abs();
-                                                                if !ct.e_surface_evals[0]
-                                                                    [*e_surf_id_a]
-                                                                    .exists
-                                                                    && ct.e_surface_evals[0]
-                                                                        [*e_surf_id_a]
-                                                                        .pinched
-                                                                {
-                                                                    t *= mc_factor_power.abs();
-                                                                }
                                                                 if let Some(min_eval) =
                                                                     min_eval_denom
                                                                 {
@@ -2924,12 +2951,18 @@ impl TriBoxTriCFFSectoredIntegrand {
                                                                 }
                                                             }
                                                         }
+
                                                         if min_eval_denom.is_none() {
                                                             if self.settings.general.debug > 4 {
                                                                 println!("     | MC factor specified as {:?} yielded no mc_factor (therefore set to one) since not enough e-surfaces of this factor are present in this cFF term.",hc_rule.mc_factor);
                                                             }
                                                             T::one()
                                                         } else {
+                                                            if self.settings.general.debug > 5 {
+                                                                println!("     | E-surface evaluations for the computation of the MC factor specified as {:?}:\n{}",hc_rule.mc_factor,
+                                                                ct.e_surface_evals[0].iter().enumerate().map(|(i,sc)| format!("     |   E-surface #{:-2}: {:+.16e}",i,sc.cached_eval())).collect::<Vec<_>>().join("\n")
+                                                            );
+                                                            }
                                                             if self.settings.general.debug > 4 {
                                                                 println!("     | MC factor specified as {:?} yielded the following mc_factor weight: {:+.16e} from num {:+.16e} and denom {:+.16e}",hc_rule.mc_factor,
                                                                     if min_eval_denom.unwrap() < min_eval_num.unwrap() { T::one() } else { T::zero() }, min_eval_num.unwrap() , min_eval_denom.unwrap()
@@ -2970,107 +3003,6 @@ impl TriBoxTriCFFSectoredIntegrand {
                                         }
                                     }
                                 }
-
-                                let pinch_factor = Into::<T>::into(
-                                    self.integrand_settings
-                                        .threshold_ct_settings
-                                        .sectoring_settings
-                                        .pinch_protection_factor,
-                                );
-                                // APPLY LOCAL VETO BASED ON PROXIMITY TO PINCH
-                                if keep_this_one_ct && pinch_factor > T::zero() {
-                                    // # | ID   (cut edges   ) : E-surf ID
-                                    // # | #0   (-0|+1       ) : #21
-                                    // # | #1   (-2|+3       ) : #10
-                                    // # | #2   (-0|+4|+6    ) : #19
-                                    // # | #3   (+1|-4|-5    ) : #22
-                                    // # | #4   (+6|-7|-2    ) : #17
-                                    // # | #5   (+3|+7|-5    ) : #11
-                                    // # | #6   (-0|+4|+7|+3 ) : #15
-                                    // # | #7   (+1|-4|-7|-2 ) : #23
-                                    // # | #8   (-5|+6       ) : #18
-                                    let cut_to_e_surf_map: Vec<usize> =
-                                        vec![21, 10, 19, 22, 17, 11, 15, 23, 18];
-                                    let all_pinched_other_cuts: Vec<usize> = match i_cut {
-                                        0 => {
-                                            if loop_indices_solved.contains(&&2_usize) {
-                                                vec![2, 3, 6, 7]
-                                            } else {
-                                                vec![6, 7]
-                                            }
-                                        }
-                                        1 => {
-                                            if loop_indices_solved.contains(&&2_usize) {
-                                                vec![4, 5, 6, 7]
-                                            } else {
-                                                vec![6, 7]
-                                            }
-                                        }
-                                        2 => vec![4, 5],
-                                        3 => vec![4, 5],
-                                        4 => vec![2, 3],
-                                        5 => vec![2, 3],
-                                        8 => {
-                                            if loop_indices_solved.contains(&&0_usize)
-                                                && !loop_indices_solved.contains(&&1_usize)
-                                            {
-                                                vec![2, 3]
-                                            } else if loop_indices_solved.contains(&&1_usize)
-                                                && !loop_indices_solved.contains(&&0_usize)
-                                            {
-                                                vec![4, 5]
-                                            } else if loop_indices_solved.contains(&&1_usize)
-                                                && loop_indices_solved.contains(&&0_usize)
-                                            {
-                                                vec![2, 3, 4, 5]
-                                            } else {
-                                                vec![6, 7]
-                                            }
-                                        }
-                                        _ => vec![],
-                                    };
-                                    let min_pinched_eval = all_pinched_other_cuts
-                                        .iter()
-                                        .filter(|&c| {
-                                            this_ct_sector_signature[*c] == CUT_ACTIVE
-                                                && ct.e_surface_evals[0][cut_to_e_surf_map[*c]]
-                                                    .pinched
-                                        })
-                                        .map(|c| {
-                                            pinch_factor
-                                                * ct.e_surface_evals[0][cut_to_e_surf_map[*c]]
-                                                    .cached_eval()
-                                                    .abs()
-                                        })
-                                        .min_by(|a, b| a.partial_cmp(b).unwrap());
-                                    let distance_to_self = (ct.t - ct.t_star) * ct.e_surf_expanded;
-                                    if self.settings.general.debug > 6 {
-                                        println!("     | Pinch test for this CT yielded the following distance to self {:+.16} and the following pinched cuts to consider {:?} and corresponding min pinched eval {:?}",
-                                        distance_to_self,
-                                        all_pinched_other_cuts,
-                                        min_pinched_eval);
-                                    }
-                                    if let Some(min_pinched) = min_pinched_eval {
-                                        if self.settings.general.debug > 4 {
-                                            println!("     | Pinch test compared closest pinch value of {:+.16e} to self ct threshold distance of {:+.16e} so that this CT will be {}",
-                                                min_pinched,
-                                                distance_to_self,
-                                                if distance_to_self.abs() < min_pinched.abs() {
-                                                    format!("{}","KEPT").green()
-                                                } else {
-                                                    format!("{}","DISCARDED").red()
-                                                }
-                                            );
-                                        }
-                                        if min_pinched * min_pinched
-                                            < distance_to_self * distance_to_self
-                                        {
-                                            keep_this_one_ct = false;
-                                            reason_for_this_ct = format!("pinch test found closest pinch value {:+.16e} to be closer than the self ct threshold distance {:+.16e}",min_pinched,distance_to_self);
-                                        }
-                                    }
-                                }
-
                                 if !keep_this_one_ct {
                                     if self.settings.general.debug > 3 {
                                         println!(
@@ -3388,7 +3320,7 @@ impl TriBoxTriCFFSectoredIntegrand {
                                     {
                                         if !loop_indices_in_this_amplitude
                                             .iter()
-                                            .all(|lia| loop_indices_solved.contains(&lia))
+                                            .all(|lia| loop_indices_solved.contains(lia))
                                         {
                                             keep_this_one_ct = false;
                                             if self.settings.general.debug > 3 {
@@ -3453,7 +3385,7 @@ impl TriBoxTriCFFSectoredIntegrand {
                                             if n_loop_ct > 1
                                                 && loop_indices_in_this_amplitude
                                                     .iter()
-                                                    .all(|lia| loop_indices_solved.contains(&lia))
+                                                    .all(|lia| loop_indices_solved.contains(lia))
                                             {
                                                 keep_this_one_ct = false;
                                                 if self.settings.general.debug > 3 {
@@ -4363,7 +4295,6 @@ impl TriBoxTriCFFSectoredIntegrand {
 
         let cff_cts_sum_contribution = cff_cts_sum * global_factors;
         for i_cff in 0..self.supergraph.supergraph_cff.cff_expression.terms.len() {
-            cff_res[i_cff] += cff_cts_res[i_cff];
             cff_cts_res[i_cff] *= global_factors;
             cff_res[i_cff] *= global_factors;
         }
@@ -4412,7 +4343,7 @@ impl TriBoxTriCFFSectoredIntegrand {
         for m in &moms {
             loop_momenta.push(LorentzVector::from_args(T::zero(), m[0], m[1], m[2]));
         }
-        if self.integrand_settings.sampling_basis != vec![1, 3, 6] {
+        if self.integrand_settings.sampling_basis != vec![1, 6, 3] {
             if !self.sampling_rot.is_some() {
                 self.sampling_rot = Some([[0; 3]; 3]);
                 let mut sig_matrix = [[0; 3]; 3];
@@ -4455,7 +4386,7 @@ impl TriBoxTriCFFSectoredIntegrand {
             }
         }
 
-        let mut computational_cache = TriBoxTriCFFSectoredComputationCache::default();
+        let mut computational_cache = TriBoxTriCFFSGComputationCache::default();
 
         for i in 0..=1 {
             computational_cache
@@ -4670,7 +4601,9 @@ impl TriBoxTriCFFSectoredIntegrand {
                     format!("{}", "Overall closest existing non-pinched E-surface:")
                         .blue()
                         .bold(),
-                    closest.str_form(&self.supergraph.cuts[closest.i_cut]),
+                    closest.str_form_from_cut_edge_ids_and_flips(
+                        &self.supergraph.cuts[closest.i_cut].cut_edge_ids_and_flip
+                    ),
                     closest.e_surf_cache
                 );
             }
@@ -4680,7 +4613,9 @@ impl TriBoxTriCFFSectoredIntegrand {
                     format!("{}", "Overall closest pinched E-surface:")
                         .blue()
                         .bold(),
-                    closest.str_form(&self.supergraph.cuts[closest.i_cut]),
+                    closest.str_form_from_cut_edge_ids_and_flips(
+                        &self.supergraph.cuts[closest.i_cut].cut_edge_ids_and_flip
+                    ),
                     closest.e_surf_cache
                 );
             }
@@ -4713,7 +4648,7 @@ impl TriBoxTriCFFSectoredIntegrand {
     }
 }
 
-impl HasIntegrand for TriBoxTriCFFSectoredIntegrand {
+impl HasIntegrand for TriBoxTriCFFASIntegrand {
     fn create_grid(&self) -> Grid {
         Grid::ContinuousGrid(ContinuousGrid::new(
             self.n_dim,
@@ -4789,6 +4724,8 @@ impl HasIntegrand for TriBoxTriCFFSectoredIntegrand {
             println!("Integrator weight : {:+.16e}", wgt);
         }
 
+        // TODO implement stability check
+
         let mut result = if use_f128 {
             let sample_xs_f128 = sample_xs
                 .iter()
@@ -4812,66 +4749,7 @@ impl HasIntegrand for TriBoxTriCFFSectoredIntegrand {
         } else {
             self.evaluate_sample_generic(sample_xs.as_slice())
         };
-
-        if !use_f128 && iter > 0 {
-            let mut rerun_in_f128 = false;
-            if !result.re.is_finite() || !result.im.is_finite() {
-                rerun_in_f128 = true;
-            } else if result.norm() > 0. {
-                self.event_manager.event_buffer.clear();
-                let nudged_sample_xs = sample_xs
-                    .iter()
-                    .map(|&x| x * (1. - 1.0e-13))
-                    .collect::<Vec<_>>();
-
-                let nudged_result = self.evaluate_sample(
-                    &Sample::ContinuousGrid(1., nudged_sample_xs.clone()),
-                    wgt,
-                    0,
-                    false,
-                );
-                if self.settings.general.debug > 0 {
-                    println!("Stability result using original xs sample:\n{:?}\nand nudged one:\n{:?}\nyields\n{:?}\nand\n{:?}\nrespectively, resulting in a relative difference of {:+.16e}.",
-                        sample_xs,
-                        nudged_sample_xs,
-                        result,
-                        nudged_result,
-                        (nudged_result.norm() - result.norm()).abs()
-                    / (nudged_result.norm() + result.norm())
-                    );
-                }
-                if (nudged_result.norm() - result.norm()).abs()
-                    / (nudged_result.norm() + result.norm())
-                    > 1.0e-4
-                {
-                    if self.settings.general.debug > 0 {
-                        println!(
-                            "{}",
-                            format!(
-                                "WARNING: Unstable result found for xs={:?} : {:+16e} + i {:+16e}",
-                                sample_xs, result.re, result.im
-                            )
-                            .bold()
-                            .red()
-                        );
-                    }
-                    rerun_in_f128 = true;
-                }
-            }
-            if rerun_in_f128 {
-                self.event_manager.event_buffer.clear();
-                result = self.evaluate_sample(
-                    &Sample::ContinuousGrid(1., sample_xs.clone()),
-                    wgt,
-                    0,
-                    true,
-                );
-            }
-        }
-
-        if iter > 0 {
-            self.event_manager.process_events(result, wgt);
-        }
+        self.event_manager.process_events(result, wgt);
         if !result.re.is_finite() || !result.im.is_finite() {
             println!("{}",format!("WARNING: Found infinite result (now set to zero) for xs={:?} : {:+16e} + i {:+16e}", sample_xs, result.re, result.im).bold().red());
             result = Complex::new(0.0, 0.0);

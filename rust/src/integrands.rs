@@ -2,11 +2,12 @@ use crate::box_subtraction::{BoxSubtractionIntegrand, BoxSubtractionSettings};
 use crate::h_function_test::{HFunctionTestIntegrand, HFunctionTestSettings};
 use crate::loop_induced_triboxtri::{LoopInducedTriBoxTriIntegrand, LoopInducedTriBoxTriSettings};
 use crate::observables::EventManager;
+use crate::tbbt::{TBBTIntegrand, TBBTSettings};
 use crate::triangle_subtraction::{TriangleSubtractionIntegrand, TriangleSubtractionSettings};
 use crate::triboxtri::{TriBoxTriIntegrand, TriBoxTriSettings};
 use crate::triboxtri_cff::{TriBoxTriCFFIntegrand, TriBoxTriCFFSettings};
+use crate::triboxtri_cff_as::{TriBoxTriCFFASIntegrand, TriBoxTriCFFASSettings};
 use crate::triboxtri_cff_sectored::{TriBoxTriCFFSectoredIntegrand, TriBoxTriCFFSectoredSettings};
-use crate::triboxtri_cff_sg::{TriBoxTriCFFSGIntegrand, TriBoxTriCFFSGSettings};
 use crate::utils::FloatLike;
 use crate::{utils, Settings};
 use color_eyre::{Help, Report};
@@ -17,6 +18,7 @@ use havana::Sample;
 use havana::{ContinuousGrid, Grid};
 use lorentz_vector::LorentzVector;
 use num::Complex;
+use num_traits::Float;
 use serde::Deserialize;
 use std::fmt::{Display, Formatter};
 use std::fs::File;
@@ -38,8 +40,10 @@ pub enum HardCodedIntegrandSettings {
     TriBoxTriCFF(TriBoxTriCFFSettings),
     #[serde(rename = "TriBoxTriCFFSectored")]
     TriBoxTriCFFSectored(TriBoxTriCFFSectoredSettings),
-    #[serde(rename = "TriBoxTriCFFSG")]
-    TriBoxTriCFFSG(TriBoxTriCFFSGSettings),
+    #[serde(rename = "TriBoxTriCFFAS")]
+    TriBoxTriCFFAS(TriBoxTriCFFASSettings),
+    #[serde(rename = "TBBT")]
+    TBBT(TBBTSettings),
     #[serde(rename = "triangle_subtraction")]
     TriangleSubtraction(TriangleSubtractionSettings),
     #[serde(rename = "box_subtraction")]
@@ -65,8 +69,8 @@ impl Display for HardCodedIntegrandSettings {
             HardCodedIntegrandSettings::TriBoxTriCFFSectored(_) => {
                 write!(f, "TriBoxTriCFFSectored")
             }
-            HardCodedIntegrandSettings::TriBoxTriCFFSG(_) => {
-                write!(f, "TriBoxTriCFFSG")
+            HardCodedIntegrandSettings::TriBoxTriCFFAS(_) => {
+                write!(f, "TriBoxTriCFFAS")
             }
             HardCodedIntegrandSettings::TriangleSubtraction(_) => {
                 write!(f, "triangle_subtraction")
@@ -76,6 +80,9 @@ impl Display for HardCodedIntegrandSettings {
             }
             HardCodedIntegrandSettings::HFunctionTest(_) => {
                 write!(f, "h_function_test")
+            }
+            HardCodedIntegrandSettings::TBBT(_) => {
+                write!(f, "TriangleBoxBoxTriangle")
             }
         }
     }
@@ -410,6 +417,8 @@ impl<T: FloatLike> GenericESurfaceCache<T> {
                 for (i, s) in sig.iter().enumerate() {
                     if *s != T::zero() {
                         if found_index && one_loop_basis_index != e_surf_basis_indices[i] {
+                            println!("e_surf_basis_indices={:?}", e_surf_basis_indices);
+                            println!("sigs={:?}", sigs);
                             panic!("Found more than one one-loop basis index");
                         }
                         one_loop_sig_index = i;
@@ -419,6 +428,8 @@ impl<T: FloatLike> GenericESurfaceCache<T> {
                 }
             }
             if !found_index {
+                println!("e_surf_basis_indices={:?}", e_surf_basis_indices);
+                println!("sigs={:?}", sigs);
                 panic!("Could not find one-loop basis index");
             }
         };
@@ -574,6 +585,101 @@ impl<T: FloatLike> GenericESurfaceCache<T> {
         }
         false
     }
+
+    /// Solve the momentum conservation delta using Newton's method. In the case of massless propagators and an external momentum with 0 spatial part,
+    /// it will take one step to find the solution. This function returns the scaling parameter and its Jacobian.
+    fn compute_numerical_scaling(&self, k: &Vec<LorentzVector<T>>) -> Option<[T; 2]> {
+        // determine an overestimate of the t that solves the energy constraint
+        // then -t and t should give two different solutions or do not converge
+        let mut t_start = T::zero();
+        let mut sum_k = T::zero();
+        let debug_level = 0;
+        let reference_energy = T::from_f64(1000.).unwrap(); // TODO fetch from e_cm
+
+        let mut cuts_info = vec![];
+        for (i, ss) in self.sigs.iter().enumerate() {
+            let mut kcut = LorentzVector {
+                t: T::zero(),
+                x: T::zero(),
+                y: T::zero(),
+                z: T::zero(),
+            };
+            for (i_s, s) in ss.iter().enumerate() {
+                kcut += k[self.e_surf_basis_indices[i_s]] * (*s)
+            }
+            let shift = LorentzVector {
+                t: T::zero(),
+                x: self.ps[i][0],
+                y: self.ps[i][1],
+                z: self.ps[i][2],
+            };
+            let k_norm_sq = kcut.spatial_squared();
+            let k_dot_shift = kcut.spatial_dot(&shift);
+            t_start += Float::abs(k_dot_shift) / k_norm_sq;
+            sum_k += k_norm_sq.sqrt();
+            cuts_info.push((kcut, shift, k_norm_sq, k_dot_shift, self.ms[i]));
+        }
+
+        t_start += reference_energy / sum_k;
+
+        // find the two solutions
+        let mut solutions = [(T::zero(), T::zero()); 2];
+        for (i, &mut mut t) in [-t_start, t_start].iter_mut().enumerate() {
+            for it in 0..20 {
+                let mut f = reference_energy;
+                let mut df = T::zero();
+
+                for cut_info in cuts_info.iter() {
+                    let energy =
+                        ((cut_info.0 * t + cut_info.1).spatial_squared() + cut_info.4).sqrt();
+                    f -= energy;
+                    df -= (t * cut_info.2 + cut_info.3) / energy;
+                }
+
+                if debug_level > 4 {
+                    println!("  | t{} finder: f={}, df={}, t={}", i, f, df, t);
+                }
+
+                if Float::abs(f) < T::epsilon() * Into::<T>::into(10.) * reference_energy {
+                    if debug_level > 2 {
+                        println!("  | t{} = {}", i, t);
+                    }
+
+                    solutions[i] = (t, Float::abs(df).inv());
+                    break;
+                }
+
+                if it == 19 {
+                    if debug_level > 2 {
+                        println!(
+                            "  | no convergence after {} iterations: f={}, df={}, t={}",
+                            i, f, df, t
+                        );
+                    }
+                    return None;
+                }
+
+                t = t - f / df;
+            }
+        }
+        if Float::abs(solutions[0].0) + Float::abs(solutions[1].0) == T::zero() {
+            panic!(
+                "Found exact zero solutions: {} for t={} and t={} for k={:?}",
+                solutions[0].0, -t_start, t_start, k
+            );
+        }
+        if Float::abs(solutions[0].0 - solutions[1].0)
+            / (Float::abs(solutions[0].0) + Float::abs(solutions[1].0))
+            < Into::<T>::into(1e-12)
+        {
+            panic!(
+                "Found the same scaling solution twice: {} for t={} and t={} for k={:?}",
+                solutions[0].0, solutions[0].0, solutions[1].0, k
+            );
+        }
+
+        Some([solutions[1].0, solutions[0].0])
+    }
 }
 
 impl<T: FloatLike> ESurfaceCacheTrait<T> for GenericESurfaceCache<T> {
@@ -603,9 +709,16 @@ impl<T: FloatLike> ESurfaceCacheTrait<T> for GenericESurfaceCache<T> {
             //
             let s = self.sigs[0][0] * self.sigs[1][1] - self.sigs[0][1] * self.sigs[1][0];
             // Inverse signature matrix of the first two square roots
+            // THIS PREVIOUS SEEMS TO HAVE SIGN MISTAKE!!
+            /*
             let basis_change_matrix = [
                 [s * self.sigs[1][1], s * self.sigs[0][1]],
                 [s * self.sigs[1][0], s * self.sigs[0][0]],
+            ];
+            */
+            let basis_change_matrix = [
+                [s * self.sigs[1][1], -s * self.sigs[0][1]],
+                [-s * self.sigs[1][0], s * self.sigs[0][0]],
             ];
             let basis_change_shifts = utils::two_loop_matrix_dot(
                 basis_change_matrix,
@@ -639,7 +752,72 @@ impl<T: FloatLike> ESurfaceCacheTrait<T> for GenericESurfaceCache<T> {
                     return (true, false);
                 }
             }
+        } else if self.ps.len() == 4 {
+            if self.e_shift > Into::<T>::into(PINCH_TEST_THRESHOLD) {
+                return (false, false);
+            }
+
+            let mut mat: [[isize; 3]; 3] = [[0; 3]; 3];
+            for (i, sig) in self.sigs.iter().enumerate() {
+                if i > 2 {
+                    break;
+                }
+                for (j, s) in sig.iter().enumerate() {
+                    if *s < T::zero() {
+                        mat[i][j] = -1;
+                    } else if *s == T::zero() {
+                        mat[i][j] = 0;
+                    } else {
+                        mat[i][j] = 1;
+                    }
+                }
+            }
+            let inv_mat = utils::inv_3x3_sig_matrix(mat);
+            let mut inv_mat_T: [[T; 3]; 3] = [[T::zero(); 3]; 3];
+            for i in 0..3 {
+                for j in 0..3 {
+                    inv_mat_T[i][j] = Into::<T>::into(inv_mat[i][j] as f64);
+                }
+            }
+            let basis_change_shifts = utils::three_loop_matrix_dot(
+                inv_mat_T,
+                [
+                    [-self.ps[0][0], -self.ps[0][1], -self.ps[0][2]],
+                    [-self.ps[1][0], -self.ps[1][1], -self.ps[1][2]],
+                    [-self.ps[2][0], -self.ps[2][1], -self.ps[2][2]],
+                ],
+            );
+
+            let defining_shift = [
+                self.sigs[3][0] * basis_change_shifts[0][0]
+                    + self.sigs[3][1] * basis_change_shifts[1][0]
+                    + self.sigs[3][2] * basis_change_shifts[2][0]
+                    + self.ps[3][0],
+                self.sigs[3][0] * basis_change_shifts[0][1]
+                    + self.sigs[3][1] * basis_change_shifts[1][1]
+                    + self.sigs[3][2] * basis_change_shifts[2][1]
+                    + self.ps[3][1],
+                self.sigs[3][0] * basis_change_shifts[0][2]
+                    + self.sigs[3][1] * basis_change_shifts[1][2]
+                    + self.sigs[3][2] * basis_change_shifts[2][2]
+                    + self.ps[3][2],
+            ];
+            let p_norm_sq = defining_shift[0] * defining_shift[0]
+                + defining_shift[1] * defining_shift[1]
+                + defining_shift[2] * defining_shift[2];
+            let masses_sum = self.ms.iter().map(|m| m.sqrt()).sum::<T>();
+            let test = (self.e_shift * self.e_shift - p_norm_sq) - masses_sum * masses_sum;
+            if test.abs() < Into::<T>::into(PINCH_TEST_THRESHOLD) {
+                return (false, true);
+            } else {
+                if test < T::zero() {
+                    return (false, false);
+                } else {
+                    return (true, false);
+                }
+            }
         } else {
+            println!("Esurf={:?}", self);
             unimplemented!();
         }
     }
@@ -795,7 +973,8 @@ impl<T: FloatLike> ESurfaceCacheTrait<T> for GenericESurfaceCache<T> {
                 let t_sar = -self.e_shift / qs.iter().map(|q| q.spatial_distance()).sum::<T>();
                 [t_sar, -t_sar]
             } else {
-                unimplemented!();
+                self.compute_numerical_scaling(k)
+                    .unwrap_or([T::zero(), T::zero()])
             }
         }
     }
@@ -926,6 +1105,7 @@ impl CFFTerm {
 }
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct CFFExpression {
+    #[serde(default)]
     pub terms: Vec<CFFTerm>,
     pub e_surfaces: Vec<Esurface>,
 }
@@ -939,7 +1119,9 @@ impl CFFExpression {
 pub struct Amplitude {
     pub edges: Vec<Edge>,
     pub lmb_edges: Vec<Edge>,
+    #[serde(default)]
     pub external_edge_id_and_flip: Vec<Vec<(isize, isize)>>,
+    #[serde(default)]
     pub non_loop_propagators: Vec<Vec<(isize, isize)>>,
     pub cff_expression: CFFExpression,
     pub n_loop: usize,
@@ -1081,9 +1263,10 @@ pub enum Integrand {
     TriBoxTri(TriBoxTriIntegrand),
     TriBoxTriCFF(TriBoxTriCFFIntegrand),
     TriBoxTriCFFSectored(TriBoxTriCFFSectoredIntegrand),
-    TriBoxTriCFFSG(TriBoxTriCFFSGIntegrand),
+    TriBoxTriCFFAS(TriBoxTriCFFASIntegrand),
     TriangleSubtraction(TriangleSubtractionIntegrand),
     BoxSubtraction(BoxSubtractionIntegrand),
+    TBBT(TBBTIntegrand),
 }
 
 pub fn integrand_factory(settings: &Settings) -> Integrand {
@@ -1115,8 +1298,8 @@ pub fn integrand_factory(settings: &Settings) -> Integrand {
                 integrand_settings,
             ))
         }
-        HardCodedIntegrandSettings::TriBoxTriCFFSG(integrand_settings) => {
-            Integrand::TriBoxTriCFFSG(TriBoxTriCFFSGIntegrand::new(
+        HardCodedIntegrandSettings::TriBoxTriCFFAS(integrand_settings) => {
+            Integrand::TriBoxTriCFFAS(TriBoxTriCFFASIntegrand::new(
                 settings.clone(),
                 integrand_settings,
             ))
@@ -1126,6 +1309,9 @@ pub fn integrand_factory(settings: &Settings) -> Integrand {
         }
         HardCodedIntegrandSettings::BoxSubtraction(integrand_settings) => {
             Integrand::BoxSubtraction(BoxSubtractionIntegrand::new(integrand_settings))
+        }
+        HardCodedIntegrandSettings::TBBT(integrand_settings) => {
+            Integrand::TBBT(TBBTIntegrand::new(settings.clone(), integrand_settings))
         }
     }
 }

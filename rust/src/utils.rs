@@ -619,6 +619,18 @@ pub fn two_loop_matrix_dot<T: FloatLike>(matrix: [[T; 2]; 2], moms: [[T; 3]; 2])
     new_moms
 }
 
+pub fn three_loop_matrix_dot<T: FloatLike>(matrix: [[T; 3]; 3], moms: [[T; 3]; 3]) -> [[T; 3]; 3] {
+    let mut new_moms = [[T::zero(); 3]; 3];
+    for i in 0..=2 {
+        for j in 0..=2 {
+            for k in 0..=2 {
+                new_moms[i][k] += matrix[i][j] * moms[i][k];
+            }
+        }
+    }
+    new_moms
+}
+
 #[allow(unused)]
 pub fn two_loop_basis_change<T: FloatLike>(
     basis_change_matrix: [[T; 2]; 2],
@@ -1473,4 +1485,50 @@ pub fn inv_3x3_sig_matrix(mat: [[isize; 3]; 3]) -> [[isize; 3]; 3] {
     inv_mat[2][2] = (-mat[0][1] * mat[1][0] + mat[0][0] * mat[1][1]) * denom;
 
     inv_mat
+}
+
+// This is from ChatGPT4, I did not even check if it is correct :P
+pub fn inv_4x4_sig_matrix(mat: [[isize; 4]; 4]) -> [[isize; 4]; 4] {
+    let mut det = 0;
+    for i in 0..4 {
+        det += if i % 2 == 0 {
+            mat[0][i] * det_3x3_minor(mat, 0, i)
+        } else {
+            -mat[0][i] * det_3x3_minor(mat, 0, i)
+        };
+    }
+    if det != 1 && det != -1 {
+        panic!("Non invertible signature matrix.");
+    }
+    let mut inv_mat = [[0; 4]; 4];
+    for i in 0..4 {
+        for j in 0..4 {
+            let sign = if (i + j) % 2 == 0 { 1 } else { -1 };
+            inv_mat[j][i] = sign * det_3x3_minor(mat, i, j) * det;
+        }
+    }
+    inv_mat
+}
+
+fn det_3x3_minor(mat: [[isize; 4]; 4], row: usize, col: usize) -> isize {
+    let mut submat = [[0; 3]; 3];
+    let mut sub_i = 0;
+    for i in 0..4 {
+        if i == row {
+            continue;
+        }
+        let mut sub_j = 0;
+        for j in 0..4 {
+            if j == col {
+                continue;
+            }
+            submat[sub_i][sub_j] = mat[i][j];
+            sub_j += 1;
+        }
+        sub_i += 1;
+    }
+    // calculate the determinant of the 3x3 submatrix
+    submat[0][0] * (submat[1][1] * submat[2][2] - submat[2][1] * submat[1][2])
+        - submat[0][1] * (submat[1][0] * submat[2][2] - submat[1][2] * submat[2][0])
+        + submat[0][2] * (submat[1][0] * submat[2][1] - submat[1][1] * submat[2][0])
 }
