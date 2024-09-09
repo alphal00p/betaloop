@@ -2,6 +2,7 @@ use crate::box_subtraction::{BoxSubtractionIntegrand, BoxSubtractionSettings};
 use crate::h_function_test::{HFunctionTestIntegrand, HFunctionTestSettings};
 use crate::loop_induced_triboxtri::{LoopInducedTriBoxTriIntegrand, LoopInducedTriBoxTriSettings};
 use crate::observables::EventManager;
+use crate::raised_bubble::{RaisedBubble, RaisedBubbleSettings};
 use crate::tbbt::{TBBTIntegrand, TBBTSettings};
 use crate::triangle_subtraction::{TriangleSubtractionIntegrand, TriangleSubtractionSettings};
 use crate::triboxtri::{TriBoxTriIntegrand, TriBoxTriSettings};
@@ -50,6 +51,8 @@ pub enum HardCodedIntegrandSettings {
     BoxSubtraction(BoxSubtractionSettings),
     #[serde(rename = "h_function_test")]
     HFunctionTest(HFunctionTestSettings),
+    #[serde(rename = "raised_bubble")]
+    RaisedBubble(RaisedBubbleSettings),
 }
 
 impl Display for HardCodedIntegrandSettings {
@@ -83,6 +86,9 @@ impl Display for HardCodedIntegrandSettings {
             }
             HardCodedIntegrandSettings::TBBT(_) => {
                 write!(f, "TriangleBoxBoxTriangle")
+            }
+            HardCodedIntegrandSettings::RaisedBubble(_) => {
+                write!(f, "raised_bubble")
             }
         }
     }
@@ -1267,6 +1273,7 @@ pub enum Integrand {
     TriangleSubtraction(TriangleSubtractionIntegrand),
     BoxSubtraction(BoxSubtractionIntegrand),
     TBBT(TBBTIntegrand),
+    RaisedBubble(RaisedBubble),
 }
 
 pub fn integrand_factory(settings: &Settings) -> Integrand {
@@ -1312,6 +1319,9 @@ pub fn integrand_factory(settings: &Settings) -> Integrand {
         }
         HardCodedIntegrandSettings::TBBT(integrand_settings) => {
             Integrand::TBBT(TBBTIntegrand::new(settings.clone(), integrand_settings))
+        }
+        HardCodedIntegrandSettings::RaisedBubble(integrand_settings) => {
+            Integrand::RaisedBubble(RaisedBubble::new(settings.clone()))
         }
     }
 }

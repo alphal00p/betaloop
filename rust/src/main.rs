@@ -3,6 +3,7 @@ mod h_function_test;
 mod integrands;
 mod loop_induced_triboxtri;
 mod observables;
+mod raised_bubble;
 mod tbbt;
 mod tests;
 mod triangle_subtraction;
