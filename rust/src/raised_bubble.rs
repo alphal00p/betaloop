@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     utils::{global_parameterize, FloatLike},
-    HardCodedIntegrandSettings, HasIntegrand, Integrand, ParameterizationMapping, Settings,
+    HardCodedIntegrandSettings, HasIntegrand, Settings,
 };
 
 pub struct RaisedBubble {
@@ -67,8 +67,11 @@ impl RaisedBubble {
         let pi = f64::consts::PI;
 
         let pi_factor = eight * Into::<T>::into(pi * pi * pi);
+        let pysecdec_fudge_factor = Into::<T>::into(16. * pi * pi);
 
-        let res = (inv_energy_product * (term_1 + term_2 + term_3) / pi_factor) * jacobian;
+        let res = (inv_energy_product * (term_1 + term_2 + term_3) / pi_factor)
+            * jacobian
+            * pysecdec_fudge_factor;
 
         if self.settings.general.debug > 0 {
             println!("emr12: {:?}", emr12);
