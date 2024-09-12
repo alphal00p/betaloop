@@ -2,9 +2,9 @@ use ::f128::f128;
 use core::f64;
 use std::ops::{Add, Mul};
 
-use havana::{ContinuousGrid, Grid, Sample};
 use num::Complex;
 use serde::{Deserialize, Serialize};
+use symbolica::numerical_integration::{ContinuousGrid, Grid, Sample};
 
 use crate::{
     utils::{global_parameterize, FloatLike},
@@ -238,19 +238,25 @@ impl HasIntegrand for RaisedBubble {
         3
     }
 
-    fn create_grid(&self) -> Grid {
-        Grid::ContinuousGrid(ContinuousGrid::new(self.get_n_dim(), 64, 1000))
+    fn create_grid(&self) -> Grid<f64> {
+        Grid::Continuous(ContinuousGrid::new(
+            self.get_n_dim(),
+            self.settings.integrator.n_bins,
+            self.settings.integrator.min_samples_for_update,
+            None,
+            self.settings.integrator.train_on_avg,
+        ))
     }
 
     fn evaluate_sample(
         &mut self,
-        sample: &Sample,
+        sample: &Sample<f64>,
         wgt: f64,
         iter: usize,
         use_f128: bool,
     ) -> Complex<f64> {
         let raw_sample = match sample {
-            Sample::ContinuousGrid(_, xs) => xs,
+            Sample::Continuous(_, xs) => xs,
             _ => unreachable!(),
         };
 

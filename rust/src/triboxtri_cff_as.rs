@@ -10,13 +10,13 @@ use crate::{CTVariable, HFunctionSettings, NumeratorType};
 use color_eyre::{Help, Report};
 use colored::Colorize;
 use eyre::WrapErr;
-use havana::{ContinuousGrid, Grid, Sample};
 use lorentz_vector::LorentzVector;
 use num::Complex;
 use num_traits::FloatConst;
 use num_traits::ToPrimitive;
 use serde::Deserialize;
 use std::fs::File;
+use symbolica::numerical_integration::{ContinuousGrid, Grid, Sample};
 use utils::{
     AMPLITUDE_LEVEL_CT, CUT_ABSENT, CUT_ACTIVE, CUT_INACTIVE, LEFT, MINUS, NOSIDE, PLUS, RIGHT,
     SUPERGRAPH_LEVEL_CT,
@@ -4649,11 +4649,13 @@ impl TriBoxTriCFFASIntegrand {
 }
 
 impl HasIntegrand for TriBoxTriCFFASIntegrand {
-    fn create_grid(&self) -> Grid {
-        Grid::ContinuousGrid(ContinuousGrid::new(
+    fn create_grid(&self) -> Grid<f64> {
+        Grid::Continuous(ContinuousGrid::new(
             self.n_dim,
             self.settings.integrator.n_bins,
             self.settings.integrator.min_samples_for_update,
+            None,
+            self.settings.integrator.train_on_avg,
         ))
     }
 
@@ -4700,13 +4702,13 @@ impl HasIntegrand for TriBoxTriCFFASIntegrand {
 
     fn evaluate_sample(
         &mut self,
-        sample: &Sample,
+        sample: &Sample<f64>,
         wgt: f64,
         #[allow(unused)] iter: usize,
         use_f128: bool,
     ) -> Complex<f64> {
         let xs = match sample {
-            Sample::ContinuousGrid(_w, v) => v,
+            Sample::Continuous(_w, v) => v,
             _ => panic!("Wrong sample type"),
         };
 

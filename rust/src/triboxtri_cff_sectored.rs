@@ -8,13 +8,13 @@ use crate::utils::FloatLike;
 use crate::Settings;
 use crate::{CTVariable, HFunctionSettings, NumeratorType};
 use colored::Colorize;
-use havana::{ContinuousGrid, Grid, Sample};
 use lorentz_vector::LorentzVector;
 use num::Complex;
 use num_traits::FloatConst;
 use num_traits::ToPrimitive;
 use serde::Deserialize;
 use std::fs::File;
+use symbolica::numerical_integration::{ContinuousGrid, Grid, Sample};
 use utils::{
     AMPLITUDE_LEVEL_CT, CUT_ABSENT, CUT_ACTIVE, CUT_INACTIVE, LEFT, MINUS, NOSIDE, PLUS, RIGHT,
     SUPERGRAPH_LEVEL_CT,
@@ -4714,11 +4714,13 @@ impl TriBoxTriCFFSectoredIntegrand {
 }
 
 impl HasIntegrand for TriBoxTriCFFSectoredIntegrand {
-    fn create_grid(&self) -> Grid {
-        Grid::ContinuousGrid(ContinuousGrid::new(
+    fn create_grid(&self) -> Grid<f64> {
+        Grid::Continuous(ContinuousGrid::new(
             self.n_dim,
             self.settings.integrator.n_bins,
             self.settings.integrator.min_samples_for_update,
+            None,
+            self.settings.integrator.train_on_avg,
         ))
     }
 
@@ -4765,13 +4767,13 @@ impl HasIntegrand for TriBoxTriCFFSectoredIntegrand {
 
     fn evaluate_sample(
         &mut self,
-        sample: &Sample,
+        sample: &Sample<f64>,
         wgt: f64,
         #[allow(unused)] iter: usize,
         use_f128: bool,
     ) -> Complex<f64> {
         let xs = match sample {
-            Sample::ContinuousGrid(_w, v) => v,
+            Sample::Continuous(_w, v) => v,
             _ => panic!("Wrong sample type"),
         };
 
@@ -4825,7 +4827,7 @@ impl HasIntegrand for TriBoxTriCFFSectoredIntegrand {
                     .collect::<Vec<_>>();
 
                 let nudged_result = self.evaluate_sample(
-                    &Sample::ContinuousGrid(1., nudged_sample_xs.clone()),
+                    &Sample::Continuous(1., nudged_sample_xs.clone()),
                     wgt,
                     0,
                     false,
@@ -4860,12 +4862,8 @@ impl HasIntegrand for TriBoxTriCFFSectoredIntegrand {
             }
             if rerun_in_f128 {
                 self.event_manager.event_buffer.clear();
-                result = self.evaluate_sample(
-                    &Sample::ContinuousGrid(1., sample_xs.clone()),
-                    wgt,
-                    0,
-                    true,
-                );
+                result =
+                    self.evaluate_sample(&Sample::Continuous(1., sample_xs.clone()), wgt, 0, true);
             }
         }
 

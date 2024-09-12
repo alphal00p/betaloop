@@ -1,9 +1,9 @@
 use crate::integrands::*;
 use crate::utils::FloatLike;
-use havana::{ContinuousGrid, Grid, Sample};
 use lorentz_vector::LorentzVector;
 use num::Complex;
 use serde::Deserialize;
+use symbolica::numerical_integration::{ContinuousGrid, Grid, Sample};
 
 const ROOT_FINDING_EPSILON: f64 = 1.0e-6;
 const ROOT_FINDING_MAX_ITERATION: u32 = 20;
@@ -519,12 +519,12 @@ impl HasIntegrand for TriangleSubtractionIntegrand {
 
     fn evaluate_sample(
         &mut self,
-        sample: &Sample,
+        sample: &Sample<f64>,
         wgt: f64,
         iter: usize,
         use_f128: bool,
     ) -> Complex<f64> {
-        if let Sample::ContinuousGrid(cont_weight, cs) = sample {
+        if let Sample::Continuous(cont_weight, cs) = sample {
             let res = self.integrand_f64.evaluate_hypercube(&cs, self.sqrt_s);
             return Complex::new(res, 0.0);
         } else {
@@ -532,7 +532,7 @@ impl HasIntegrand for TriangleSubtractionIntegrand {
         }
     }
 
-    fn create_grid(&self) -> Grid {
-        Grid::ContinuousGrid(ContinuousGrid::new(3, 10, 1000))
+    fn create_grid(&self) -> Grid<f64> {
+        Grid::Continuous(ContinuousGrid::new(3, 10, 1000, None, false))
     }
 }

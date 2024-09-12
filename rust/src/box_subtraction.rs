@@ -1,10 +1,10 @@
 use crate::integrands::*;
 use crate::utils::FloatLike;
-use havana::{ContinuousGrid, DiscreteGrid, Grid, Sample};
 use lorentz_vector::LorentzVector;
 use num::Complex;
 use serde::Deserialize;
 use std::fs;
+use symbolica::numerical_integration::{ContinuousGrid, DiscreteGrid, Grid, Sample};
 use yaml_rust::{Yaml, YamlLoader};
 
 const ROOT_FINDING_EPSILON: f64 = 1.0e-6;
@@ -704,30 +704,38 @@ impl HasIntegrand for BoxSubtractionIntegrand {
         3
     }
 
-    fn create_grid(&self) -> Grid {
-        Grid::DiscreteGrid(DiscreteGrid::new(
-            &[4],
+    fn create_grid(&self) -> Grid<f64> {
+        Grid::Discrete(DiscreteGrid::new(
             vec![
-                Grid::ContinuousGrid(ContinuousGrid::new(3, 10, 1000)),
-                Grid::ContinuousGrid(ContinuousGrid::new(3, 10, 1000)),
-                Grid::ContinuousGrid(ContinuousGrid::new(3, 10, 1000)),
-                Grid::ContinuousGrid(ContinuousGrid::new(3, 10, 1000)),
+                Some(Grid::Continuous(ContinuousGrid::new(
+                    3, 10, 1000, None, false,
+                ))),
+                Some(Grid::Continuous(ContinuousGrid::new(
+                    3, 10, 1000, None, false,
+                ))),
+                Some(Grid::Continuous(ContinuousGrid::new(
+                    3, 10, 1000, None, false,
+                ))),
+                Some(Grid::Continuous(ContinuousGrid::new(
+                    3, 10, 1000, None, false,
+                ))),
             ],
             0.01,
+            false,
         ))
     }
 
     fn evaluate_sample(
         &mut self,
-        sample: &Sample,
+        sample: &Sample<f64>,
         wgt: f64,
         iter: usize,
         use_f128: bool,
     ) -> Complex<f64> {
-        if let Sample::DiscreteGrid(weight, xs, cont_sample) = &sample {
-            if let Sample::ContinuousGrid(_cont_weight, cs) = &**cont_sample.as_ref().unwrap() {
+        if let Sample::Discrete(weight, xs, cont_sample) = &sample {
+            if let Sample::Continuous(_cont_weight, cs) = &**cont_sample.as_ref().unwrap() {
                 let res =
-                    -self.integrand_f64[xs[0]].evaluate_hypercube(cs) * 2.0 / std::f64::consts::PI;
+                    -self.integrand_f64[*xs].evaluate_hypercube(cs) * 2.0 / std::f64::consts::PI;
                 return Complex::new(res, 0.0);
             } else {
                 unreachable!()

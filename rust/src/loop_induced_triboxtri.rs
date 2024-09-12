@@ -4,12 +4,12 @@ use crate::utils::FloatLike;
 use crate::Settings;
 use crate::{CTVariable, HFunctionSettings};
 use colored::Colorize;
-use havana::{ContinuousGrid, Grid, Sample};
 use lorentz_vector::LorentzVector;
 use num::Complex;
 use num_traits::FloatConst;
 use num_traits::ToPrimitive;
 use serde::Deserialize;
+use symbolica::numerical_integration::{ContinuousGrid, Grid, Sample};
 use utils::{AMPLITUDE_LEVEL_CT, LEFT, MINUS, PLUS, RIGHT, SUPERGRAPH_LEVEL_CT};
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -1336,11 +1336,13 @@ impl LoopInducedTriBoxTriIntegrand {
 
 #[allow(unused)]
 impl HasIntegrand for LoopInducedTriBoxTriIntegrand {
-    fn create_grid(&self) -> Grid {
-        Grid::ContinuousGrid(ContinuousGrid::new(
+    fn create_grid(&self) -> Grid<f64> {
+        Grid::Continuous(ContinuousGrid::new(
             self.n_dim,
             self.settings.integrator.n_bins,
             self.settings.integrator.min_samples_for_update,
+            None,
+            self.settings.integrator.train_on_avg,
         ))
     }
 
@@ -1350,13 +1352,13 @@ impl HasIntegrand for LoopInducedTriBoxTriIntegrand {
 
     fn evaluate_sample(
         &mut self,
-        sample: &Sample,
+        sample: &Sample<f64>,
         wgt: f64,
         iter: usize,
         use_f128: bool,
     ) -> Complex<f64> {
         let xs = match sample {
-            Sample::ContinuousGrid(_w, v) => v,
+            Sample::Continuous(_w, v) => v,
             _ => panic!("Wrong sample type"),
         };
 

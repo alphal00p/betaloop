@@ -17,7 +17,6 @@ use clap::{App, Arg, SubCommand};
 use color_eyre::{Help, Report};
 use colored::Colorize;
 use eyre::WrapErr;
-use havana::{AverageAndErrorAccumulator, Sample};
 use integrands::*;
 use lorentz_vector::LorentzVector;
 use num::Complex;
@@ -29,6 +28,8 @@ use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::str::FromStr;
 use std::time::Instant;
+use symbolica::numerical_integration::Grid;
+use symbolica::numerical_integration::{Sample, StatisticsAccumulator};
 use tabled::{Style, Table, Tabled};
 
 use git_version::git_version;
@@ -158,6 +159,7 @@ pub struct IntegratorSettings {
     pub learning_rate: f64,
     pub train_on_avg: bool,
     pub show_max_wgt_info: bool,
+    pub use_weighted_average: bool,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -251,8 +253,8 @@ where
 
     let mut samples = vec![Sample::new(); settings.integrator.n_start];
     let mut f_evals = vec![vec![0.; N_INTEGRAND_ACCUMULATORS]; settings.integrator.n_start];
-    let mut integral = AverageAndErrorAccumulator::new();
-    let mut all_integrals = vec![AverageAndErrorAccumulator::new(); N_INTEGRAND_ACCUMULATORS];
+    let mut integral = StatisticsAccumulator::new();
+    let mut all_integrals = vec![StatisticsAccumulator::new(); N_INTEGRAND_ACCUMULATORS];
 
     let mut rng = rand::thread_rng();
 
@@ -261,11 +263,11 @@ where
     let mut grid = user_data.integrand[0].create_grid();
 
     let grid_str = match &grid {
-        havana::Grid::DiscreteGrid(g) => format!(
+        Grid::Discrete(g) => format!(
             "top-level discrete {}-dimensional grid",
-            format!("{}", g.discrete_dimensions.len()).bold().blue()
+            format!("{}", g.bins.len()).bold().blue()
         ),
-        havana::Grid::ContinuousGrid(g) => {
+        Grid::Continuous(g) => {
             format!(
                 "top-level continuous {}-dimensional grid",
                 format!("{}", g.continuous_dimensions.len()).bold().blue()
@@ -320,23 +322,24 @@ where
 
         grid.update(
             settings.integrator.learning_rate,
-            settings.integrator.n_bins,
-            settings.integrator.train_on_avg,
+            settings.integrator.learning_rate,
         );
-        integral.update_iter();
+        integral.update_iter(settings.integrator.use_weighted_average);
 
         for i_integrand in 0..N_INTEGRAND_ACCUMULATORS {
             for (s, f) in samples[..cur_points].iter().zip(&f_evals[..cur_points]) {
                 all_integrals[i_integrand].add_sample(f[i_integrand] * s.get_weight(), Some(s));
             }
-            all_integrals[i_integrand].update_iter()
+            all_integrals[i_integrand].update_iter(settings.integrator.use_weighted_average);
         }
 
         if settings.general.debug > 1 {
-            if let havana::Grid::DiscreteGrid(g) = &grid {
-                g.discrete_dimensions[0]
-                    .plot(&format!("grid_disc_it_{}.svg", iter))
-                    .unwrap();
+            if let Grid::Discrete(g) = &grid {
+                // g.bins[0]
+                //     .plot(&format!("grid_disc_it_{}.svg", iter))
+                //     .unwrap();
+
+                println!("plotting grids is not supported on this branch");
             }
             let mut tabled_data = vec![];
 
@@ -356,36 +359,30 @@ where
                 ),
                 pdf: String::from_str("N/A").unwrap(),
             });
-            if let havana::Grid::DiscreteGrid(g) = &grid {
-                for (i, b) in g.discrete_dimensions[0].bin_accumulator.iter().enumerate() {
+            if let Grid::Discrete(g) = &grid {
+                for (i, b) in g.bins.iter().enumerate() {
                     tabled_data.push(IntegralResult {
                         id: format!("chann#{}", i),
-                        n_samples: format!("{}", b.processed_samples),
+                        n_samples: format!("{}", b.accumulator.processed_samples),
                         n_samples_perc: format!(
                             "{:.3e}%",
-                            ((b.processed_samples as f64)
+                            ((b.accumulator.processed_samples as f64)
                                 / (integral.processed_samples.max(1) as f64))
                                 * 100.
                         ),
-                        integral: format!("{:.8e}", b.avg),
+                        integral: format!("{:.8e}", b.accumulator.avg),
                         variance: format!(
                             "{:.8e}",
-                            b.err * ((b.processed_samples - 1).max(0) as f64).sqrt()
+                            b.accumulator.err
+                                * ((b.accumulator.processed_samples - 1).max(0) as f64).sqrt()
                         ),
-                        err: format!("{:.8e}", b.err),
+                        err: format!("{:.8e}", b.accumulator.err),
                         err_perc: format!(
                             "{:.3e}%",
-                            (b.err / (b.avg.abs()).max(1.0e-99)).abs() * 100.
+                            (b.accumulator.err / (b.accumulator.avg.abs()).max(1.0e-99)).abs()
+                                * 100.
                         ),
-                        pdf: format!(
-                            "{:.8e}",
-                            if i > 1 {
-                                g.discrete_dimensions[0].cdf[i]
-                                    - g.discrete_dimensions[0].cdf[i - 1]
-                            } else {
-                                g.discrete_dimensions[0].cdf[i]
-                            }
-                        ),
+                        pdf: format!("{:.8e}", if i > 1 { g.bins[i].pdf } else { g.bins[i].pdf }),
                     });
                 }
             }
@@ -432,7 +429,7 @@ where
         );
 
         fn print_integral_result(
-            itg: &AverageAndErrorAccumulator,
+            itg: &StatisticsAccumulator<f64>,
             i_itg: usize,
             i_iter: usize,
             tag: &str,
@@ -578,7 +575,7 @@ where
                                     &all_integrals[2 * i_integrand + part].max_eval_negative_xs
                                 } {
                                     match sample {
-                                        Sample::ContinuousGrid(_w, v) => v
+                                        Sample::Continuous(_w, v) => v
                                             .iter()
                                             .map(|&x| format!("{:.16}", x))
                                             .collect::<Vec<_>>()
@@ -609,7 +606,7 @@ where
 
     IntegrationResult {
         neval: integral.processed_samples as i64,
-        fail: integral.num_zero_evals as i32,
+        fail: integral.num_zero_evaluations as i32,
         result: all_integrals.iter().map(|res| res.avg).collect::<Vec<_>>(),
         error: all_integrals.iter().map(|res| res.err).collect::<Vec<_>>(),
         prob: all_integrals
@@ -656,7 +653,7 @@ pub fn inspect(
         .collect::<Vec<_>>();
 
     let eval = integrand.evaluate_sample(
-        &Sample::ContinuousGrid(
+        &Sample::Continuous(
             1.,
             if force_radius {
                 xs_f64.clone()[1..].iter().map(|x| *x).collect::<Vec<_>>()
@@ -896,7 +893,7 @@ fn main() -> Result<(), Report> {
         let now = Instant::now();
         for _i in 1..n_samples {
             integrand.evaluate_sample(
-                &Sample::ContinuousGrid(
+                &Sample::Continuous(
                     1.,
                     (0..integrand.get_n_dim())
                         .map(|_i| rand::random::<f64>())

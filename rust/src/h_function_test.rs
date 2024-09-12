@@ -3,10 +3,10 @@ use crate::utils;
 use crate::utils::FloatLike;
 use crate::ParameterizationMapping;
 use crate::Settings;
-use havana::{ContinuousGrid, Grid, Sample};
 use num::Complex;
 use num_traits::ToPrimitive;
 use serde::Deserialize;
+use symbolica::numerical_integration::{ContinuousGrid, Grid, Sample};
 
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct HFunctionTestSettings {
@@ -28,7 +28,7 @@ impl HFunctionTestIntegrand {
         let n_dim = 1;
         HFunctionTestIntegrand {
             settings,
-            n_dim: n_dim,
+            n_dim,
             integrand_settings,
         }
     }
@@ -63,11 +63,13 @@ impl HFunctionTestIntegrand {
 
 #[allow(unused)]
 impl HasIntegrand for HFunctionTestIntegrand {
-    fn create_grid(&self) -> Grid {
-        Grid::ContinuousGrid(ContinuousGrid::new(
+    fn create_grid(&self) -> Grid<f64> {
+        Grid::Continuous(ContinuousGrid::new(
             self.n_dim,
             self.settings.integrator.n_bins,
             self.settings.integrator.min_samples_for_update,
+            None,
+            self.settings.integrator.train_on_avg,
         ))
     }
 
@@ -77,13 +79,13 @@ impl HasIntegrand for HFunctionTestIntegrand {
 
     fn evaluate_sample(
         &mut self,
-        sample: &Sample,
+        sample: &Sample<f64>,
         wgt: f64,
         iter: usize,
         use_f128: bool,
     ) -> Complex<f64> {
         let xs = match sample {
-            Sample::ContinuousGrid(_w, v) => v,
+            Sample::Continuous(_w, v) => v,
             _ => panic!("Wrong sample type"),
         };
 

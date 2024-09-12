@@ -15,14 +15,14 @@ use color_eyre::{Help, Report};
 use core::fmt;
 use enum_dispatch::enum_dispatch;
 use eyre::WrapErr;
-use havana::Sample;
-use havana::{ContinuousGrid, Grid};
 use lorentz_vector::LorentzVector;
 use num::Complex;
 use num_traits::Float;
 use serde::Deserialize;
 use std::fmt::{Display, Formatter};
 use std::fs::File;
+use symbolica::numerical_integration::Sample;
+use symbolica::numerical_integration::{ContinuousGrid, Grid};
 use utils::{NOSIDE, PINCH_TEST_THRESHOLD};
 
 #[derive(Debug, Clone, Deserialize)]
@@ -1236,11 +1236,11 @@ impl SuperGraph {
 
 #[enum_dispatch]
 pub trait HasIntegrand {
-    fn create_grid(&self) -> Grid;
+    fn create_grid(&self) -> Grid<f64>;
 
     fn evaluate_sample(
         &mut self,
-        sample: &Sample,
+        sample: &Sample<f64>,
         wgt: f64,
         iter: usize,
         use_f128: bool,
@@ -1377,11 +1377,13 @@ impl UnitSurfaceIntegrand {
 
 #[allow(unused)]
 impl HasIntegrand for UnitSurfaceIntegrand {
-    fn create_grid(&self) -> Grid {
-        Grid::ContinuousGrid(ContinuousGrid::new(
+    fn create_grid(&self) -> Grid<f64> {
+        Grid::Continuous(ContinuousGrid::new(
             self.n_dim,
             self.settings.integrator.n_bins,
             self.settings.integrator.min_samples_for_update,
+            None,
+            self.settings.integrator.train_on_avg,
         ))
     }
 
@@ -1391,13 +1393,13 @@ impl HasIntegrand for UnitSurfaceIntegrand {
 
     fn evaluate_sample(
         &mut self,
-        sample: &Sample,
+        sample: &Sample<f64>,
         wgt: f64,
         iter: usize,
         use_f128: bool,
     ) -> Complex<f64> {
         let xs = match sample {
-            Sample::ContinuousGrid(_w, v) => v,
+            Sample::Continuous(_w, v) => v,
             _ => panic!("Wrong sample type"),
         };
         let mut sample_xs = vec![self.settings.kinematics.e_cm];
@@ -1494,11 +1496,13 @@ impl UnitVolumeIntegrand {
 
 #[allow(unused)]
 impl HasIntegrand for UnitVolumeIntegrand {
-    fn create_grid(&self) -> Grid {
-        Grid::ContinuousGrid(ContinuousGrid::new(
+    fn create_grid(&self) -> Grid<f64> {
+        Grid::Continuous(ContinuousGrid::new(
             self.n_dim,
             self.settings.integrator.n_bins,
             self.settings.integrator.min_samples_for_update,
+            None,
+            self.settings.integrator.train_on_avg,
         ))
     }
 
@@ -1508,13 +1512,13 @@ impl HasIntegrand for UnitVolumeIntegrand {
 
     fn evaluate_sample(
         &mut self,
-        sample: &Sample,
+        sample: &Sample<f64>,
         wgt: f64,
         iter: usize,
         use_f128: bool,
     ) -> Complex<f64> {
         let xs = match sample {
-            Sample::ContinuousGrid(_w, v) => v,
+            Sample::Continuous(_w, v) => v,
             _ => panic!("Wrong sample type"),
         };
         let (moms, jac) = self.parameterize(xs);
