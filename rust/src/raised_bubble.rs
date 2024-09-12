@@ -112,16 +112,6 @@ impl RaisedBubble {
 
             ct += ct1;
 
-            //  ct += (energy_product_at_threshold
-            //      * eta_derivative_plus
-            //      * eta_derivative_plus
-            //      * r_plus.powi(1))
-            //  .inv()
-            //      * pi
-            //      * normalized_gaussian(radius)
-            //      / (radius * radius)
-            //      * (jacobian);
-
             if self.settings.general.debug > 0 {
                 println!("ct1: {}", ct1);
             }
@@ -137,16 +127,16 @@ impl RaisedBubble {
 
             ct += ct2;
 
-            //            ct += (energy_product_at_threshold
-            //                * eta_derivative_minus
-            //                * eta_derivative_minus
-            //                * r_minus.powi(1))
-            //            .inv()
-            //                * pi
-            //                * normalized_gaussian(radius)
-            //                / (radius * radius)
-            //                * (jacobian);
-            //
+            //  ct += (energy_product_at_threshold
+            //      * eta_derivative_minus
+            //      * eta_derivative_minus
+            //      * r_minus.powi(1))
+            //  .inv()
+            //      * pi
+            //      * normalized_gaussian(radius)
+            //      / (radius * radius)
+            //      * (jacobian);
+
             if self.settings.general.debug > 0 {
                 println!("ct2: {}", ct2);
             }
@@ -277,7 +267,7 @@ impl HasIntegrand for RaisedBubble {
             kz: loop_momenta[0][2],
         };
 
-        if use_f128 {
+        let res = if use_f128 {
             let k: Mom<f128> = k.convert();
             let jacobian = f128::new(jacobian);
 
@@ -291,11 +281,17 @@ impl HasIntegrand for RaisedBubble {
                 im: 0.0,
             };
 
-            if res.re > 10e8 {
+            if res.re > 10e5 {
                 self.evaluate_sample(sample, wgt, iter, true)
             } else {
                 res
             }
+        };
+
+        if res.re > 10e5 {
+            Complex { re: 0.0, im: 0.0 }
+        } else {
+            res
         }
     }
 }
