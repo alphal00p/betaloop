@@ -771,7 +771,7 @@ fn main() -> Result<(), Report> {
                     Arg::with_name("point")
                         .short("p")
                         .required(true)
-                        .min_values(2)
+                        .min_values(1)
                         .allow_hyphen_values(true),
                 )
                 .arg(
