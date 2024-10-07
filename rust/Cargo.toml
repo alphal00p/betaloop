@@ -28,6 +28,7 @@ smallvec = "1.7"
 itertools = "0.8"
 ref-ops = "0.2.5"
 rug = "1.25.0"
+momtrop = {git = "https://github.com/alphal00p/momtrop.git"}
 
 [build-dependencies]
 cc = "1.0"

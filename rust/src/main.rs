@@ -1,4 +1,5 @@
 mod box_subtraction;
+mod bubble;
 mod h_function_test;
 mod integrands;
 mod loop_induced_triboxtri;

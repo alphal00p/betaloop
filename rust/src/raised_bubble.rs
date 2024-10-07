@@ -1,21 +1,20 @@
+use ::f128::f128;
 use core::f64;
+use std::ops::{Add, Mul};
+
 use num::Complex;
-use ref_ops::{RefAdd, RefDiv, RefMul, RefNeg, RefSub};
-use rug::{ops::CompleteRound, Float};
 use serde::{Deserialize, Serialize};
-use std::{
-    fmt::Display,
-    ops::{Add, Div, Mul, Neg, Sub},
-};
 use symbolica::numerical_integration::{ContinuousGrid, Grid, Sample};
 
-use crate::{HardCodedIntegrandSettings, HasIntegrand, Settings};
+use crate::{
+    utils::{global_parameterize, FloatLike},
+    HardCodedIntegrandSettings, HasIntegrand, Settings,
+};
+
 pub struct RaisedBubble {
     settings: Settings,
     p0: f64,
-    mass_sq: f64,
-    force_orientation: Option<usize>,
-    threshold: Option<f64>,
+    mass: f64,
 }
 
 impl RaisedBubble {
@@ -25,362 +24,218 @@ impl RaisedBubble {
             _ => unreachable!(),
         };
 
-        let s = raised_bubble_settings.s;
-        assert!(s > 0., "only positive s are is supported at the moment");
+        let p0 = raised_bubble_settings.external_energy;
+        assert!(
+            p0 > 0.,
+            "only positive energies are supported at the moment"
+        );
 
-        let p0 = s.sqrt();
+        let mass = raised_bubble_settings.mass;
 
-        let mass_sq = raised_bubble_settings.mass_sq;
-        let force_orientation = raised_bubble_settings.force_orientation;
-        if let Some(orientation) = force_orientation {
-            assert!(
-                orientation < 6,
-                "there are only 6 orientations in this graph"
-            )
-        }
-
-        let threshold_sq = p0 * p0 / 4. - mass_sq;
-
-        let threshold = if threshold_sq > 0. {
-            println!("evaluating raised bubble above threshold");
-            Some(threshold_sq.sqrt())
-        } else {
-            println!("evaluating raised bubble below threshold");
-            None
-        };
-
-        Self {
-            settings,
-            p0,
-            mass_sq,
-            force_orientation,
-            threshold,
-        }
+        Self { settings, p0, mass }
     }
 
-    fn evaluate_energy<T: RaisedBubbleFloat>(&self, r: &Dual<T>) -> Dual<T> {
-        (r * r + r.real.from_f64(self.mass_sq)).sqrt()
-    }
+    fn evaluate_impl<T: FloatLike + Into<f64>>(&self, loop_momentum: Mom<T>, jacobian: T) -> f64 {
+        let pi = Into::<T>::into(f64::consts::PI);
 
-    fn evaluate_eta_internal<T: RaisedBubbleFloat>(&self, r: &Dual<T>) -> Dual<T> {
-        let energy = self.evaluate_energy(r);
-        &energy + &energy
-    }
+        let mass_t_sq: T = Into::<T>::into(self.mass) * Into::<T>::into(self.mass);
+        let energy = (loop_momentum.squared() + mass_t_sq).sqrt();
 
-    fn evaluate_eta_exist<T: RaisedBubbleFloat>(&self, r: &Dual<T>) -> Dual<T> {
-        let energy = self.evaluate_energy(r);
-        &energy + &energy - r.real.from_f64(self.p0)
-    }
+        let p0 = Into::<T>::into(self.p0);
+        let two = Into::<T>::into(2.);
 
-    fn evaluate_eta_nonexist<T: RaisedBubbleFloat>(&self, r: &Dual<T>) -> Dual<T> {
-        let energy = self.evaluate_energy(r);
-        &energy + &energy + r.real.from_f64(self.p0)
-    }
+        let eta1 = energy * two;
+        let eta2 = energy * two - p0;
+        let eta3 = eta2;
+        let eta4 = energy * two + p0;
+        let eta5 = eta4;
 
-    fn evaluate_second_eta_dir<T: RaisedBubbleFloat>(&self, r: &F<T>) -> F<T> {
-        let dual_r = Dual::new(r.clone());
-        let energy = self.evaluate_energy(&dual_r).real;
-        r.from_f64(2.0) * (-r * r / (&energy * &energy * &energy) + energy.inv())
-    }
+        let eight = Into::<T>::into(8.);
 
-    fn cff_orientation_1<T: RaisedBubbleFloat>(&self, r: &F<T>) -> Complex<f64> {
-        if self.settings.general.debug > 0 {
-            println!("evaluating cff orientation 1");
-        }
+        let inv_energy_product = (energy * energy * energy).inv();
 
-        let dual_r = Dual::new(r.clone());
-        let energy = self.evaluate_energy(&dual_r);
-        let jacobian = &dual_r * &dual_r;
-
-        let eta_exist = self.evaluate_eta_exist(&dual_r);
-
-        let dual_res =
-            jacobian * (&energy * &energy * &energy).inv() * (&eta_exist * &eta_exist).inv();
+        let term_1 = inv_energy_product * (eta2 * eta3).inv() * jacobian;
+        let term_2 = inv_energy_product * (eta4 * eta5).inv() * jacobian;
+        let term_3 = inv_energy_product * (eta1 * eta2).inv() * jacobian;
+        let term_4 = inv_energy_product * (eta1 * eta3).inv() * jacobian;
+        let term_5 = inv_energy_product * (eta1 * eta4).inv() * jacobian;
+        let term_6 = inv_energy_product * (eta1 * eta5).inv() * jacobian;
 
         if self.settings.general.debug > 0 {
-            println!("bare result: {}", dual_res.real);
+            println!("term_1: {}", term_1);
+            println!("term_2: {}", term_2);
+            println!("term_3: {}", term_3);
+            println!("term_4: {}", term_4);
+            println!("term_5: {}", term_5);
+            println!("term_6: {}", term_6);
         }
 
-        if let Some(threshold) = self.threshold {
-            let (rplus, rminus) = (
-                Dual::new(r.from_f64(threshold)),
-                Dual::new(-r.from_f64(threshold)),
-            );
+        let bare_res = term_1 + term_2 + term_3 + term_4 + term_5 + term_6;
 
-            let (energy_plus, energy_minus) =
-                (self.evaluate_energy(&rplus), self.evaluate_energy(&rminus));
+        let pi_factor = eight * Into::<T>::into(pi * pi * pi);
+        let pysecdec_fudge_factor = Into::<T>::into(16.) * pi * pi;
 
-            if self.settings.general.debug > 0 {
-                println!("energy_plus: {}", energy_plus);
-                println!("energy_minus: {}", energy_minus);
-            }
+        let mut ct = T::zero();
+        let threshold = p0 * p0 / Into::<T>::into(4.) - mass_t_sq;
 
-            let (eta_exist_plus, eta_exist_minus) = (
-                self.evaluate_eta_exist(&rplus),
-                self.evaluate_eta_exist(&rminus),
-            );
+        if threshold > T::zero() {
+            let radius = loop_momentum.hemispherical_norm();
 
-            let ct_plus_builder = (&rplus * &rplus) / (&energy_plus * &energy_plus * &energy_plus);
-
-            let ct_minus_builder =
-                (&rminus * &rminus) / (&energy_minus * &energy_minus * &energy_minus);
-
-            let qudratic_ct_plus = &ct_plus_builder.real
-                / (&eta_exist_plus.eps * &eta_exist_plus.eps)
-                / ((r - &rplus.real) * (r - &rplus.real));
-
-            let qudratic_ct_minus = &ct_minus_builder.real
-                / (&eta_exist_minus.eps * &eta_exist_minus.eps)
-                / ((r - &rminus.real) * (r - &rminus.real));
-
-            let p0 = r.from_f64(self.p0);
-            let second_eta_dir_plus = self.evaluate_second_eta_dir(&rplus.real);
-
-            let linear_ct_plus = (&ct_plus_builder.eps * &eta_exist_plus.eps
-                - &second_eta_dir_plus * &ct_plus_builder.real)
-                / (&eta_exist_plus.eps
-                    * &eta_exist_plus.eps
-                    * &eta_exist_plus.eps
-                    * (r - &rplus.real))
-                * unnormalized_gaussian(&(r - &rplus.real), &p0);
-
-            let second_eta_dir_minus = self.evaluate_second_eta_dir(&rminus.real);
-
-            let linear_ct_minus = (&ct_minus_builder.eps
-                - &second_eta_dir_minus * &ct_minus_builder.real / &eta_exist_minus.eps)
-                / (&eta_exist_minus.eps * &eta_exist_minus.eps * (r - &rminus.real))
-                * unnormalized_gaussian(&(r - &rminus.real), &p0);
-
-            let real_res = &dual_res.real
-                - &qudratic_ct_plus
-                - &qudratic_ct_minus
-                - &linear_ct_plus
-                - &linear_ct_minus;
+            let r_plus = threshold.sqrt();
+            let r_minus = -r_plus;
 
             if self.settings.general.debug > 0 {
-                println!("ct_builder_plus: {}", ct_plus_builder);
-                println!("ct_builder_minus: {}", ct_minus_builder);
-                println!("quadratic_ct_plus: {}", qudratic_ct_plus);
-                println!("quadratic_ct_minus: {}", qudratic_ct_minus);
-                println!("linear_ct_plus: {}", linear_ct_plus);
-                println!("linear_ct_minus: {}", linear_ct_minus);
-                println!(
-                    "bare - quadratic: {}",
-                    dual_res.real - qudratic_ct_plus - qudratic_ct_minus
-                );
-                println!("orientation_result: {}", real_res);
+                println!("radius: {}", radius);
+                println!("rstar: {}", r_plus);
             }
 
-            let pi = r.from_f64(f64::consts::PI);
+            let energy_at_threshold = (r_plus * r_plus + mass_t_sq).sqrt();
+            let energy_product_at_threshold =
+                energy_at_threshold * energy_at_threshold * energy_at_threshold;
 
-            let integrated_ct_plus = &pi
-                * (&ct_plus_builder.eps
-                    - &second_eta_dir_plus * &ct_plus_builder.real / &eta_exist_plus.eps)
-                / (&eta_exist_plus.eps * &eta_exist_plus.eps)
-                * rplus.real.signum();
+            let energy_derivative_plus = r_plus / energy_at_threshold;
+            let energy_derivative_minus = r_minus / energy_at_threshold;
 
-            let integrated_ct_minus = &pi
-                * (&ct_minus_builder.eps
-                    - &second_eta_dir_minus * &ct_minus_builder.real / &eta_exist_minus.eps)
-                / (&eta_exist_minus.eps * &eta_exist_minus.eps)
-                * rminus.real.signum();
+            let eta_derivative_plus = energy_derivative_plus * two;
+            let eta_derivative_minus = energy_derivative_minus * two;
+
+            let eta1_at_threshold = energy_at_threshold * two;
+
+            let ct1 = (energy_product_at_threshold
+                * (radius - r_plus)
+                * (radius - r_plus)
+                * eta_derivative_plus
+                * eta_derivative_plus)
+                .inv()
+                * (r_plus / radius).powi(2)
+                * jacobian;
+
+            ct += ct1;
 
             if self.settings.general.debug > 0 {
-                println!("integrated_ct+ orientation 1: {}", integrated_ct_plus);
-                println!("integrated_ct- orientation 1: {}", integrated_ct_minus);
-                println!("eta_dir_plus: {}", eta_exist_plus.eps);
-                println!("eta_dir_min: {}", eta_exist_minus.eps);
-                println!("other_parth: {}", ct_plus_builder.eps);
-                println!("other_parth: {}", ct_minus_builder.eps);
+                println!("ct1: {}", ct1);
             }
 
-            Complex::new(
-                real_res.into(),
-                (integrated_ct_minus * normalized_gaussian(r, &p0)
-                    + integrated_ct_plus * normalized_gaussian(r, &p0))
-                .into(),
-            )
-        } else {
-            Complex {
-                re: dual_res.real.into(),
-                im: r.zero().into(),
+            let ct2 = (energy_product_at_threshold
+                * (radius - r_minus)
+                * (radius - r_minus)
+                * eta_derivative_minus
+                * eta_derivative_minus)
+                .inv()
+                * (r_minus / radius).powi(2)
+                * jacobian;
+
+            ct += ct2;
+
+            //  ct += (energy_product_at_threshold
+            //      * eta_derivative_minus
+            //      * eta_derivative_minus
+            //      * r_minus.powi(1))
+            //  .inv()
+            //      * pi
+            //      * normalized_gaussian(radius)
+            //      / (radius * radius)
+            //      * (jacobian);
+
+            if self.settings.general.debug > 0 {
+                println!("ct2: {}", ct2);
+            }
+
+            let ct3 = (two * r_plus / energy_product_at_threshold
+                + Into::<T>::into(-3.) * r_plus.powi(2) / (energy_at_threshold).powi(4)
+                    * energy_derivative_plus)
+                / eta_derivative_plus.powi(2)
+                * (radius - r_plus).inv()
+                / (radius * radius)
+                * (-(radius - r_plus).powi(2)).exp()
+                * jacobian;
+
+            ct += ct3;
+
+            if self.settings.general.debug > 0 {
+                println!("ct3: {}", ct3);
+                println!("ct1 + ct3: {}", ct1 + ct3);
+                println!("term1 - ct1 - ct3: {}", term_1 - ct1 - ct3)
+            }
+
+            let ct4 = (two * r_minus / energy_product_at_threshold
+                + Into::<T>::into(-3.) * r_minus.powi(2) / energy_at_threshold.powi(4)
+                    * energy_derivative_minus)
+                / (eta_derivative_minus).powi(2)
+                * (radius - r_minus).inv()
+                / (radius * radius)
+                * (-(radius - r_minus).powi(2)).exp()
+                * jacobian;
+
+            ct += ct4;
+
+            if self.settings.general.debug > 0 {
+                println!("ct4: {}", ct4);
+            }
+
+            let ct5 = two
+                * (energy_product_at_threshold
+                    * eta1_at_threshold
+                    * eta_derivative_plus
+                    * (radius - r_plus))
+                    .inv()
+                * (r_plus / radius).powi(2)
+                * (-(radius - r_plus).powi(2)).exp()
+                * jacobian;
+
+            ct += ct5;
+
+            if self.settings.general.debug > 0 {
+                println!("ct5: {}", ct5);
+                println!("term3 + term4 - ct5: {}", term_3 + term_4 - ct5);
+            }
+
+            let ct6 = two
+                * (energy_product_at_threshold
+                    * eta1_at_threshold
+                    * eta_derivative_minus
+                    * (radius - r_minus))
+                    .inv()
+                * (r_minus / radius).powi(2)
+                * (-(radius - r_minus).powi(2)).exp()
+                * jacobian;
+            ct += ct6;
+
+            if self.settings.general.debug > 0 {
+                println!("ct6: {}", ct6);
             }
         }
-    }
 
-    fn cff_orientation_2<T: RaisedBubbleFloat>(&self, r: &F<T>) -> Complex<f64> {
-        let dual_r = Dual::new(r.clone());
-        let energy = self.evaluate_energy(&dual_r);
-        let jacobian = &dual_r * &dual_r;
-
-        let eta_nonexist = self.evaluate_eta_nonexist(&dual_r);
-
-        let dual_res =
-            &jacobian * (&energy * &energy * &energy).inv() * (&eta_nonexist * &eta_nonexist).inv();
-
-        let real_part = dual_res.real.into();
-        Complex::new(real_part, 0.0)
-    }
-
-    fn cff_orientation_3<T: RaisedBubbleFloat>(&self, r: &F<T>) -> Complex<f64> {
-        let dual_r = Dual::new(r.clone());
-        let energy = self.evaluate_energy(&dual_r);
-        let jacobian = &dual_r * &dual_r;
-
-        let eta_exist = self.evaluate_eta_exist(&dual_r);
-        let eta_internal = self.evaluate_eta_internal(&dual_r);
-
-        let dual_res =
-            jacobian * (&energy * &energy * &energy).inv() * (&eta_exist * &eta_internal).inv();
-
-        if let Some(threshold) = self.threshold {
-            let (rplus, rminus) = (
-                Dual::new(r.from_f64(threshold)),
-                Dual::new(r.from_f64(-threshold)),
-            );
-
-            let (energy_plus, energy_minus) =
-                (self.evaluate_energy(&rplus), self.evaluate_energy(&rminus));
-
-            let (eta_exist_plus, eta_exist_minus) = (
-                self.evaluate_eta_exist(&rplus),
-                self.evaluate_eta_exist(&rminus),
-            );
-
-            let (eta_internal_plus, eta_internal_minus) = (
-                self.evaluate_eta_internal(&rplus),
-                self.evaluate_eta_internal(&rminus),
-            );
-
-            let ct_plus_builder = (&rplus * &rplus)
-                / (&energy_plus * &energy_plus * &energy_plus * &eta_internal_plus);
-
-            let p0 = r.from_f64(self.p0);
-            let linear_ct_plus = &ct_plus_builder.real / ((r - &rplus.real) * &eta_exist_plus.eps)
-                * unnormalized_gaussian(&(r - &rplus.real), &p0);
-
-            let ct_minus_builder = (&rminus * &rminus)
-                / (&energy_minus * &energy_minus * &energy_minus * &eta_internal_minus);
-
-            let linear_ct_minus = &ct_minus_builder.real
-                / ((r - &rminus.real) * &eta_exist_minus.eps)
-                * unnormalized_gaussian(&(r - &rminus.real), &p0);
-
-            let pi = r.from_f64(f64::consts::PI);
-
-            let integrated_ct_plus =
-                &pi * &ct_plus_builder.real / (&eta_exist_plus.eps) * rplus.real.signum();
-
-            let integrated_ct_minus =
-                &pi * &ct_minus_builder.real / (&eta_exist_minus.eps) * rminus.real.signum();
-            if self.settings.general.debug > 0 {
-                println!(
-                    "integrated_ct orienatation3 {}",
-                    &integrated_ct_plus + &integrated_ct_minus
-                );
-            }
-
-            Complex::new(
-                (dual_res.real - linear_ct_minus - linear_ct_plus).into(),
-                (integrated_ct_plus * normalized_gaussian(r, &p0)
-                    + integrated_ct_minus * normalized_gaussian(r, &p0))
-                .into(),
-            )
-        } else {
-            Complex::new(dual_res.real.into(), 0.0)
-        }
-    }
-
-    fn cff_orientation_4<T: RaisedBubbleFloat>(&self, r: &F<T>) -> Complex<f64> {
-        self.cff_orientation_3(r)
-    }
-
-    fn cff_orientation_5<T: RaisedBubbleFloat>(&self, r: &F<T>) -> Complex<f64> {
-        let dual_r = Dual::new(r.clone());
-        let energy = self.evaluate_energy(&dual_r);
-        let jacobian = &dual_r * &dual_r;
-
-        let eta_nonexist = self.evaluate_eta_nonexist(&dual_r);
-        let eta_internal = self.evaluate_eta_internal(&dual_r);
-
-        let dual_res =
-            jacobian * (&energy * &energy * &energy).inv() * &(eta_nonexist * &eta_internal).inv();
-
-        Complex::new(dual_res.real.into(), 0.0)
-    }
-
-    fn cff_orientation_6<T: RaisedBubbleFloat>(&self, r: &F<T>) -> Complex<f64> {
-        self.cff_orientation_5(r)
-    }
-
-    fn get_radius_from_sample(&self, sample: &Sample<f64>) -> (f64, f64) {
-        let x = match sample {
-            Sample::Continuous(_, xs) => xs[0],
-            _ => unreachable!(),
-        };
-
-        let r = self.p0 * (1. / (1. - x) - 1. / x);
-        let jac = self.p0 * (1. / (x * x) + 1. / ((1. - x) * (1. - x)));
-        (r, jac)
-    }
-
-    fn evaluate_impl<T: RaisedBubbleFloat + Into<f64>>(&self, r: &F<T>) -> Complex<f64> {
-        let eight = r.from_f64(8.0);
-        let pi = r.from_f64(f64::consts::PI);
-
-        let pi_factor = &eight * &pi * &pi * &pi;
-
-        let pysecdec_fudge_factor = -r.from_f64(16.) * &pi * &pi;
-        let angular_integral = r.from_f64(2.) * &pi;
+        let res = bare_res - ct;
 
         if self.settings.general.debug > 0 {
-            println!("force_orientation: {:?}", self.force_orientation);
+            println!("loop_momenta {:?}", loop_momentum);
+            println!("p0: {}", p0);
+            println!("m^2: {}", mass_t_sq);
+            println!("energy: {}", energy);
+            println!("eta1: {}", eta1);
+            println!("eta2: {}", eta2);
+            println!("eta3: {}", eta3);
+            println!("eta4: {}", eta4);
+            println!("eta5: {}", eta5);
+            println!("bare_res: {}", bare_res);
+            println!("ct: {}", ct);
+            println!("diff: {}", res);
         }
 
-        let res = match self.force_orientation {
-            None => {
-                self.cff_orientation_1(r)
-                    + self.cff_orientation_2(r)
-                    + self.cff_orientation_3(r)
-                    + self.cff_orientation_4(r)
-                    + self.cff_orientation_5(r)
-                    + self.cff_orientation_6(r)
-            }
-            Some(i) => match i {
-                0 => self.cff_orientation_1(r),
-                1 => self.cff_orientation_2(r),
-                2 => self.cff_orientation_3(r),
-                3 => self.cff_orientation_4(r),
-                4 => self.cff_orientation_5(r),
-                5 => self.cff_orientation_6(r),
-                _ => unreachable!(),
-            },
-        };
-
-        let numerical_factor = pysecdec_fudge_factor * angular_integral / pi_factor / eight;
-        if self.settings.general.debug > 0 {
-            println!("orientation_sum: {}", res);
-            println!("numerical factor: {}", numerical_factor);
-        }
-
-        let scaled_res: Complex<f64> = res * Into::<f64>::into(numerical_factor);
-        Complex::new(
-            Into::<f64>::into(scaled_res.re),
-            Into::<f64>::into(scaled_res.im),
-        )
+        Into::<f64>::into(res / pi_factor * pysecdec_fudge_factor / eight)
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RaisedBubbleSettings {
-    s: f64,
-    mass_sq: f64,
-    force_orientation: Option<usize>,
+    external_energy: f64,
+    mass: f64,
 }
 
 impl HasIntegrand for RaisedBubble {
     fn get_n_dim(&self) -> usize {
-        1
+        3
     }
 
     fn create_grid(&self) -> Grid<f64> {
@@ -396,619 +251,121 @@ impl HasIntegrand for RaisedBubble {
     fn evaluate_sample(
         &mut self,
         sample: &Sample<f64>,
-        _wgt: f64,
-        _iter: usize,
+        wgt: f64,
+        iter: usize,
         use_f128: bool,
     ) -> Complex<f64> {
-        let (r, jac) = self.get_radius_from_sample(sample);
+        let raw_sample = match sample {
+            Sample::Continuous(_, xs) => xs,
+            _ => unreachable!(),
+        };
 
-        if self.settings.general.debug > 0 {
-            println!("radius: {}", r);
-            println!("jac: {}", jac);
-        }
+        let (loop_momenta, jacobian) = global_parameterize(
+            raw_sample,
+            self.settings.kinematics.e_cm,
+            &self.settings,
+            false,
+        );
+
+        let k = Mom {
+            kx: loop_momenta[0][0],
+            ky: loop_momenta[0][1],
+            kz: loop_momenta[0][2],
+        };
 
         if use_f128 {
-            let r128 = F(ArbPrec::<113>::new(r));
+            let k: Mom<f128> = k.convert();
+            let jacobian = f128::new(jacobian);
 
-            if self.settings.general.debug > 0 {
-                println!("using f128");
-                println!("radius: {}", r128);
+            Complex {
+                re: self.evaluate_impl(k, jacobian),
+                im: 0.0,
             }
-
-            self.evaluate_impl(&r128) * jac
         } else {
-            match self.threshold {
-                None => self.evaluate_impl(&F(r)) * jac,
-                Some(threshold) => {
-                    let diff = (r.abs() - threshold).abs();
-                    if self.settings.general.debug > 0 {
-                        println!("threhsold: {}", threshold);
-                    }
+            let res = Complex {
+                re: self.evaluate_impl(k, jacobian),
+                im: 0.0,
+            };
 
-                    if self.settings.general.debug > 0 {
-                        println!("distance_to_threshold: {}", diff);
-                    }
-                    if diff < self.p0 * 0.01 {
-                        if diff < self.p0 * 0.001 {
-                            let r256 = F(ArbPrec::<256>::new(r));
-                            return self.evaluate_impl(&r256) * jac;
-                        }
-                        self.evaluate_sample(sample, _wgt, _iter, true)
-                    } else {
-                        self.evaluate_impl(&F(r)) * jac
-                    }
-                }
+            if res.re > 10e5 {
+                self.evaluate_sample(sample, wgt, iter, true)
+            } else {
+                res
             }
         }
     }
 }
 
-fn unnormalized_gaussian<T: RaisedBubbleFloat>(x: &F<T>, p0: &F<T>) -> F<T> {
-    (-x * x / (p0 * p0)).exp()
+#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+struct Mom<T> {
+    kx: T,
+    ky: T,
+    kz: T,
 }
 
-fn normalized_gaussian<T: RaisedBubbleFloat>(x: &F<T>, sigma: &F<T>) -> F<T> {
-    let sqrt_pi = x.from_f64(f64::consts::PI.sqrt());
-    let inv_sigma_quad = (sigma * sigma).inv();
-    let minus_x_quad = -x * x;
-
-    &sqrt_pi.inv() * &(sigma.inv() * &(&minus_x_quad * &inv_sigma_quad).exp())
-}
-
-#[derive(Clone, Debug)]
-struct Dual<T: RaisedBubbleFloat> {
-    real: F<T>,
-    eps: F<T>,
-}
-
-impl<T: RaisedBubbleFloat> Display for Dual<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!("real: {}, eps: {}", self.real, self.eps))
-    }
-}
-
-impl<T: RaisedBubbleFloat> Mul<&Dual<T>> for &Dual<T> {
-    type Output = Dual<T>;
-
-    fn mul(self, rhs: &Dual<T>) -> Self::Output {
-        Self::Output {
-            real: &self.real * &rhs.real,
-            eps: (&self.eps * &rhs.real) + (&self.real * &rhs.eps),
-        }
-    }
-}
-
-impl<T: RaisedBubbleFloat> Mul<&Dual<T>> for Dual<T> {
-    type Output = Dual<T>;
-
-    fn mul(self, rhs: &Dual<T>) -> Self::Output {
-        &self * rhs
-    }
-}
-
-impl<T: RaisedBubbleFloat> Mul<Dual<T>> for Dual<T> {
-    type Output = Dual<T>;
-
-    fn mul(self, rhs: Dual<T>) -> Self::Output {
-        &self * &rhs
-    }
-}
-
-impl<T: RaisedBubbleFloat> Mul<Dual<T>> for &Dual<T> {
-    type Output = Dual<T>;
-
-    fn mul(self, rhs: Dual<T>) -> Self::Output {
-        self * &rhs
-    }
-}
-
-impl<T: RaisedBubbleFloat> Add<&Dual<T>> for &Dual<T> {
-    type Output = Dual<T>;
-
-    fn add(self, rhs: &Dual<T>) -> Self::Output {
-        Self::Output {
-            real: &self.real + &rhs.real,
-            eps: &self.eps + &rhs.eps,
-        }
-    }
-}
-
-impl<T: RaisedBubbleFloat> Add<&Dual<T>> for Dual<T> {
-    type Output = Dual<T>;
-
-    fn add(self, rhs: &Dual<T>) -> Self::Output {
-        &self + rhs
-    }
-}
-
-impl<T: RaisedBubbleFloat> Div<&Dual<T>> for &Dual<T> {
-    type Output = Dual<T>;
-
-    fn div(self, rhs: &Dual<T>) -> Self::Output {
-        Self::Output {
-            real: &self.real / &rhs.real,
-            eps: (&self.eps * &rhs.real - &self.real * &rhs.eps) / (&rhs.real * &rhs.real),
-        }
-    }
-}
-
-impl<T: RaisedBubbleFloat> Div<&Dual<T>> for Dual<T> {
-    type Output = Dual<T>;
-
-    fn div(self, rhs: &Dual<T>) -> Self::Output {
-        &self / rhs
-    }
-}
-
-impl<T: RaisedBubbleFloat> Div<Dual<T>> for &Dual<T> {
-    type Output = Dual<T>;
-
-    fn div(self, rhs: Dual<T>) -> Self::Output {
-        self / &rhs
-    }
-}
-
-impl<T: RaisedBubbleFloat> Div<Dual<T>> for Dual<T> {
-    type Output = Dual<T>;
-
-    fn div(self, rhs: Dual<T>) -> Self::Output {
-        &self / &rhs
-    }
-}
-
-impl<T: RaisedBubbleFloat> Sub<&Dual<T>> for &Dual<T> {
-    type Output = Dual<T>;
-
-    fn sub(self, rhs: &Dual<T>) -> Self::Output {
-        Self::Output {
-            real: &self.real - &rhs.real,
-            eps: &self.eps - &rhs.eps,
-        }
-    }
-}
-
-impl<T: RaisedBubbleFloat> Sub<&Dual<T>> for Dual<T> {
-    type Output = Dual<T>;
-
-    fn sub(self, rhs: &Dual<T>) -> Self::Output {
-        &self - rhs
-    }
-}
-
-impl<T: RaisedBubbleFloat> Mul<&F<T>> for &Dual<T> {
-    type Output = Dual<T>;
-
-    fn mul(self, rhs: &F<T>) -> Self::Output {
-        Self::Output {
-            real: &self.real * rhs,
-            eps: &self.eps * rhs,
-        }
-    }
-}
-
-impl<T: RaisedBubbleFloat> Mul<F<T>> for Dual<T> {
-    type Output = Dual<T>;
-
-    fn mul(self, rhs: F<T>) -> Self::Output {
-        &self * &rhs
-    }
-}
-
-impl<T: RaisedBubbleFloat> Add<&F<T>> for &Dual<T> {
-    type Output = Dual<T>;
-
-    fn add(self, rhs: &F<T>) -> Self::Output {
-        Self::Output {
-            real: &self.real + rhs,
-            eps: self.eps.clone(),
-        }
-    }
-}
-
-impl<T: RaisedBubbleFloat> Add<F<T>> for Dual<T> {
-    type Output = Dual<T>;
-    fn add(self, rhs: F<T>) -> Self::Output {
-        &self + &rhs
-    }
-}
-
-impl<T: RaisedBubbleFloat> Div<&F<T>> for &Dual<T> {
-    type Output = Dual<T>;
-
-    fn div(self, rhs: &F<T>) -> Self::Output {
-        Self::Output {
-            real: &self.real / rhs,
-            eps: &self.eps / rhs,
-        }
-    }
-}
-
-impl<T: RaisedBubbleFloat> Div<&F<T>> for Dual<T> {
-    type Output = Dual<T>;
-
-    fn div(self, rhs: &F<T>) -> Self::Output {
-        &self / rhs
-    }
-}
-
-impl<T: RaisedBubbleFloat> Div<F<T>> for Dual<T> {
-    type Output = Dual<T>;
-
-    fn div(self, rhs: F<T>) -> Self::Output {
-        &self / &rhs
-    }
-}
-
-impl<T: RaisedBubbleFloat> Div<F<T>> for &Dual<T> {
-    type Output = Dual<T>;
-
-    fn div(self, rhs: F<T>) -> Self::Output {
-        self / &rhs
-    }
-}
-
-impl<T: RaisedBubbleFloat> Sub<&F<T>> for &Dual<T> {
-    type Output = Dual<T>;
-
-    fn sub(self, rhs: &F<T>) -> Self::Output {
-        Self::Output {
-            real: &self.real - rhs,
-            eps: self.eps.clone(),
-        }
-    }
-}
-
-impl<T: RaisedBubbleFloat> Sub<F<T>> for Dual<T> {
-    type Output = Dual<T>;
-
-    fn sub(self, rhs: F<T>) -> Self::Output {
-        &self - &rhs
-    }
-}
-
-impl<T: RaisedBubbleFloat> Dual<T> {
-    fn new(real: F<T>) -> Self {
-        Self {
-            eps: real.one(),
-            real,
-        }
-    }
-
-    fn sqrt(&self) -> Self {
-        Self {
-            real: self.real.sqrt(),
-            eps: &self.eps * &(&self.real.from_f64(0.5) * &self.real.sqrt().inv()),
-        }
-    }
-
-    fn inv(&self) -> Self {
-        Self {
-            real: self.real.inv(),
-            eps: -&self.eps / &self.real,
-        }
-    }
-}
-
-trait RaisedBubbleFloat:
-    Into<f64>
-    + Clone
-    + for<'a> RefMul<&'a Self, Output = Self>
-    + for<'a> RefAdd<&'a Self, Output = Self>
-    + for<'a> RefDiv<&'a Self, Output = Self>
-    + for<'a> RefSub<&'a Self, Output = Self>
-    + for<'a> RefNeg<Output = Self>
-    + Display
-    + PartialOrd
-    + PartialEq
+impl<T> Add<Mom<T>> for Mom<T>
+where
+    T: Add<T, Output = T>,
 {
-    fn sqrt(&self) -> Self;
-    fn exp(&self) -> Self;
-    fn one(&self) -> Self;
-    fn zero(&self) -> Self;
-    #[allow(clippy::wrong_self_convention)]
-    fn from_f64(&self, x: f64) -> Self;
-}
-
-impl RaisedBubbleFloat for f64 {
-    fn sqrt(&self) -> Self {
-        f64::sqrt(*self)
-    }
-
-    fn exp(&self) -> Self {
-        f64::exp(*self)
-    }
-
-    fn from_f64(&self, x: f64) -> Self {
-        x
-    }
-
-    fn one(&self) -> Self {
-        1.0
-    }
-
-    fn zero(&self) -> Self {
-        0.0
+    type Output = Self;
+    fn add(self, rhs: Mom<T>) -> Self::Output {
+        Self::Output {
+            kx: self.kx + rhs.kx,
+            ky: self.ky + rhs.ky,
+            kz: self.kz + rhs.kz,
+        }
     }
 }
 
-#[derive(Clone, Debug, PartialOrd, PartialEq)]
-struct F<T: RaisedBubbleFloat>(T);
-
-impl<T: RaisedBubbleFloat> Mul<&F<T>> for &F<T> {
-    type Output = F<T>;
-    fn mul(self, rhs: &F<T>) -> Self::Output {
-        F(self.0.ref_mul(&rhs.0))
+impl<T> Mul<T> for Mom<T>
+where
+    T: Mul<T, Output = T> + Copy,
+{
+    type Output = Self;
+    fn mul(self, rhs: T) -> Self::Output {
+        Self::Output {
+            kx: self.kx * rhs,
+            ky: self.ky * rhs,
+            kz: self.kz * rhs,
+        }
     }
 }
 
-impl<T: RaisedBubbleFloat> Mul<&F<T>> for F<T> {
-    type Output = F<T>;
-    fn mul(self, rhs: &F<T>) -> Self::Output {
-        &self * rhs
+impl Mom<f64> {
+    fn convert<T: FloatLike>(&self) -> Mom<T> {
+        Mom::<T> {
+            kx: self.kx.into(),
+            ky: self.ky.into(),
+            kz: self.kz.into(),
+        }
     }
 }
 
-impl<T: RaisedBubbleFloat> Mul<F<T>> for F<T> {
-    type Output = F<T>;
-    fn mul(self, rhs: F<T>) -> Self::Output {
-        &self * &rhs
+impl<T> Mom<T>
+where
+    T: Add<T, Output = T> + Mul<T, Output = T> + Copy,
+{
+    fn squared(&self) -> T {
+        self.kx * self.kx + self.ky * self.ky + self.kz * self.kz
     }
 }
 
-impl<T: RaisedBubbleFloat> Mul<F<T>> for &F<T> {
-    type Output = F<T>;
-
-    fn mul(self, rhs: F<T>) -> Self::Output {
-        self * &rhs
-    }
-}
-
-impl<T: RaisedBubbleFloat> Add<&F<T>> for &F<T> {
-    type Output = F<T>;
-    fn add(self, rhs: &F<T>) -> Self::Output {
-        F(self.0.ref_add(&rhs.0))
-    }
-}
-
-impl<T: RaisedBubbleFloat> Add<&F<T>> for F<T> {
-    type Output = F<T>;
-    fn add(self, rhs: &F<T>) -> Self::Output {
-        &self + rhs
-    }
-}
-
-impl<T: RaisedBubbleFloat> Add<F<T>> for F<T> {
-    type Output = F<T>;
-    fn add(self, rhs: F<T>) -> Self::Output {
-        &self + &rhs
-    }
-}
-
-impl<T: RaisedBubbleFloat> Add<F<T>> for &F<T> {
-    type Output = F<T>;
-    fn add(self, rhs: F<T>) -> Self::Output {
-        self + &rhs
-    }
-}
-
-impl<T: RaisedBubbleFloat> Div<&F<T>> for &F<T> {
-    type Output = F<T>;
-    fn div(self, rhs: &F<T>) -> Self::Output {
-        F(self.0.ref_div(&rhs.0))
-    }
-}
-
-impl<T: RaisedBubbleFloat> Div<&F<T>> for F<T> {
-    type Output = F<T>;
-    fn div(self, rhs: &F<T>) -> Self::Output {
-        &self / rhs
-    }
-}
-
-impl<T: RaisedBubbleFloat> Div<F<T>> for F<T> {
-    type Output = F<T>;
-    fn div(self, rhs: F<T>) -> Self::Output {
-        &self / &rhs
-    }
-}
-
-impl<T: RaisedBubbleFloat> Div<F<T>> for &F<T> {
-    type Output = F<T>;
-    fn div(self, rhs: F<T>) -> Self::Output {
-        self / &rhs
-    }
-}
-
-impl<T: RaisedBubbleFloat> Sub<&F<T>> for &F<T> {
-    type Output = F<T>;
-    fn sub(self, rhs: &F<T>) -> Self::Output {
-        F(self.0.ref_sub(&rhs.0))
-    }
-}
-
-impl<T: RaisedBubbleFloat> Sub<&F<T>> for F<T> {
-    type Output = F<T>;
-    fn sub(self, rhs: &F<T>) -> Self::Output {
-        &self - rhs
-    }
-}
-
-impl<T: RaisedBubbleFloat> Sub<F<T>> for F<T> {
-    type Output = F<T>;
-    fn sub(self, rhs: F<T>) -> Self::Output {
-        &self - &rhs
-    }
-}
-
-impl<T: RaisedBubbleFloat> Sub<F<T>> for &F<T> {
-    type Output = F<T>;
-    fn sub(self, rhs: F<T>) -> Self::Output {
-        self - &rhs
-    }
-}
-
-impl<T: RaisedBubbleFloat> Neg for &F<T> {
-    type Output = F<T>;
-    fn neg(self) -> Self::Output {
-        F(self.0.ref_neg())
-    }
-}
-
-impl<T: RaisedBubbleFloat> Neg for F<T> {
-    type Output = F<T>;
-    fn neg(self) -> Self::Output {
-        F(self.0.ref_neg())
-    }
-}
-
-impl<T: RaisedBubbleFloat> F<T> {
-    fn inv(&self) -> Self {
-        self.one() / self
+impl<T: FloatLike> Mom<T> {
+    fn norm(&self) -> T {
+        self.squared().sqrt()
     }
 
-    fn one(&self) -> Self {
-        F(self.0.one())
-    }
-
-    fn zero(&self) -> Self {
-        F(self.0.zero())
-    }
-
-    fn sqrt(&self) -> Self {
-        F(self.0.sqrt())
-    }
-
-    fn exp(&self) -> Self {
-        F(self.0.exp())
-    }
-
-    fn signum(&self) -> Self {
-        if self > &self.zero() {
-            self.one()
-        } else if self < &self.zero() {
-            -self.one()
+    fn hemispherical_norm(&self) -> T {
+        if self.kx.is_positive() {
+            self.norm()
         } else {
-            self.zero()
-        }
-    }
-
-    #[allow(clippy::wrong_self_convention)]
-    fn from_f64(&self, x: f64) -> Self {
-        F(self.0.from_f64(x))
-    }
-}
-
-impl<T: RaisedBubbleFloat> From<F<T>> for f64 {
-    fn from(value: F<T>) -> Self {
-        value.0.into()
-    }
-}
-
-impl<T: RaisedBubbleFloat> Display for F<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.0.fmt(f)
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, PartialOrd)]
-struct ArbPrec<const N: u32> {
-    val: Float,
-}
-
-impl<const N: u32> ArbPrec<N> {
-    fn new(val: f64) -> Self {
-        Self {
-            val: Float::with_val(N, val),
+            -self.norm()
         }
     }
 }
 
-impl<const N: u32> RaisedBubbleFloat for ArbPrec<N> {
-    fn sqrt(&self) -> Self {
-        Self {
-            val: self.val.sqrt_ref().complete(N.into()),
-        }
-    }
+fn normalized_gaussian<T: FloatLike>(x: T) -> T {
+    let sqrt_pi = f64::consts::PI.sqrt();
 
-    fn exp(&self) -> Self {
-        Self {
-            val: self.val.clone().exp(),
-        }
-    }
-
-    fn one(&self) -> Self {
-        Self {
-            val: Float::with_val(self.val.prec(), 1.0),
-        }
-    }
-
-    fn zero(&self) -> Self {
-        Self {
-            val: Float::new(self.val.prec()),
-        }
-    }
-
-    fn from_f64(&self, x: f64) -> Self {
-        Self {
-            val: Float::with_val(N, x),
-        }
-    }
-}
-
-impl<const N: u32> From<ArbPrec<N>> for f64 {
-    fn from(value: ArbPrec<N>) -> Self {
-        value.val.to_f64()
-    }
-}
-
-impl<const N: u32> Sub<&ArbPrec<N>> for &ArbPrec<N> {
-    type Output = ArbPrec<N>;
-    fn sub(self, rhs: &ArbPrec<N>) -> Self::Output {
-        Self::Output {
-            val: (&self.val - &rhs.val).complete(N.into()),
-        }
-    }
-}
-
-impl<const N: u32> Add<&ArbPrec<N>> for &ArbPrec<N> {
-    type Output = ArbPrec<N>;
-    fn add(self, rhs: &ArbPrec<N>) -> Self::Output {
-        Self::Output {
-            val: (&self.val + &rhs.val).complete(N.into()),
-        }
-    }
-}
-
-impl<const N: u32> Mul<&ArbPrec<N>> for &ArbPrec<N> {
-    type Output = ArbPrec<N>;
-    fn mul(self, rhs: &ArbPrec<N>) -> Self::Output {
-        Self::Output {
-            val: (&self.val * &rhs.val).complete(N.into()),
-        }
-    }
-}
-
-impl<const N: u32> Div<&ArbPrec<N>> for &ArbPrec<N> {
-    type Output = ArbPrec<N>;
-    fn div(self, rhs: &ArbPrec<N>) -> Self::Output {
-        Self::Output {
-            val: (&self.val / &rhs.val).complete(N.into()),
-        }
-    }
-}
-
-impl<const N: u32> Display for ArbPrec<N> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.val.fmt(f)
-    }
-}
-
-impl<const N: u32> Neg for &ArbPrec<N> {
-    type Output = ArbPrec<N>;
-
-    fn neg(self) -> Self::Output {
-        Self::Output {
-            val: -self.val.clone(),
-        }
-    }
+    (-x * x).exp() / Into::<T>::into(sqrt_pi)
 }
